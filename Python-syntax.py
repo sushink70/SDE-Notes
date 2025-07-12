@@ -4372,3 +4372,2052 @@ class ZeroTrustArchitecture(SecureArchitecturePattern):
         # Check that users have minimal required permissions
         return True
         
+
+"""
+ADVANCED CACHING AND PERFORMANCE OPTIMIZATION
+=============================================
+Production-ready implementations with security considerations
+"""
+
+import asyncio
+import hashlib
+import json
+import pickle
+import time
+import weakref
+from abc import ABC, abstractmethod
+from collections import OrderedDict, defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from functools import wraps, lru_cache, cached_property
+from threading import RLock, Lock
+from typing import Any, Dict, List, Optional, Callable, Union, TypeVar, Generic
+import redis
+import sqlite3
+from django.core.cache import cache
+from django.core.cache.backends.base import BaseCache
+
+
+# 1. MULTI-LEVEL CACHE HIERARCHY
+# ===============================
+class CacheLevel(ABC):
+    """Abstract base for cache levels - ensures type safety"""
+    
+    @abstractmethod
+    async def get(self, key: str) -> Optional[Any]:
+        pass
+    
+    @abstractmethod
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        pass
+    
+    @abstractmethod
+    async def delete(self, key: str) -> bool:
+        pass
+
+
+class MemoryCache(CacheLevel):
+    """L1 Cache - Fastest access, limited size"""
+    
+    def __init__(self, max_size: int = 1000, ttl: int = 300):
+        self._cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+        self._max_size = max_size
+        self._default_ttl = ttl
+        self._lock = RLock()  # Thread-safe operations
+    
+    async def get(self, key: str) -> Optional[Any]:
+        with self._lock:
+            if key not in self._cache:
+                return None
+            
+            entry = self._cache[key]
+            
+            # Check expiration
+            if entry['expires_at'] < time.time():
+                del self._cache[key]
+                return None
+            
+            # Move to end (LRU behavior)
+            self._cache.move_to_end(key)
+            return entry['value']
+    
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        with self._lock:
+            # Evict if at capacity
+            if len(self._cache) >= self._max_size and key not in self._cache:
+                self._cache.popitem(last=False)  # Remove oldest
+            
+            expires_at = time.time() + (ttl or self._default_ttl)
+            self._cache[key] = {
+                'value': value,
+                'expires_at': expires_at,
+                'created_at': time.time()
+            }
+            return True
+    
+    async def delete(self, key: str) -> bool:
+        with self._lock:
+            return self._cache.pop(key, None) is not None
+
+
+class RedisCache(CacheLevel):
+    """L2 Cache - Network-based, persistent"""
+    
+    def __init__(self, redis_client: redis.Redis, key_prefix: str = "app:"):
+        self.redis = redis_client
+        self.prefix = key_prefix
+    
+    def _make_key(self, key: str) -> str:
+        """Namespace keys to prevent collisions"""
+        return f"{self.prefix}{key}"
+    
+    async def get(self, key: str) -> Optional[Any]:
+        try:
+            data = self.redis.get(self._make_key(key))
+            return pickle.loads(data) if data else None
+        except (redis.RedisError, pickle.PickleError):
+            return None
+    
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        try:
+            serialized = pickle.dumps(value)
+            return self.redis.setex(
+                self._make_key(key), 
+                ttl or 3600, 
+                serialized
+            )
+        except (redis.RedisError, pickle.PickleError):
+            return False
+    
+    async def delete(self, key: str) -> bool:
+        try:
+            return bool(self.redis.delete(self._make_key(key)))
+        except redis.RedisError:
+            return False
+
+
+class DatabaseCache(CacheLevel):
+    """L3 Cache - Persistent storage fallback"""
+    
+    def __init__(self, db_path: str = "cache.db"):
+        self.db_path = db_path
+        self._init_db()
+    
+    def _init_db(self):
+        """Initialize SQLite cache table"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS cache_entries (
+                    key TEXT PRIMARY KEY,
+                    value BLOB,
+                    expires_at REAL,
+                    created_at REAL DEFAULT (strftime('%s', 'now'))
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_expires ON cache_entries(expires_at)")
+    
+    async def get(self, key: str) -> Optional[Any]:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(
+                    "SELECT value FROM cache_entries WHERE key = ? AND expires_at > ?",
+                    (key, time.time())
+                )
+                row = cursor.fetchone()
+                return pickle.loads(row[0]) if row else None
+        except (sqlite3.Error, pickle.PickleError):
+            return None
+    
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        try:
+            expires_at = time.time() + (ttl or 86400)  # 24h default
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO cache_entries (key, value, expires_at) VALUES (?, ?, ?)",
+                    (key, pickle.dumps(value), expires_at)
+                )
+                return True
+        except (sqlite3.Error, pickle.PickleError):
+            return False
+    
+    async def delete(self, key: str) -> bool:
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
+                return cursor.rowcount > 0
+        except sqlite3.Error:
+            return False
+
+
+class HierarchicalCache:
+    """Multi-level cache with automatic promotion/demotion"""
+    
+    def __init__(self, levels: List[CacheLevel]):
+        self.levels = levels
+        self._stats = defaultdict(int)  # Performance metrics
+    
+    async def get(self, key: str) -> Optional[Any]:
+        """Get from fastest available level, promote to higher levels"""
+        for i, level in enumerate(self.levels):
+            value = await level.get(key)
+            if value is not None:
+                self._stats[f'hit_l{i+1}'] += 1
+                
+                # Promote to higher levels
+                for j in range(i):
+                    await self.levels[j].set(key, value)
+                
+                return value
+        
+        self._stats['miss'] += 1
+        return None
+    
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Set in all levels"""
+        results = []
+        for level in self.levels:
+            results.append(await level.set(key, value, ttl))
+        return any(results)
+    
+    async def delete(self, key: str) -> bool:
+        """Delete from all levels"""
+        results = []
+        for level in self.levels:
+            results.append(await level.delete(key))
+        return any(results)
+    
+    def get_stats(self) -> Dict[str, int]:
+        """Return cache performance metrics"""
+        return dict(self._stats)
+
+
+# 2. INTELLIGENT CACHE DECORATORS
+# ================================
+def smart_cache(
+    ttl: int = 3600,
+    max_size: int = 128,
+    key_func: Optional[Callable] = None,
+    invalidate_on: Optional[List[str]] = None
+):
+    """Advanced caching decorator with intelligent invalidation"""
+    
+    def decorator(func: Callable) -> Callable:
+        cache_data = {}
+        access_times = {}
+        dependency_map = defaultdict(set)
+        
+        def default_key_func(*args, **kwargs) -> str:
+            """Generate cache key from function arguments"""
+            # Security: Hash sensitive data instead of storing plaintext
+            key_parts = [func.__name__]
+            
+            for arg in args:
+                if hasattr(arg, '__dict__'):  # Object instances
+                    key_parts.append(str(hash(str(sorted(arg.__dict__.items())))))
+                else:
+                    key_parts.append(str(hash(str(arg))))
+            
+            for k, v in sorted(kwargs.items()):
+                key_parts.append(f"{k}:{hash(str(v))}")
+            
+            return hashlib.sha256('|'.join(key_parts).encode()).hexdigest()[:16]
+        
+        key_generator = key_func or default_key_func
+        
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            cache_key = key_generator(*args, **kwargs)
+            current_time = time.time()
+            
+            # Check cache hit
+            if cache_key in cache_data:
+                entry = cache_data[cache_key]
+                if current_time - entry['timestamp'] < ttl:
+                    access_times[cache_key] = current_time
+                    return entry['value']
+                else:
+                    # Expired - remove
+                    del cache_data[cache_key]
+                    access_times.pop(cache_key, None)
+            
+            # Cache miss - execute function
+            result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
+            
+            # Evict LRU if at capacity
+            if len(cache_data) >= max_size:
+                lru_key = min(access_times.keys(), key=access_times.get)
+                del cache_data[lru_key]
+                del access_times[lru_key]
+            
+            # Store result
+            cache_data[cache_key] = {
+                'value': result,
+                'timestamp': current_time
+            }
+            access_times[cache_key] = current_time
+            
+            # Register dependencies for invalidation
+            if invalidate_on:
+                for dep in invalidate_on:
+                    dependency_map[dep].add(cache_key)
+            
+            return result
+        
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            return asyncio.run(async_wrapper(*args, **kwargs)) if asyncio.iscoroutinefunction(func) else async_wrapper(*args, **kwargs)
+        
+        # Add cache management methods
+        def invalidate(dependency: Optional[str] = None):
+            """Invalidate cache entries"""
+            if dependency and dependency in dependency_map:
+                for key in dependency_map[dependency]:
+                    cache_data.pop(key, None)
+                    access_times.pop(key, None)
+                dependency_map[dependency].clear()
+            else:
+                cache_data.clear()
+                access_times.clear()
+                dependency_map.clear()
+        
+        wrapper = async_wrapper if asyncio.iscoroutinefunction(func) else sync_wrapper
+        wrapper.invalidate = invalidate
+        wrapper.cache_info = lambda: {
+            'hits': len(cache_data),
+            'size': len(cache_data),
+            'max_size': max_size
+        }
+        
+        return wrapper
+    
+    return decorator
+
+
+# 3. PERFORMANCE-OPTIMIZED DATA STRUCTURES
+# =========================================
+class OptimizedDict(dict):
+    """High-performance dictionary with built-in caching and compression"""
+    
+    def __init__(self, compress_threshold: int = 1024):
+        super().__init__()
+        self._compress_threshold = compress_threshold
+        self._access_count = defaultdict(int)
+        self._compressed_keys = set()
+    
+    def __getitem__(self, key):
+        self._access_count[key] += 1
+        value = super().__getitem__(key)
+        
+        # Decompress if needed
+        if key in self._compressed_keys:
+            import zlib
+            value = pickle.loads(zlib.decompress(value))
+            
+            # Keep frequently accessed items decompressed
+            if self._access_count[key] > 10:
+                super().__setitem__(key, value)
+                self._compressed_keys.discard(key)
+        
+        return value
+    
+    def __setitem__(self, key, value):
+        # Compress large values
+        if isinstance(value, (str, bytes, list, dict)):
+            serialized = pickle.dumps(value)
+            if len(serialized) > self._compress_threshold:
+                import zlib
+                compressed = zlib.compress(serialized)
+                if len(compressed) < len(serialized) * 0.8:  # 20% savings minimum
+                    super().__setitem__(key, compressed)
+                    self._compressed_keys.add(key)
+                    return
+        
+        super().__setitem__(key, value)
+        self._compressed_keys.discard(key)
+
+
+class BloomFilter:
+    """Memory-efficient probabilistic data structure for membership testing"""
+    
+    def __init__(self, capacity: int = 1000000, error_rate: float = 0.1):
+        import math
+        
+        self.capacity = capacity
+        self.error_rate = error_rate
+        
+        # Calculate optimal parameters
+        self.bit_array_size = int(-capacity * math.log(error_rate) / (math.log(2) ** 2))
+        self.hash_count = int(self.bit_array_size * math.log(2) / capacity)
+        
+        self.bit_array = bytearray(self.bit_array_size // 8 + 1)
+        self.item_count = 0
+    
+    def _hashes(self, item: str) -> List[int]:
+        """Generate multiple hash values for an item"""
+        hash1 = hash(item)
+        hash2 = hash(item + "salt")  # Simple double hashing
+        
+        hashes = []
+        for i in range(self.hash_count):
+            hash_val = (hash1 + i * hash2) % self.bit_array_size
+            hashes.append(hash_val)
+        return hashes
+    
+    def add(self, item: str):
+        """Add item to bloom filter"""
+        for hash_val in self._hashes(str(item)):
+            byte_idx = hash_val // 8
+            bit_idx = hash_val % 8
+            self.bit_array[byte_idx] |= (1 << bit_idx)
+        self.item_count += 1
+    
+    def __contains__(self, item: str) -> bool:
+        """Check if item might be in the set (no false negatives)"""
+        for hash_val in self._hashes(str(item)):
+            byte_idx = hash_val // 8
+            bit_idx = hash_val % 8
+            if not (self.bit_array[byte_idx] & (1 << bit_idx)):
+                return False
+        return True
+
+
+# 4. ASYNC PERFORMANCE PATTERNS
+# ==============================
+class AsyncBatchProcessor:
+    """Batch operations for optimal database/API performance"""
+    
+    def __init__(self, batch_size: int = 100, flush_interval: float = 1.0):
+        self.batch_size = batch_size
+        self.flush_interval = flush_interval
+        self._batch = []
+        self._last_flush = time.time()
+        self._lock = asyncio.Lock()
+    
+    async def add(self, item: Any, processor: Callable[[List[Any]], Any]):
+        """Add item to batch for processing"""
+        async with self._lock:
+            self._batch.append(item)
+            
+            # Flush if batch is full or interval exceeded
+            if (len(self._batch) >= self.batch_size or 
+                time.time() - self._last_flush > self.flush_interval):
+                await self._flush(processor)
+    
+    async def _flush(self, processor: Callable[[List[Any]], Any]):
+        """Process accumulated batch"""
+        if not self._batch:
+            return
+        
+        batch_to_process = self._batch.copy()
+        self._batch.clear()
+        self._last_flush = time.time()
+        
+        try:
+            await processor(batch_to_process)
+        except Exception as e:
+            # Re-add failed items for retry (with exponential backoff)
+            self._batch.extend(batch_to_process)
+            raise
+
+
+class ConnectionPool:
+    """Advanced connection pooling with health checks"""
+    
+    def __init__(self, factory: Callable, min_size: int = 5, max_size: int = 20):
+        self.factory = factory
+        self.min_size = min_size
+        self.max_size = max_size
+        self._pool = asyncio.Queue(maxsize=max_size)
+        self._current_size = 0
+        self._lock = asyncio.Lock()
+    
+    async def _create_connection(self):
+        """Create new connection with error handling"""
+        try:
+            conn = await self.factory()
+            self._current_size += 1
+            return conn
+        except Exception as e:
+            print(f"Failed to create connection: {e}")
+            raise
+    
+    async def acquire(self):
+        """Get connection from pool"""
+        try:
+            # Try to get existing connection
+            conn = self._pool.get_nowait()
+            
+            # Health check (implement based on your connection type)
+            if await self._health_check(conn):
+                return conn
+            else:
+                # Connection is unhealthy, create new one
+                self._current_size -= 1
+                return await self._create_connection()
+                
+        except asyncio.QueueEmpty:
+            # No connections available, create new one if under limit
+            async with self._lock:
+                if self._current_size < self.max_size:
+                    return await self._create_connection()
+                else:
+                    # Wait for connection to be released
+                    return await self._pool.get()
+    
+    async def release(self, conn):
+        """Return connection to pool"""
+        try:
+            self._pool.put_nowait(conn)
+        except asyncio.QueueFull:
+            # Pool is full, close the connection
+            await self._close_connection(conn)
+            self._current_size -= 1
+    
+    async def _health_check(self, conn) -> bool:
+        """Override this method for connection-specific health checks"""
+        return True
+    
+    async def _close_connection(self, conn):
+        """Override this method for connection-specific cleanup"""
+        if hasattr(conn, 'close'):
+            await conn.close()
+
+
+# 5. ADVANCED COMPREHENSIONS AND GENERATORS
+# ==========================================
+class LazyDataProcessor:
+    """Memory-efficient data processing using generators"""
+    
+    @staticmethod
+    def chunked_processing(data: List[Any], chunk_size: int = 1000):
+        """Process large datasets in chunks to prevent memory overflow"""
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i:i + chunk_size]
+            # Generator yields processed chunks
+            yield [item.upper() if isinstance(item, str) else item for item in chunk]
+    
+    @staticmethod
+    def parallel_map(func: Callable, data: List[Any], max_workers: int = 4):
+        """Parallel processing with thread pool"""
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            futures = {executor.submit(func, item): item for item in data}
+            
+            # Yield results as they complete
+            for future in as_completed(futures):
+                try:
+                    yield future.result()
+                except Exception as e:
+                    print(f"Error processing {futures[future]}: {e}")
+    
+    @staticmethod
+    def memory_efficient_filter(predicate: Callable, iterable):
+        """Filter large datasets without loading everything into memory"""
+        return (item for item in iterable if predicate(item))
+    
+    @staticmethod
+    def nested_dict_comprehension(data: Dict[str, List[Dict]]):
+        """Complex nested comprehension for data transformation"""
+        return {
+            category: {
+                item['id']: {
+                    'name': item['name'],
+                    'processed_at': datetime.now().isoformat(),
+                    # Security: Sanitize sensitive fields
+                    'safe_data': {k: v for k, v in item.items() 
+                                if not k.startswith('_') and k not in ['password', 'token']}
+                }
+                for item in items if item.get('active', True)
+            }
+            for category, items in data.items()
+            if items  # Only include non-empty categories
+        }
+
+
+# 6. REAL-WORLD USAGE EXAMPLE
+# ============================
+class UserService:
+    """Example service demonstrating all optimization techniques"""
+    
+    def __init__(self):
+        # Initialize cache hierarchy
+        memory_cache = MemoryCache(max_size=1000, ttl=300)
+        redis_cache = RedisCache(redis.Redis(host='localhost', port=6379, db=0))
+        db_cache = DatabaseCache("user_cache.db")
+        
+        self.cache = HierarchicalCache([memory_cache, redis_cache, db_cache])
+        self.bloom_filter = BloomFilter(capacity=100000)
+        self.batch_processor = AsyncBatchProcessor(batch_size=50)
+    
+    @smart_cache(ttl=3600, max_size=500, invalidate_on=['user_update'])
+    async def get_user_profile(self, user_id: int) -> Optional[Dict]:
+        """Get user profile with intelligent caching"""
+        
+        # Check bloom filter first (fast negative lookup)
+        if str(user_id) not in self.bloom_filter:
+            return None
+        
+        # Try hierarchical cache
+        cache_key = f"user_profile:{user_id}"
+        cached_data = await self.cache.get(cache_key)
+        if cached_data:
+            return cached_data
+        
+        # Fetch from database (simulate)
+        user_data = await self._fetch_user_from_db(user_id)
+        if user_data:
+            # Cache the result
+            await self.cache.set(cache_key, user_data, ttl=3600)
+            # Add to bloom filter for future lookups
+            self.bloom_filter.add(str(user_id))
+        
+        return user_data
+    
+    async def batch_update_users(self, user_updates: List[Dict]):
+        """Batch process user updates efficiently"""
+        
+        async def process_batch(batch: List[Dict]):
+            # Simulate batch database update
+            print(f"Processing batch of {len(batch)} user updates")
+            
+            # Invalidate affected cache entries
+            for update in batch:
+                user_id = update.get('user_id')
+                if user_id:
+                    await self.cache.delete(f"user_profile:{user_id}")
+            
+            # Invalidate smart cache dependency
+            self.get_user_profile.invalidate('user_update')
+        
+        # Add updates to batch processor
+        for update in user_updates:
+            await self.batch_processor.add(update, process_batch)
+    
+    async def _fetch_user_from_db(self, user_id: int) -> Optional[Dict]:
+        """Simulate database fetch with connection pooling"""
+        # In real implementation, use connection pool
+        await asyncio.sleep(0.1)  # Simulate DB query
+        return {
+            'id': user_id,
+            'name': f'User {user_id}',
+            'email': f'user{user_id}@example.com',
+            'created_at': datetime.now().isoformat()
+        }
+
+
+# 7. PERFORMANCE MONITORING
+# ==========================
+class PerformanceMonitor:
+    """Monitor and optimize performance in real-time"""
+    
+    def __init__(self):
+        self.metrics = defaultdict(list)
+        self.thresholds = {
+            'response_time': 1.0,  # seconds
+            'memory_usage': 0.8,   # 80% of available
+            'cache_hit_rate': 0.7  # 70% minimum
+        }
+    
+    @contextmanager
+    def measure(self, operation: str):
+        """Context manager to measure operation performance"""
+        start_time = time.time()
+        start_memory = self._get_memory_usage()
+        
+        try:
+            yield
+        finally:
+            end_time = time.time()
+            end_memory = self._get_memory_usage()
+            
+            self.metrics[operation].append({
+                'duration': end_time - start_time,
+                'memory_delta': end_memory - start_memory,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            # Check thresholds and alert if needed
+            self._check_thresholds(operation, end_time - start_time)
+    
+    def _get_memory_usage(self) -> float:
+        """Get current memory usage (simplified)"""
+        import psutil
+        return psutil.Process().memory_percent()
+    
+    def _check_thresholds(self, operation: str, duration: float):
+        """Alert if performance thresholds are exceeded"""
+        if duration > self.thresholds['response_time']:
+            print(f"⚠️  Performance Alert: {operation} took {duration:.2f}s (threshold: {self.thresholds['response_time']}s)")
+    
+    def get_performance_report(self) -> Dict[str, Any]:
+        """Generate comprehensive performance report"""
+        report = {}
+        
+        for operation, measurements in self.metrics.items():
+            if measurements:
+                durations = [m['duration'] for m in measurements]
+                report[operation] = {
+                    'count': len(measurements),
+                    'avg_duration': sum(durations) / len(durations),
+                    'max_duration': max(durations),
+                    'min_duration': min(durations),
+                    'recent_trend': durations[-10:] if len(durations) >= 10 else durations
+                }
+        
+        return report
+
+
+# Example Usage and Testing
+if __name__ == "__main__":
+    async def main():
+        # Initialize services
+        user_service = UserService()
+        monitor = PerformanceMonitor()
+        
+        # Test caching performance
+        with monitor.measure("user_profile_fetch"):
+            user_data = await user_service.get_user_profile(123)
+            print(f"Fetched user: {user_data}")
+        
+        # Test batch processing
+        updates = [{'user_id': i, 'status': 'updated'} for i in range(1, 101)]
+        with monitor.measure("batch_update"):
+            await user_service.batch_update_users(updates)
+        
+        # Performance report
+        print("\n📊 Performance Report:")
+        report = monitor.get_performance_report()
+        for operation, stats in report.items():
+            print(f"{operation}: avg={stats['avg_duration']:.3f}s, max={stats['max_duration']:.3f}s")
+        
+        # Cache statistics
+        print(f"\n📈 Cache Stats: {user_service.cache.get_stats()}")
+    
+    # Run the example
+    asyncio.run(main())
+
+"""
+Complete Python Comprehensions Guide
+====================================
+
+Python comprehensions are syntactic constructs that allow you to create collections
+in a concise and readable way. They're essentially syntactic sugar for loops with
+optional filtering and transformation.
+
+Internal Working: Comprehensions are compiled to bytecode that's often more efficient
+than equivalent for loops because they're optimized at the C level in CPython.
+"""
+
+from typing import Dict, List, Set, Generator, Tuple, Any
+import time
+import sys
+
+# =============================================================================
+# 1. LIST COMPREHENSIONS
+# =============================================================================
+
+def list_comprehension_examples():
+    """
+    List comprehensions create lists using the syntax:
+    [expression for item in iterable if condition]
+    
+    Internal: Creates a list object and uses LIST_APPEND bytecode instruction
+    """
+    
+    # Basic list comprehension
+    numbers = [x for x in range(10)]
+    print(f"Basic: {numbers}")
+    
+    # With transformation
+    squares = [x**2 for x in range(10)]
+    print(f"Squares: {squares}")
+    
+    # With condition (filtering)
+    even_squares = [x**2 for x in range(10) if x % 2 == 0]
+    print(f"Even squares: {even_squares}")
+    
+    # Nested comprehension (matrix flattening)
+    matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    flattened = [item for row in matrix for item in row]
+    print(f"Flattened matrix: {flattened}")
+    
+    # Real-world example: Processing API responses
+    api_responses = [
+        {"user_id": 1, "name": "Alice", "active": True},
+        {"user_id": 2, "name": "Bob", "active": False},
+        {"user_id": 3, "name": "Charlie", "active": True}
+    ]
+    
+    # Extract active user names for frontend display
+    active_users = [user["name"] for user in api_responses if user["active"]]
+    print(f"Active users: {active_users}")
+    
+    # Security example: Sanitize input data
+    user_inputs = ["<script>alert('xss')</script>", "normal text", "SELECT * FROM users"]
+    # Basic sanitization (in real apps, use proper libraries like bleach)
+    sanitized = [input_str.replace("<", "&lt;").replace(">", "&gt;") 
+                for input_str in user_inputs if len(input_str) < 100]
+    print(f"Sanitized inputs: {sanitized}")
+
+# =============================================================================
+# 2. SET COMPREHENSIONS
+# =============================================================================
+
+def set_comprehension_examples():
+    """
+    Set comprehensions create sets using the syntax:
+    {expression for item in iterable if condition}
+    
+    Internal: Creates a set object and uses SET_ADD bytecode instruction
+    Automatically handles duplicates due to set's nature
+    """
+    
+    # Basic set comprehension
+    unique_squares = {x**2 for x in range(-5, 6)}
+    print(f"Unique squares: {unique_squares}")
+    
+    # Real-world example: Extract unique domains from email list
+    emails = ["alice@gmail.com", "bob@yahoo.com", "charlie@gmail.com", "dave@outlook.com"]
+    domains = {email.split("@")[1] for email in emails}
+    print(f"Unique domains: {domains}")
+    
+    # Security example: Unique IP addresses from logs
+    log_entries = [
+        "192.168.1.1 - GET /api/users",
+        "10.0.0.1 - POST /api/login",
+        "192.168.1.1 - GET /api/data",
+        "203.0.113.1 - GET /admin"  # Suspicious admin access
+    ]
+    
+    unique_ips = {entry.split(" - ")[0] for entry in log_entries}
+    print(f"Unique IPs accessing system: {unique_ips}")
+    
+    # Find suspicious IPs (simplified example)
+    suspicious_ips = {entry.split(" - ")[0] for entry in log_entries 
+                     if "/admin" in entry}
+    print(f"IPs accessing admin: {suspicious_ips}")
+
+# =============================================================================
+# 3. DICTIONARY COMPREHENSIONS
+# =============================================================================
+
+def dict_comprehension_examples():
+    """
+    Dictionary comprehensions create dictionaries using the syntax:
+    {key_expression: value_expression for item in iterable if condition}
+    
+    Internal: Creates a dict object and uses STORE_SUBSCR bytecode instruction
+    """
+    
+    # Basic dictionary comprehension
+    squares_dict = {x: x**2 for x in range(5)}
+    print(f"Squares dict: {squares_dict}")
+    
+    # Real-world example: User permissions mapping
+    users = ["admin", "user1", "user2", "guest"]
+    permissions = {
+        user: "read,write,delete" if user == "admin" 
+        else "read" if user == "guest"
+        else "read,write"
+        for user in users
+    }
+    print(f"User permissions: {permissions}")
+    
+    # API response transformation
+    user_data = [
+        {"id": 1, "username": "alice", "email": "alice@example.com"},
+        {"id": 2, "username": "bob", "email": "bob@example.com"}
+    ]
+    
+    # Create lookup dictionary for O(1) access
+    user_lookup = {user["id"]: user for user in user_data}
+    print(f"User lookup: {user_lookup}")
+    
+    # Security example: Rate limiting per IP
+    request_counts = [
+        ("192.168.1.1", 5),
+        ("10.0.0.1", 50),  # Suspicious high count
+        ("203.0.113.1", 3)
+    ]
+    
+    rate_limit_status = {
+        ip: "blocked" if count > 20 else "allowed" 
+        for ip, count in request_counts
+    }
+    print(f"Rate limit status: {rate_limit_status}")
+
+# =============================================================================
+# 4. GENERATOR EXPRESSIONS (Generator Comprehensions)
+# =============================================================================
+
+def generator_expression_examples():
+    """
+    Generator expressions create generators using the syntax:
+    (expression for item in iterable if condition)
+    
+    Internal: Creates a generator object that yields values lazily
+    Memory efficient for large datasets - doesn't store all values in memory
+    """
+    
+    # Basic generator expression
+    squares_gen = (x**2 for x in range(10))
+    print(f"Generator object: {squares_gen}")
+    print(f"Generator values: {list(squares_gen)}")
+    
+    # Memory efficiency demonstration
+    print("\nMemory usage comparison:")
+    
+    # List comprehension - stores all values
+    large_list = [x for x in range(1000000)]
+    print(f"List size: {sys.getsizeof(large_list)} bytes")
+    
+    # Generator expression - stores only the generator object
+    large_gen = (x for x in range(1000000))
+    print(f"Generator size: {sys.getsizeof(large_gen)} bytes")
+    
+    # Real-world example: Processing large log files
+    def simulate_large_log():
+        """Simulate reading large log file line by line"""
+        for i in range(1000000):
+            yield f"2024-01-{i%30+1:02d} INFO: User {i%1000} logged in"
+    
+    # Memory-efficient log processing
+    error_logs = (line for line in simulate_large_log() if "ERROR" in line)
+    # Only processes lines when needed, doesn't load entire file into memory
+    
+    # Security example: Streaming password validation
+    def validate_passwords_stream(passwords):
+        """Generator for validating passwords without storing them all"""
+        for pwd in passwords:
+            if len(pwd) >= 8 and any(c.isupper() for c in pwd) and any(c.isdigit() for c in pwd):
+                yield f"Password valid: {pwd[:3]}***"
+            else:
+                yield f"Password invalid: {pwd[:3]}***"
+    
+    test_passwords = ["weak", "StrongPass123", "another1", "VeryStrong456"]
+    validation_results = validate_passwords_stream(test_passwords)
+    
+    for result in validation_results:
+        print(result)
+
+# =============================================================================
+# 5. NESTED COMPREHENSIONS
+# =============================================================================
+
+def nested_comprehension_examples():
+    """
+    Nested comprehensions allow complex data transformations
+    Read from right to left: outer loop first, then inner loop
+    """
+    
+    # Matrix operations
+    matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    
+    # Transpose matrix
+    transposed = [[row[i] for row in matrix] for i in range(len(matrix[0]))]
+    print(f"Original matrix: {matrix}")
+    print(f"Transposed: {transposed}")
+    
+    # Real-world example: Processing nested API responses
+    api_data = {
+        "users": [
+            {"id": 1, "posts": [{"title": "Post 1", "public": True}, {"title": "Post 2", "public": False}]},
+            {"id": 2, "posts": [{"title": "Post 3", "public": True}]}
+        ]
+    }
+    
+    # Extract all public post titles
+    public_posts = [
+        post["title"] 
+        for user in api_data["users"] 
+        for post in user["posts"] 
+        if post["public"]
+    ]
+    print(f"Public posts: {public_posts}")
+    
+    # Security example: Multi-level permission checking
+    departments = {
+        "IT": {
+            "users": [{"name": "Alice", "role": "admin"}, {"name": "Bob", "role": "user"}],
+            "resources": ["servers", "databases"]
+        },
+        "HR": {
+            "users": [{"name": "Charlie", "role": "manager"}, {"name": "Dave", "role": "user"}],
+            "resources": ["employee_data", "payroll"]
+        }
+    }
+    
+    # Find all admin users across departments
+    admin_users = [
+        {"name": user["name"], "department": dept_name}
+        for dept_name, dept_data in departments.items()
+        for user in dept_data["users"]
+        if user["role"] == "admin"
+    ]
+    print(f"Admin users: {admin_users}")
+
+# =============================================================================
+# 6. CONDITIONAL EXPRESSIONS IN COMPREHENSIONS
+# =============================================================================
+
+def conditional_expression_examples():
+    """
+    Conditional expressions (ternary operators) in comprehensions
+    Syntax: expression_if_true if condition else expression_if_false
+    """
+    
+    # Basic conditional expression
+    numbers = range(-5, 6)
+    abs_values = [x if x >= 0 else -x for x in numbers]
+    print(f"Absolute values: {abs_values}")
+    
+    # Real-world example: Status mapping for frontend
+    server_statuses = [200, 404, 500, 200, 403]
+    status_messages = [
+        "Success" if status == 200 
+        else "Not Found" if status == 404
+        else "Server Error" if status == 500
+        else "Forbidden" if status == 403
+        else "Unknown"
+        for status in server_statuses
+    ]
+    print(f"Status messages: {status_messages}")
+    
+    # Security example: Access level determination
+    user_roles = ["admin", "moderator", "user", "guest", "banned"]
+    access_levels = [
+        "full" if role == "admin"
+        else "moderate" if role == "moderator" 
+        else "limited" if role == "user"
+        else "read-only" if role == "guest"
+        else "denied"
+        for role in user_roles
+    ]
+    print(f"Access levels: {dict(zip(user_roles, access_levels))}")
+
+# =============================================================================
+# 7. PERFORMANCE COMPARISON
+# =============================================================================
+
+def performance_comparison():
+    """
+    Compare performance of different approaches
+    Comprehensions are generally faster than equivalent loops
+    """
+    
+    def time_operation(func, *args):
+        start = time.time()
+        result = func(*args)
+        end = time.time()
+        return result, end - start
+    
+    # List comprehension vs traditional loop
+    def list_comp_approach(n):
+        return [x**2 for x in range(n) if x % 2 == 0]
+    
+    def traditional_loop(n):
+        result = []
+        for x in range(n):
+            if x % 2 == 0:
+                result.append(x**2)
+        return result
+    
+    n = 100000
+    
+    result1, time1 = time_operation(list_comp_approach, n)
+    result2, time2 = time_operation(traditional_loop, n)
+    
+    print(f"List comprehension time: {time1:.4f}s")
+    print(f"Traditional loop time: {time2:.4f}s")
+    print(f"Speedup: {time2/time1:.2f}x")
+    
+    # Generator vs list for memory efficiency
+    def process_with_generator(data):
+        return sum(x for x in data if x > 0)
+    
+    def process_with_list(data):
+        return sum([x for x in data if x > 0])
+    
+    large_data = range(-1000000, 1000000)
+    
+    _, gen_time = time_operation(process_with_generator, large_data)
+    _, list_time = time_operation(process_with_list, large_data)
+    
+    print(f"\nGenerator processing time: {gen_time:.4f}s")
+    print(f"List processing time: {list_time:.4f}s")
+
+# =============================================================================
+# 8. ADVANCED PATTERNS AND BEST PRACTICES
+# =============================================================================
+
+def advanced_patterns():
+    """
+    Advanced comprehension patterns for real-world scenarios
+    """
+    
+    # Walrus operator (Python 3.8+) in comprehensions
+    # Useful for avoiding repeated expensive operations
+    data = ["hello", "world", "python", "comprehensions"]
+    
+    # Without walrus operator (inefficient - calls upper() twice)
+    result1 = [s.upper() for s in data if len(s.upper()) > 5]
+    
+    # With walrus operator (efficient - calls upper() once)
+    result2 = [upper_s for s in data if len(upper_s := s.upper()) > 5]
+    print(f"Long uppercase words: {result2}")
+    
+    # Flattening nested structures
+    nested_data = [
+        [1, 2, [3, 4]],
+        [5, [6, 7, [8, 9]]],
+        [10]
+    ]
+    
+    def flatten(lst):
+        """Recursive flattening using comprehension"""
+        return [
+            item for sublist in lst 
+            for item in (flatten(sublist) if isinstance(sublist, list) else [sublist])
+        ]
+    
+    flattened = flatten(nested_data)
+    print(f"Flattened nested structure: {flattened}")
+    
+    # Database-like operations with comprehensions
+    users = [
+        {"id": 1, "name": "Alice", "age": 30, "department": "IT"},
+        {"id": 2, "name": "Bob", "age": 25, "department": "HR"},
+        {"id": 3, "name": "Charlie", "age": 35, "department": "IT"},
+        {"id": 4, "name": "Diana", "age": 28, "department": "Finance"}
+    ]
+    
+    # GROUP BY equivalent
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    [grouped[user["department"]].append(user) for user in users]
+    print(f"Grouped by department: {dict(grouped)}")
+    
+    # SELECT with JOIN-like operation
+    departments = [
+        {"name": "IT", "budget": 100000},
+        {"name": "HR", "budget": 80000},
+        {"name": "Finance", "budget": 120000}
+    ]
+    
+    # Join users with department budgets
+    user_budgets = [
+        {**user, "budget": next(d["budget"] for d in departments if d["name"] == user["department"])}
+        for user in users
+    ]
+    print(f"Users with budgets: {user_budgets}")
+
+# =============================================================================
+# 9. SECURITY CONSIDERATIONS
+# =============================================================================
+
+def security_examples():
+    """
+    Security-focused comprehension examples
+    """
+    
+    # Input validation
+    user_inputs = ["admin", "user123", "'; DROP TABLE users; --", "normal_user"]
+    
+    # SQL injection prevention (basic check)
+    safe_usernames = [
+        username for username in user_inputs 
+        if username.isalnum() and len(username) <= 20
+    ]
+    print(f"Safe usernames: {safe_usernames}")
+    
+    # XSS prevention in template data
+    template_data = ["<script>alert('xss')</script>", "normal text", "<img src=x onerror=alert(1)>"]
+    
+    # Basic HTML escaping (use proper libraries in production)
+    html_escaped = [
+        text.replace("<", "&lt;").replace(">", "&gt;").replace("&", "&amp;")
+        for text in template_data
+    ]
+    print(f"HTML escaped: {html_escaped}")
+    
+    # File path traversal prevention
+    file_requests = ["file.txt", "../../../etc/passwd", "data/report.pdf", "..\\windows\\system32"]
+    
+    safe_files = [
+        filename for filename in file_requests
+        if not any(dangerous in filename for dangerous in ["../", "..\\", "/etc/", "system32"])
+        and filename.replace("/", "").replace("\\", "").replace(".", "").isalnum()
+    ]
+    print(f"Safe file requests: {safe_files}")
+
+# =============================================================================
+# 10. REAL-WORLD DJANGO/NEXTJS EXAMPLES
+# =============================================================================
+
+def django_nextjs_examples():
+    """
+    Practical examples for Django backend and NextJS frontend
+    """
+    
+    # Django serialization-like transformation
+    user_objects = [
+        {"id": 1, "username": "alice", "email": "alice@example.com", "is_active": True, "groups": ["admin", "user"]},
+        {"id": 2, "username": "bob", "email": "bob@example.com", "is_active": False, "groups": ["user"]},
+        {"id": 3, "username": "charlie", "email": "charlie@example.com", "is_active": True, "groups": ["moderator"]}
+    ]
+    
+    # Serialize for API response (removing sensitive data)
+    api_response = [
+        {
+            "id": user["id"],
+            "username": user["username"],
+            "is_active": user["is_active"],
+            "role": "admin" if "admin" in user["groups"] 
+                   else "moderator" if "moderator" in user["groups"]
+                   else "user"
+        }
+        for user in user_objects
+        if user["is_active"]  # Only include active users
+    ]
+    print(f"API response: {api_response}")
+    
+    # NextJS frontend data transformation
+    api_users = [
+        {"id": 1, "username": "alice", "role": "admin"},
+        {"id": 2, "username": "charlie", "role": "moderator"}
+    ]
+    
+    # Transform for frontend component props
+    user_cards = [
+        {
+            "key": user["id"],
+            "title": user["username"].title(),
+            "badge": user["role"].upper(),
+            "className": "border-red-500" if user["role"] == "admin" 
+                        else "border-yellow-500" if user["role"] == "moderator"
+                        else "border-blue-500"
+        }
+        for user in api_users
+    ]
+    print(f"Frontend user cards: {user_cards}")
+    
+    # Stripe payment processing data
+    payment_intents = [
+        {"id": "pi_1", "amount": 2000, "currency": "usd", "status": "succeeded"},
+        {"id": "pi_2", "amount": 1500, "currency": "eur", "status": "requires_payment_method"},
+        {"id": "pi_3", "amount": 3000, "currency": "usd", "status": "succeeded"}
+    ]
+    
+    # Generate financial report
+    successful_payments = [
+        {
+            "payment_id": payment["id"],
+            "amount_display": f"${payment['amount']/100:.2f}" if payment["currency"] == "usd"
+                            else f"€{payment['amount']/100:.2f}",
+            "status": payment["status"]
+        }
+        for payment in payment_intents
+        if payment["status"] == "succeeded"
+    ]
+    print(f"Successful payments: {successful_payments}")
+
+# =============================================================================
+# MAIN EXECUTION
+# =============================================================================
+
+if __name__ == "__main__":
+    print("=== PYTHON COMPREHENSIONS COMPLETE GUIDE ===\n")
+    
+    print("1. LIST COMPREHENSIONS")
+    print("-" * 50)
+    list_comprehension_examples()
+    
+    print("\n2. SET COMPREHENSIONS")
+    print("-" * 50)
+    set_comprehension_examples()
+    
+    print("\n3. DICTIONARY COMPREHENSIONS")
+    print("-" * 50)
+    dict_comprehension_examples()
+    
+    print("\n4. GENERATOR EXPRESSIONS")
+    print("-" * 50)
+    generator_expression_examples()
+    
+    print("\n5. NESTED COMPREHENSIONS")
+    print("-" * 50)
+    nested_comprehension_examples()
+    
+    print("\n6. CONDITIONAL EXPRESSIONS")
+    print("-" * 50)
+    conditional_expression_examples()
+    
+    print("\n7. PERFORMANCE COMPARISON")
+    print("-" * 50)
+    performance_comparison()
+    
+    print("\n8. ADVANCED PATTERNS")
+    print("-" * 50)
+    advanced_patterns()
+    
+    print("\n9. SECURITY CONSIDERATIONS")
+    print("-" * 50)
+    security_examples()
+    
+    print("\n10. DJANGO/NEXTJS EXAMPLES")
+    print("-" * 50)
+    django_nextjs_examples()
+
+"""
+Advanced Python Comprehensions - Production Patterns
+===================================================
+
+This guide covers complex, production-ready comprehension patterns used in 
+enterprise applications, microservices, and large-scale systems.
+
+Architecture Focus:
+- Memory-efficient data processing for big data
+- Security-first development patterns
+- Performance optimization techniques
+- Distributed system data transformations
+- Real-time processing patterns
+"""
+
+from typing import Dict, List, Set, Generator, Tuple, Any, Optional, Union, TypeVar, Generic
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from collections import defaultdict, Counter
+from functools import reduce
+from itertools import groupby, chain
+import asyncio
+import json
+import hashlib
+import re
+import time
+import concurrent.futures
+from enum import Enum
+
+# =============================================================================
+# 1. ADVANCED MICROSERVICES DATA TRANSFORMATION
+# =============================================================================
+
+class ServiceStatus(Enum):
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    DOWN = "down"
+    MAINTENANCE = "maintenance"
+
+@dataclass
+class ServiceMetrics:
+    service_name: str
+    response_time_ms: float
+    error_rate: float
+    cpu_usage: float
+    memory_usage_mb: float
+    timestamp: datetime
+    dependencies: List[str] = field(default_factory=list)
+
+@dataclass
+class APIEndpoint:
+    path: str
+    method: str
+    auth_required: bool
+    rate_limit: int
+    permissions: Set[str]
+
+def microservice_health_aggregation():
+    """
+    Complex health check aggregation across microservices
+    Real-world: Service mesh health monitoring, Kubernetes readiness probes
+    """
+    
+    # Simulate metrics from multiple services
+    service_metrics = [
+        ServiceMetrics("auth-service", 45.2, 0.001, 75.5, 512.0, datetime.now(), ["redis", "postgres"]),
+        ServiceMetrics("user-service", 123.7, 0.005, 82.1, 768.0, datetime.now(), ["auth-service", "postgres"]),
+        ServiceMetrics("payment-service", 89.3, 0.002, 68.9, 1024.0, datetime.now(), ["stripe-api", "postgres"]),
+        ServiceMetrics("notification-service", 234.1, 0.015, 91.2, 256.0, datetime.now(), ["redis", "smtp"]),
+        ServiceMetrics("analytics-service", 567.8, 0.001, 95.8, 2048.0, datetime.now(), ["clickhouse", "kafka"]),
+    ]
+    
+    # Advanced comprehension: Multi-level service health evaluation
+    service_health = {
+        metric.service_name: {
+            "status": (
+                ServiceStatus.DOWN if metric.error_rate > 0.01 or metric.response_time_ms > 500
+                else ServiceStatus.DEGRADED if metric.error_rate > 0.005 or metric.cpu_usage > 90
+                else ServiceStatus.MAINTENANCE if "maintenance" in metric.service_name.lower()
+                else ServiceStatus.HEALTHY
+            ).value,
+            "health_score": round(
+                100 * (1 - metric.error_rate) * 
+                min(1, 200 / metric.response_time_ms) * 
+                min(1, (100 - metric.cpu_usage) / 100)
+            ),
+            "alerts": [
+                alert for alert in [
+                    "HIGH_LATENCY" if metric.response_time_ms > 200 else None,
+                    "HIGH_ERROR_RATE" if metric.error_rate > 0.005 else None,
+                    "HIGH_CPU" if metric.cpu_usage > 85 else None,
+                    "HIGH_MEMORY" if metric.memory_usage_mb > 1500 else None,
+                ] if alert is not None
+            ],
+            "dependency_chain": metric.dependencies,
+            "sla_compliance": metric.error_rate < 0.001 and metric.response_time_ms < 100
+        }
+        for metric in service_metrics
+    }
+    
+    # Critical service identification with dependency mapping
+    critical_issues = {
+        service: details for service, details in service_health.items()
+        if details["status"] in [ServiceStatus.DOWN.value, ServiceStatus.DEGRADED.value]
+        and any(dep in ["postgres", "redis"] for dep in service_health.get(service, {}).get("dependency_chain", []))
+    }
+    
+    print("🏥 Service Health Dashboard:")
+    for service, health in service_health.items():
+        status_emoji = {"healthy": "✅", "degraded": "⚠️", "down": "❌", "maintenance": "🔧"}
+        print(f"{status_emoji.get(health['status'], '❓')} {service}: {health['health_score']}% "
+              f"(Alerts: {', '.join(health['alerts']) if health['alerts'] else 'None'})")
+    
+    return service_health, critical_issues
+
+# =============================================================================
+# 2. ADVANCED SECURITY PATTERN MATCHING
+# =============================================================================
+
+@dataclass
+class SecurityEvent:
+    timestamp: datetime
+    ip_address: str
+    user_agent: str
+    endpoint: str
+    method: str
+    status_code: int
+    payload_size: int
+    user_id: Optional[str] = None
+    session_id: Optional[str] = None
+
+def advanced_security_analysis():
+    """
+    Complex security pattern detection using comprehensions
+    Real-world: WAF rules, SIEM systems, threat detection
+    """
+    
+    # Simulate security events
+    security_events = [
+        SecurityEvent(datetime.now() - timedelta(minutes=i), f"192.168.1.{i%20+1}", 
+                     "Mozilla/5.0" if i % 3 else "curl/7.68.0", 
+                     "/api/login", "POST", 200 if i % 4 else 401, 
+                     150 + (i * 10), f"user_{i}" if i % 4 else None, f"sess_{i}")
+        for i in range(100)
+    ] + [
+        # Inject suspicious patterns
+        SecurityEvent(datetime.now(), "203.0.113.1", "sqlmap/1.4.7", "/api/users", "GET", 500, 2000, None, "sess_malicious"),
+        SecurityEvent(datetime.now(), "203.0.113.1", "python-requests/2.25.1", "/admin/users", "GET", 403, 100, None, "sess_scan"),
+        SecurityEvent(datetime.now(), "198.51.100.1", "Nmap", "/", "GET", 200, 50, None, "sess_recon"),
+    ]
+    
+    # Advanced threat detection patterns
+    threat_patterns = {
+        "sql_injection": {
+            "indicators": lambda event: any(
+                pattern in event.endpoint.lower() 
+                for pattern in ["'", "union", "select", "drop", "insert", "--", "/*"]
+            ) or "sqlmap" in event.user_agent.lower(),
+            "severity": "HIGH",
+            "action": "BLOCK"
+        },
+        "directory_traversal": {
+            "indicators": lambda event: any(
+                pattern in event.endpoint 
+                for pattern in ["../", "..\\", "/etc/", "/windows/", "system32"]
+            ),
+            "severity": "HIGH", 
+            "action": "BLOCK"
+        },
+        "reconnaissance": {
+            "indicators": lambda event: any(
+                tool in event.user_agent.lower()
+                for tool in ["nmap", "nikto", "dirb", "gobuster", "wfuzz"]
+            ),
+            "severity": "MEDIUM",
+            "action": "RATE_LIMIT"
+        },
+        "brute_force": {
+            "indicators": lambda event: event.endpoint == "/api/login" and event.status_code == 401,
+            "severity": "MEDIUM",
+            "action": "RATE_LIMIT"
+        },
+        "admin_probe": {
+            "indicators": lambda event: any(
+                admin_path in event.endpoint.lower()
+                for admin_path in ["/admin", "/administrator", "/wp-admin", "/.env"]
+            ),
+            "severity": "MEDIUM",
+            "action": "LOG"
+        }
+    }
+    
+    # Complex security event analysis with nested comprehensions
+    security_analysis = {
+        threat_type: {
+            "events": [
+                {
+                    "timestamp": event.timestamp.isoformat(),
+                    "ip": event.ip_address,
+                    "endpoint": event.endpoint,
+                    "user_agent": event.user_agent[:50] + "..." if len(event.user_agent) > 50 else event.user_agent,
+                    "risk_score": (
+                        100 if pattern_info["severity"] == "HIGH"
+                        else 60 if pattern_info["severity"] == "MEDIUM"
+                        else 30
+                    ) * (1.5 if event.status_code >= 500 else 1.0)
+                }
+                for event in security_events
+                if pattern_info["indicators"](event)
+            ],
+            "severity": pattern_info["severity"],
+            "action": pattern_info["action"],
+            "total_events": len([
+                event for event in security_events 
+                if pattern_info["indicators"](event)
+            ])
+        }
+        for threat_type, pattern_info in threat_patterns.items()
+    }
+    
+    # IP-based attack correlation with time windows
+    ip_attack_patterns = {
+        ip: {
+            "threat_types": list(set([
+                threat_type for threat_type, analysis in security_analysis.items()
+                for event in analysis["events"]
+                if event["ip"] == ip
+            ])),
+            "total_risk_score": sum([
+                event["risk_score"] for threat_type, analysis in security_analysis.items()
+                for event in analysis["events"]
+                if event["ip"] == ip
+            ]),
+            "attack_timeline": sorted([
+                {
+                    "time": event["timestamp"],
+                    "threat": threat_type,
+                    "endpoint": event["endpoint"]
+                }
+                for threat_type, analysis in security_analysis.items()
+                for event in analysis["events"]
+                if event["ip"] == ip
+            ], key=lambda x: x["time"])
+        }
+        for ip in set([
+            event.ip_address for event in security_events
+            if any(
+                threat_info["indicators"](event)
+                for threat_info in threat_patterns.values()
+            )
+        ])
+    }
+    
+    print("🛡️ Security Threat Analysis:")
+    for threat_type, analysis in security_analysis.items():
+        if analysis["total_events"] > 0:
+            print(f"⚠️ {threat_type.upper()}: {analysis['total_events']} events "
+                  f"(Severity: {analysis['severity']}, Action: {analysis['action']})")
+    
+    print("\n🎯 High-Risk IPs:")
+    high_risk_ips = {
+        ip: data for ip, data in ip_attack_patterns.items()
+        if data["total_risk_score"] > 100
+    }
+    
+    for ip, data in sorted(high_risk_ips.items(), 
+                          key=lambda x: x[1]["total_risk_score"], reverse=True):
+        print(f"🚨 {ip}: Risk Score {data['total_risk_score']:.0f} "
+              f"(Threats: {', '.join(data['threat_types'])})")
+    
+    return security_analysis, ip_attack_patterns
+
+# =============================================================================
+# 3. ADVANCED DATA PIPELINE TRANSFORMATIONS
+# =============================================================================
+
+@dataclass
+class DataPipelineEvent:
+    event_id: str
+    user_id: str
+    event_type: str
+    properties: Dict[str, Any]
+    timestamp: datetime
+    session_id: str
+    device_info: Dict[str, str]
+
+def advanced_analytics_pipeline():
+    """
+    Complex analytics data transformation pipeline
+    Real-world: Event tracking, user behavior analysis, A/B testing
+    """
+    
+    # Simulate complex event stream
+    events = [
+        DataPipelineEvent(
+            f"evt_{i}",
+            f"user_{i % 50}",
+            ["page_view", "click", "purchase", "signup", "logout"][i % 5],
+            {
+                "url": f"/page/{i % 10}",
+                "value": i * 10.5 if i % 5 == 2 else None,  # Purchase events
+                "campaign": f"campaign_{i % 3}",
+                "ab_test_variant": "A" if i % 2 else "B",
+                "product_id": f"prod_{i % 20}" if i % 5 == 2 else None,
+                "revenue": round(i * 15.99, 2) if i % 5 == 2 else 0
+            },
+            datetime.now() - timedelta(minutes=i),
+            f"session_{i // 10}",
+            {
+                "platform": ["web", "mobile", "tablet"][i % 3],
+                "os": ["iOS", "Android", "Windows", "macOS"][i % 4],
+                "browser": ["Chrome", "Safari", "Firefox", "Edge"][i % 4]
+            }
+        )
+        for i in range(1000)
+    ]
+    
+    # Advanced funnel analysis with cohort segmentation
+    funnel_analysis = {
+        f"{platform}_{os}": {
+            "total_users": len(set([
+                event.user_id for event in events
+                if event.device_info["platform"] == platform 
+                and event.device_info["os"] == os
+            ])),
+            "funnel_metrics": {
+                stage: {
+                    "users": len(set([
+                        event.user_id for event in events
+                        if event.device_info["platform"] == platform
+                        and event.device_info["os"] == os
+                        and event.event_type == stage
+                    ])),
+                    "events": len([
+                        event for event in events
+                        if event.device_info["platform"] == platform
+                        and event.device_info["os"] == os
+                        and event.event_type == stage
+                    ])
+                }
+                for stage in ["page_view", "click", "signup", "purchase"]
+            },
+            "conversion_rates": {
+                f"{prev_stage}_to_{next_stage}": (
+                    len(set([
+                        event.user_id for event in events
+                        if event.device_info["platform"] == platform
+                        and event.device_info["os"] == os
+                        and event.event_type == next_stage
+                        and event.user_id in set([
+                            e.user_id for e in events
+                            if e.device_info["platform"] == platform
+                            and e.device_info["os"] == os
+                            and e.event_type == prev_stage
+                        ])
+                    ])) / max(1, len(set([
+                        event.user_id for event in events
+                        if event.device_info["platform"] == platform
+                        and event.device_info["os"] == os
+                        and event.event_type == prev_stage
+                    ]))) * 100
+                )
+                for prev_stage, next_stage in [
+                    ("page_view", "click"), ("click", "signup"), ("signup", "purchase")
+                ]
+            }
+        }
+        for platform in ["web", "mobile", "tablet"]
+        for os in ["iOS", "Android", "Windows", "macOS"]
+        if any(
+            event.device_info["platform"] == platform and event.device_info["os"] == os
+            for event in events
+        )
+    }
+    
+    # Real-time revenue attribution with advanced filtering
+    revenue_attribution = {
+        campaign: {
+            "total_revenue": sum([
+                event.properties.get("revenue", 0)
+                for event in events
+                if event.properties.get("campaign") == campaign
+                and event.event_type == "purchase"
+            ]),
+            "ab_test_performance": {
+                variant: {
+                    "revenue": sum([
+                        event.properties.get("revenue", 0)
+                        for event in events
+                        if event.properties.get("campaign") == campaign
+                        and event.properties.get("ab_test_variant") == variant
+                        and event.event_type == "purchase"
+                    ]),
+                    "conversions": len([
+                        event for event in events
+                        if event.properties.get("campaign") == campaign
+                        and event.properties.get("ab_test_variant") == variant
+                        and event.event_type == "purchase"
+                    ]),
+                    "users": len(set([
+                        event.user_id for event in events
+                        if event.properties.get("campaign") == campaign
+                        and event.properties.get("ab_test_variant") == variant
+                    ]))
+                }
+                for variant in ["A", "B"]
+            },
+            "top_products": [
+                {
+                    "product_id": product_id,
+                    "revenue": sum([
+                        event.properties.get("revenue", 0)
+                        for event in events
+                        if event.properties.get("campaign") == campaign
+                        and event.properties.get("product_id") == product_id
+                        and event.event_type == "purchase"
+                    ]),
+                    "units_sold": len([
+                        event for event in events
+                        if event.properties.get("campaign") == campaign
+                        and event.properties.get("product_id") == product_id
+                        and event.event_type == "purchase"
+                    ])
+                }
+                for product_id in set([
+                    event.properties.get("product_id")
+                    for event in events
+                    if event.properties.get("campaign") == campaign
+                    and event.event_type == "purchase"
+                    and event.properties.get("product_id")
+                ])
+            ]
+        }
+        for campaign in set([
+            event.properties.get("campaign")
+            for event in events
+            if event.properties.get("campaign")
+        ])
+    }
+    
+    # Sort top products by revenue for each campaign
+    for campaign_data in revenue_attribution.values():
+        campaign_data["top_products"].sort(key=lambda x: x["revenue"], reverse=True)
+        campaign_data["top_products"] = campaign_data["top_products"][:5]  # Top 5 only
+    
+    print("📊 Advanced Analytics Pipeline Results:")
+    print("\n🔄 Conversion Funnel Analysis:")
+    
+    best_performing = max(
+        funnel_analysis.items(),
+        key=lambda x: x[1]["conversion_rates"].get("signup_to_purchase", 0)
+    )
+    
+    print(f"🏆 Best Performing Segment: {best_performing[0]}")
+    print(f"   Signup→Purchase: {best_performing[1]['conversion_rates'].get('signup_to_purchase', 0):.1f}%")
+    
+    print("\n💰 Revenue Attribution:")
+    for campaign, data in sorted(revenue_attribution.items(), 
+                                key=lambda x: x[1]["total_revenue"], reverse=True):
+        print(f"📈 {campaign}: ${data['total_revenue']:,.2f}")
+        
+        # A/B test winner
+        variant_a_revenue = data["ab_test_performance"]["A"]["revenue"]
+        variant_b_revenue = data["ab_test_performance"]["B"]["revenue"]
+        winner = "A" if variant_a_revenue > variant_b_revenue else "B"
+        print(f"   🏆 A/B Winner: Variant {winner} "
+              f"(${max(variant_a_revenue, variant_b_revenue):,.2f} vs ${min(variant_a_revenue, variant_b_revenue):,.2f})")
+    
+    return funnel_analysis, revenue_attribution
+
+# =============================================================================
+# 4. DISTRIBUTED SYSTEM LOG AGGREGATION
+# =============================================================================
+
+@dataclass
+class LogEntry:
+    timestamp: datetime
+    service: str
+    level: str
+    message: str
+    trace_id: str
+    span_id: str
+    user_id: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+def distributed_log_analysis():
+    """
+    Complex distributed system log analysis and correlation
+    Real-world: Microservices debugging, distributed tracing, SLA monitoring
+    """
+    
+    # Simulate distributed system logs
+    services = ["api-gateway", "auth-service", "user-service", "payment-service", "notification-service"]
+    log_levels = ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
+    
+    logs = []
+    for i in range(500):
+        trace_id = f"trace_{i // 10}"  # Group requests by trace
+        service = services[i % len(services)]
+        level = log_levels[min(i % 20 // 4, 4)]  # More INFO/DEBUG than ERROR
+        
+        # Simulate realistic log messages
+        messages = {
+            "api-gateway": [
+                f"Received request: GET /api/users/{i % 100}",
+                f"Routing to user-service",
+                f"Response time: {50 + i % 200}ms",
+                "Rate limit exceeded for IP 192.168.1.100" if i % 50 == 0 else None
+            ],
+            "auth-service": [
+                f"User authentication attempt: user_{i % 20}",
+                f"JWT token generated for user_{i % 20}",
+                "Invalid credentials provided" if i % 25 == 0 else None,
+                f"Token validation successful"
+            ],
+            "user-service": [
+                f"Database query: SELECT * FROM users WHERE id = {i % 100}",
+                f"User profile updated: user_{i % 20}",
+                "Database connection timeout" if i % 75 == 0 else None,
+                f"Cache hit for user_{i % 20}"
+            ],
+            "payment-service": [
+                f"Processing payment for user_{i % 20}: ${(i % 10) * 10 + 50}",
+                f"Stripe API call initiated",
+                "Payment declined by bank" if i % 30 == 0 else None,
+                f"Payment successful: transaction_{i}"
+            ],
+            "notification-service": [
+                f"Sending email to user_{i % 20}",
+                f"Push notification queued",
+                "SMTP server unavailable" if i % 40 == 0 else None,
+                f"Email delivered successfully"
+            ]
+        }
+        
+        valid_messages = [msg for msg in messages[service] if msg is not None]
+        message = valid_messages[i % len(valid_messages)]
+        
+        # Assign appropriate log level based on message content
+        if any(keyword in message.lower() for keyword in ["error", "failed", "timeout", "declined", "unavailable"]):
+            level = "ERROR"
+        elif any(keyword in message.lower() for keyword in ["exceeded", "invalid", "warning"]):
+            level = "WARN"
+        
+        logs.append(LogEntry(
+            timestamp=datetime.now() - timedelta(seconds=i * 10),
+            service=service,
+            level=level,
+            message=message,
+            trace_id=trace_id,
+            span_id=f"span_{i}",
+            user_id=f"user_{i % 20}" if "user_" in message else None,
+            metadata={
+                "version": f"v1.{i % 5}.0",
+                "instance_id": f"instance_{i % 3}",
+                "region": ["us-east-1", "us-west-2", "eu-west-1"][i % 3]
+            }
+        ))
+    
+    # Advanced distributed trace analysis
+    trace_analysis = {
+        trace_id: {
+            "services_involved": list(set([
+                log.service for log in logs if log.trace_id == trace_id
+            ])),
+            "total_duration_seconds": (
+                max([log.timestamp for log in logs if log.trace_id == trace_id]) -
+                min([log.timestamp for log in logs if log.trace_id == trace_id])
+            ).total_seconds(),
+            "error_count": len([
+                log for log in logs 
+                if log.trace_id == trace_id and log.level in ["ERROR", "FATAL"]
+            ]),
+            "service_chain": [
+                {
+                    "service": log.service,
+                    "timestamp": log.timestamp.isoformat(),
+                    "level": log.level,
+                    "message": log.message[:100] + "..." if len(log.message) > 100 else log.message
+                }
+                for log in sorted([log for log in logs if log.trace_id == trace_id], 
+                                key=lambda x: x.timestamp)
+            ],
+            "has_errors": any(
+                log.level in ["ERROR", "FATAL"] 
+                for log in logs if log.trace_id == trace_id
+            ),
+            "user_impact": len(set([
+                log.user_id for log in logs 
+                if log.trace_id == trace_id and log.user_id
+            ]))
+        }
+        for trace_id in set([log.trace_id for log in logs])
+    }
+    
+    # Service health monitoring with SLA calculations
+    service_health_metrics = {
+        service: {
+            "error_rate": (
+                len([log for log in logs if log.service == service and log.level in ["ERROR", "FATAL"]]) /
+                max(1, len([log for log in logs if log.service == service])) * 100
+            ),
+            "avg_response_time": sum([
+                float(re.search(r'(\d+)ms', log.message).group(1))
+                for log in logs
+                if log.service == service and 'ms' in log.message and re.search(r'(\d+)ms', log.message)
+            ]) / max(1, len([
+                log for log in logs
+                if log.service == service and 'ms' in log.message
+            ])),
+            "total_requests": len([log for log in logs if log.service == service]),
+            "error_types": {
+                error_type: len([
+                    log for log in logs 
+                    if log.service == service 
+                    and log.level in ["ERROR", "FATAL"]
+                    and error_type.lower() in log.message.lower()
+                ])
+                for error_type in ["timeout", "connection", "authentication", "validation", "payment"]
+                if any(
+                    error_type.lower() in log.message.lower()
+                    for log in logs
+                    if log.service == service and log.level in ["ERROR", "FATAL"]
+                )
+            },
+            "sla_compliance": (
+                len([log for log in logs if log.service == service and log.level not in ["ERROR", "FATAL"]]) /
+                max(1, len([log for log in logs if log.service == service])) * 100
+            ) >= 99.9,
+            "peak_error_times": [
+                hour for hour, count in Counter([
+                    log.timestamp.hour
+                    for log in logs
+                    if log.service == service and log.level in ["ERROR", "FATAL"]
+                ]).most_common(3)
+            ]
+        }
+        for service in services
+    }
+    
+    # Critical issue detection across traces
+    critical_traces = {
+        trace_id: analysis for trace_id, analysis in trace_analysis.items()
+        if analysis["error_count"] > 0 and analysis["user_impact"] > 0
+    }
+    
+    # Service dependency impact analysis
+    service_dependencies = {
+        service: {
+            "depends_on": list(set([
+                other_service for trace_id, analysis in trace_analysis.items()
+                for other_service in analysis["services_involved"]
+                if service in analysis["services_involved"] and other_service != service
+            ])),
+            "depended_by": list(set([
+                other_service for trace_id, analysis in trace_analysis.items()
+                for other_service in analysis["services_involved"]
+                if other_service != service and service in analysis["services_involved"]
+            ]))
+        }
+        for service in services
+    }
+    
+    print("📋 Distributed System Analysis:")
+    
+    # Critical services with high error rates
+    critical_services = [
+        service for service, metrics in service_health_metrics.items()
+        if metrics["error_rate"] > 5.0 or not metrics["sla_compliance"]
+    ]
+    
+    if critical_services:
+        print(f"\n🚨 Critical Services: {', '.join(critical_services)}")
+        for service in critical_services:
+            metrics = service_health_metrics[service]
+            print(f"   {service}: {metrics['error_rate']:.1f}% error rate, "
+                  f"SLA: {'✅' if metrics['sla_compliance'] else '❌'}")
+    
+    # Most problematic traces
+    problem_traces = sorted(
+        critical_traces.items(),
+        key=lambda x: (x[1]["error_count"], x[1]["user_impact"]),
+        reverse=True
+    )[:5]
+    
+    print(f"\n🔍 Top Problem Traces:")
+    for trace_id, analysis in problem_traces:
+        print(f"   {trace_id}: {analysis['error_count']} errors, "
+              f"{analysis['user_impact']} users affected, "
+              f"services: {', '.join(analysis['services_involved'])}")
+    
+    return trace_analysis, service_health_metrics, critical_traces
+
+# =============================================================================
+# 5. ADVANCED CACHING AND PERFORMANCE OPTIMIZATION
+# =============================================================================
+
+@dataclass
+class CacheEntry:
+    key: str
+    value: Any
+    ttl: int
+    access_count: int
+    last_accessed: datetime
+    size_bytes: int
+    tags: Set[str] = field(default_factory=set)
+
+def cache_optimization_analysis():
+    """
+    Advanced cache performance analysis and optimization
+    Real-world: Redis optimization, CDN analysis, database query caching
+    """
+    
+    # Simulate cache entries with different patterns
+    cache_entries = []
+    
+    # User profile cache entries
+    for i in range(100):
+        cache_entries.append(CacheEntry(
+            key=f"user_profile:{i}",
+            value=f"user_data_{i}",
+            ttl=3600,  # 1 hour
+            access_count=i * 2 + 10,
+            last_accessed=datetime.now() - timedelta(minutes=i % 60),
+            size_bytes=1024 + (i * 50),
+            tags={"user_data", "profiles"}
+        ))
+    
+    # API response cache entries
+    for i in range(50):
+        cache_entries.append(CacheEntry(
+            key=f"api_response:/api/users?page={i}",
+            value=f"paginated_users_{i}",
+            ttl=300,  # 5 minutes
+            access_count=200 - (i * 3),
+            last_accessed=datetime.now() - timedelta(minutes=i % 30),
+            size_bytes=2048 + (i * 100),
+            tags={"api_responses", "pagination"}
+        ))
+    
+    # Session cache entries
+    for i in range(200):
+        cache_entries.append(CacheEntry(
+            key=f"session:{i}",
+            value=f"session_data_{i}",
+            ttl=1800,  # 30 minutes
+            access_count=1 if i > 150 else i + 5,  # Many cold sessions
+            last_accessed=datetime.now() - timedelta(minutes=i % 45),
+            size_bytes=512 + (i * 10),
+            tags={"sessions", "auth"},
+        )) 
