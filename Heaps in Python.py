@@ -160,6 +160,7 @@ if __name__ == "__main__":
 #    - Heaps are not designed for fast lookup of arbitrary elements (O(n) time for searching).
 #    - Use hash tables or balanced binary search trees (e.g., AVL trees) instead.
 
+
 # 2. **Dynamic Updates of Priorities**:
 #    - If priorities of elements change frequently, heaps require O(n) to locate the element and O(log n) to update it, which can be inefficient.
 #    - Consider Fibonacci heaps for better performance in such cases.
