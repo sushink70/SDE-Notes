@@ -1,0 +1,79 @@
+<mxfile host="Electron" modified="2024-07-14T07:30:25.010Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.6.4 Chrome/124.0.6367.207 Electron/30.0.6 Safari/537.36" etag="JJYrxwDxSK3YM9KEV36w" version="24.6.4" type="device">
+  <diagram name="Page-1" id="_BSAuVks01rc1VASpYpf">
+    <mxGraphModel dx="759" dy="572" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-2" value="const [state, setState] = useState(initialValue);" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="230" y="230" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-3" value="&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: initial; color: rgb(198, 120, 221);&quot; class=&quot;token&quot;&gt;function&lt;/span&gt;&lt;span style=&quot;background-color: initial;&quot;&gt; &lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(97, 175, 239);&quot; class=&quot;token maybe-class-name&quot;&gt;Counter&lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;(&lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;)&lt;/span&gt;&lt;span style=&quot;background-color: initial;&quot;&gt; &lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;{&lt;/span&gt;&lt;/div&gt;  &lt;span style=&quot;color: rgb(198, 120, 221);&quot; class=&quot;token&quot;&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;const&lt;/span&gt; &lt;span style=&quot;color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;[&lt;/span&gt;count&lt;span style=&quot;color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;,&lt;/span&gt; setCount&lt;span style=&quot;color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;]&lt;/span&gt; &lt;span style=&quot;color: rgb(97, 175, 239);&quot; class=&quot;token&quot;&gt;=&lt;/span&gt; &lt;span style=&quot;color: rgb(97, 175, 239);&quot; class=&quot;token&quot;&gt;useState&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;(&lt;/span&gt;&lt;span style=&quot;color: rgb(209, 154, 102);&quot; class=&quot;token&quot;&gt;0&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;)&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;;&lt;/span&gt;&lt;div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: initial; color: rgb(198, 120, 221);&quot; class=&quot;token control-flow&quot;&gt;return&lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(171, 178, 191);&quot;&gt; &lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;(&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial;&quot; class=&quot;token&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(224, 108, 117);&quot; class=&quot;token&quot;&gt;div&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial;&quot; class=&quot;token&quot;&gt;&amp;gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&quot;background-color: initial; text-align: center; color: rgb(224, 108, 117);&quot; class=&quot;token&quot;&gt;p&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token&quot;&gt;&amp;gt;&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token plain-text&quot;&gt;You clicked &lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token&quot;&gt;{&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot;&gt;count&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token&quot;&gt;}&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token plain-text&quot;&gt; times&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token&quot;&gt;&amp;lt;/&lt;/span&gt;&lt;span style=&quot;background-color: initial; text-align: center; color: rgb(224, 108, 117);&quot; class=&quot;token&quot;&gt;p&lt;/span&gt;&lt;span style=&quot;color: rgb(171, 178, 191); background-color: initial; text-align: center;&quot; class=&quot;token&quot;&gt;&amp;gt;&lt;/span&gt;&lt;/div&gt;&lt;span style=&quot;color: rgb(171, 178, 191);&quot; class=&quot;token&quot;&gt;&lt;span class=&quot;token plain-text&quot;&gt;      &lt;/span&gt;&lt;span class=&quot;token&quot;&gt;&amp;lt;&lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token&quot;&gt;button&lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token&quot;&gt; &lt;/span&gt;&lt;span style=&quot;color: rgb(209, 154, 102);&quot; class=&quot;token&quot;&gt;onClick&lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token script language-javascript script-punctuation&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;token script language-javascript&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;token script language-javascript&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;token script language-javascript&quot;&gt;)&lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token script language-javascript&quot;&gt; &lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token script language-javascript arrow&quot;&gt;=&amp;gt;&lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token script language-javascript&quot;&gt; &lt;/span&gt;&lt;span style=&quot;color: rgb(97, 175, 239);&quot; class=&quot;token script language-javascript&quot;&gt;setCount&lt;/span&gt;&lt;span class=&quot;token script language-javascript&quot;&gt;(&lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token script language-javascript&quot;&gt;count &lt;/span&gt;&lt;span style=&quot;color: rgb(97, 175, 239);&quot; class=&quot;token script language-javascript&quot;&gt;+&lt;/span&gt;&lt;span style=&quot;color: rgb(224, 108, 117);&quot; class=&quot;token script language-javascript&quot;&gt; &lt;/span&gt;&lt;span style=&quot;color: rgb(209, 154, 102);&quot; class=&quot;token script language-javascript&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;token script language-javascript&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;token script language-javascript&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;token&quot;&gt;&amp;gt;&lt;/span&gt;Click me&lt;span class=&quot;token plain-text&quot;&gt;&lt;span style=&quot;text-align: left; background-color: initial;&quot; class=&quot;token&quot;&gt;&amp;lt;/&lt;/span&gt;&lt;span style=&quot;text-align: left; background-color: initial; color: rgb(224, 108, 117);&quot; class=&quot;token&quot;&gt;button&lt;/span&gt;&lt;span style=&quot;text-align: left; background-color: initial;&quot; class=&quot;token&quot;&gt;&amp;gt;&lt;/span&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: initial;&quot; class=&quot;token&quot;&gt;&amp;lt;/&lt;/span&gt;&lt;span style=&quot;background-color: initial; color: rgb(224, 108, 117);&quot; class=&quot;token&quot;&gt;div&lt;/span&gt;&lt;span style=&quot;background-color: initial;&quot; class=&quot;token&quot;&gt;&amp;gt;&lt;/span&gt;&lt;/div&gt;    &lt;/span&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: initial;&quot; class=&quot;token&quot;&gt;)&lt;/span&gt;&lt;span style=&quot;background-color: initial;&quot; class=&quot;token&quot;&gt;;&lt;/span&gt;&lt;/div&gt;  &lt;span class=&quot;token&quot;&gt;&lt;div style=&quot;text-align: left;&quot;&gt;&lt;span style=&quot;background-color: initial;&quot;&gt;}&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="195" y="260" width="405" height="330" as="geometry" />
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-17" value="" style="shape=waypoint;sketch=0;fillStyle=solid;size=6;pointerEvents=1;points=[];fillColor=none;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;" vertex="1" parent="1">
+          <mxGeometry x="350" y="360" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-18" value="" style="edgeStyle=segmentEdgeStyle;endArrow=classic;html=1;curved=0;rounded=0;endSize=8;startSize=8;" edge="1" parent="1" source="iDIlQMVcEfLAjAhaecYO-17" target="iDIlQMVcEfLAjAhaecYO-19">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="200" y="460" as="sourcePoint" />
+            <mxPoint x="250" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-28" value="0" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="iDIlQMVcEfLAjAhaecYO-18">
+          <mxGeometry x="0.2415" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-19" value="" style="shape=waypoint;sketch=0;fillStyle=solid;size=6;pointerEvents=1;points=[];fillColor=none;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;" vertex="1" parent="1">
+          <mxGeometry x="330" y="400" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-20" value="" style="shape=waypoint;sketch=0;fillStyle=solid;size=6;pointerEvents=1;points=[];fillColor=none;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;" vertex="1" parent="1">
+          <mxGeometry x="370" y="440" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-21" value="" style="shape=waypoint;sketch=0;fillStyle=solid;size=6;pointerEvents=1;points=[];fillColor=none;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;" vertex="1" parent="1">
+          <mxGeometry x="405" y="370" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-22" value="" style="edgeStyle=segmentEdgeStyle;endArrow=classic;html=1;curved=0;rounded=0;endSize=8;startSize=8;" edge="1" parent="1" source="iDIlQMVcEfLAjAhaecYO-21" target="iDIlQMVcEfLAjAhaecYO-20">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="320" y="420" as="sourcePoint" />
+            <mxPoint x="370" y="370" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="415" y="370" />
+              <mxPoint x="570" y="370" />
+              <mxPoint x="570" y="480" />
+              <mxPoint x="380" y="480" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-27" value="onclick" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="iDIlQMVcEfLAjAhaecYO-22">
+          <mxGeometry x="-0.6378" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-29" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="iDIlQMVcEfLAjAhaecYO-22">
+          <mxGeometry x="-0.1158" y="-2" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-25" value="" style="shape=waypoint;sketch=0;fillStyle=solid;size=6;pointerEvents=1;points=[];fillColor=none;resizable=0;rotatable=0;perimeter=centerPerimeter;snapToPoint=1;" vertex="1" parent="1">
+          <mxGeometry x="405" y="440" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-26" value="" style="edgeStyle=segmentEdgeStyle;endArrow=classic;html=1;curved=0;rounded=0;endSize=8;startSize=8;entryX=0.529;entryY=0.731;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.531;exitY=0.717;exitDx=0;exitDy=0;exitPerimeter=0;" edge="1" parent="1" source="iDIlQMVcEfLAjAhaecYO-25" target="iDIlQMVcEfLAjAhaecYO-19">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="280" y="510" as="sourcePoint" />
+            <mxPoint x="330" y="460" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="470" y="450" />
+              <mxPoint x="470" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iDIlQMVcEfLAjAhaecYO-30" value="2" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="iDIlQMVcEfLAjAhaecYO-26">
+          <mxGeometry x="0.3162" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
