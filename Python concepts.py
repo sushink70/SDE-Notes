@@ -10004,10 +10004,10 @@ pydantic==1.10.0
 - **Monitoring**: Integrate logging and monitoring (e.g., Prometheus, ELK) for deployed applications.
 
 ## Advanced Tools and Techniques
-- **Nix**: Declarative environment management for reproducible builds.
-- **Serverless Frameworks**: Tools like Serverless or Zappa for simplified cloud deployment.
-- **Or/chestration**: Kubernetes or AWS ECS for managing containerized applications.
-- **Dependency Scanning**: Tools like Dependabot or Snyk for vulnerability management.
+# - **Nix**: Declarative environment management for reproducible builds.
+# - **Serverless Frameworks**: Tools like Serverless or Zappa for simplified cloud deployment.
+# - **Or/chestration**: Kubernetes or AWS ECS for managing containerized applications.
+# - **Dependency Scanning**: Tools like Dependabot or Snyk for vulnerability management.
 
 ---
 
