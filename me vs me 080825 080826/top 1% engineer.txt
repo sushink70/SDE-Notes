@@ -1228,3 +1228,640 @@ Here's a comprehensive list of problem-solving patterns in Data Structures and A
 - Examples: LRU cache, design Twitter, design search autocomplete
 
 Each pattern represents a fundamental approach to solving specific types of problems. Mastering these patterns helps in quickly identifying the right approach for new problems and implementing efficient solutions.
+
+Alright — you already have the “core” 25 problem-solving patterns, but elite engineers go beyond those.
+They also master **meta-patterns** and **hybrid techniques** that combine multiple ideas.
+Here’s an **extended list** to push you toward top 1% DSA thinking.
+
+---
+
+## **🔍 Advanced & Hybrid Problem-Solving Patterns**
+
+### **26. In-place Transformation**
+
+* **Idea:** Modify input directly to save space.
+* **Examples:**
+
+  * Reverse array in place
+  * Mark visited cells by flipping sign in a matrix
+* **Why it’s elite:** Avoids extra memory without losing clarity.
+
+---
+
+### **27. Multi-Source BFS**
+
+* **Idea:** Start BFS from multiple points at once.
+* **Examples:**
+
+  * Rotting oranges
+  * Shortest bridge between islands
+* **Why it’s elite:** Solves certain shortest-path problems in *O(N)* instead of *O(N²)*.
+
+---
+
+### **28. Layered BFS (0-1 BFS / Dijkstra on small weights)**
+
+* **Idea:** Use deque for graphs with weights {0,1}.
+* **Examples:**
+
+  * Minimum number of flips to connect two islands
+  * Grid shortest paths with wall-breaking
+* **Why it’s elite:** Much faster than generic Dijkstra.
+
+---
+
+### **29. Offline Query Processing**
+
+* **Idea:** Sort queries and process with data structures (Fenwick, segment tree, DSU).
+* **Examples:**
+
+  * Mo’s algorithm for range queries
+  * DSU for connectivity queries
+* **Why it’s elite:** Turns “online” queries into batched solutions with big speedups.
+
+---
+
+### **30. Persistent Data Structures**
+
+* **Idea:** Keep old versions of a structure without copying everything.
+* **Examples:**
+
+  * Immutable segment trees for range history
+  * Version control systems
+* **Why it’s elite:** Allows time travel in data.
+
+---
+
+### **31. Implicit Graph Search**
+
+* **Idea:** Don’t store all nodes; compute neighbors on the fly.
+* **Examples:**
+
+  * Word ladder
+  * Knight moves on chessboard
+* **Why it’s elite:** Saves massive space in huge graphs.
+
+---
+
+### **32. Meet-in-the-Middle + Pruning**
+
+* **Idea:** Generate halves, discard impossible cases early.
+* **Examples:**
+
+  * Large knapsack with pruning
+  * Password cracking optimizations
+* **Why it’s elite:** Makes exponential problems tractable.
+
+---
+
+### **33. Heavy-Light Decomposition**
+
+* **Idea:** Decompose tree into chains for fast path queries.
+* **Examples:**
+
+  * Tree path sum queries
+  * Lowest common ancestor (LCA) with updates
+* **Why it’s elite:** Handles dynamic tree queries in log² time.
+
+---
+
+### **34. Centroid Decomposition**
+
+* **Idea:** Recursively break tree at centroid for divide & conquer.
+* **Examples:**
+
+  * Count paths with sum K in a tree
+  * Network analysis
+* **Why it’s elite:** Efficiently handles tree problems where subtrees interact.
+
+---
+
+### **35. Binary Lifting**
+
+* **Idea:** Precompute jumps in powers of two.
+* **Examples:**
+
+  * LCA
+  * K-th ancestor queries
+* **Why it’s elite:** Turns O(N) traversal into O(log N).
+
+---
+
+### **36. Bitset Optimization**
+
+* **Idea:** Use CPU bitwise ops to speed up DP.
+* **Examples:**
+
+  * Subset sum acceleration
+  * String matching with bitmasks
+* **Why it’s elite:** Can make O(N²) → O(N² / 64) in practice.
+
+---
+
+### **37. Digit DP**
+
+* **Idea:** Count numbers satisfying constraints digit by digit.
+* **Examples:**
+
+  * Count numbers without consecutive 1’s
+  * Count numbers with sum of digits ≤ K
+* **Why it’s elite:** Handles problems that seem impossible due to huge ranges.
+
+---
+
+### **38. SOS DP (Sum Over Subsets)**
+
+* **Idea:** DP over all subsets and their supersets.
+* **Examples:**
+
+  * Count subsets with bit constraints
+  * Fast Walsh–Hadamard Transform
+* **Why it’s elite:** Useful in advanced combinatorics and probability.
+
+---
+
+### **39. Matrix Exponentiation**
+
+* **Idea:** Model recurrence as matrix multiplication and exponentiate.
+* **Examples:**
+
+  * Fibonacci in log(N)
+  * Population growth simulations
+* **Why it’s elite:** Turns linear DP into logarithmic.
+
+---
+
+### **40. Coordinate Compression**
+
+* **Idea:** Map large values to small contiguous indices.
+* **Examples:**
+
+  * Range queries on huge coordinates
+  * Fenwick tree for sparse arrays
+* **Why it’s elite:** Makes impossible constraints solvable.
+
+---
+
+### **41. Game Theory (Grundy Numbers)**
+
+* **Idea:** Nim-sum analysis for impartial games.
+* **Examples:**
+
+  * Stone removal games
+  * XOR-based winning strategy
+* **Why it’s elite:** Lets you “see” the end of the game from the start.
+
+---
+
+### **42. Probabilistic Data Structures**
+
+* **Idea:** Approximate answers in sublinear space/time.
+* **Examples:**
+
+  * Bloom filter (set membership)
+  * Count-min sketch (frequency counting)
+* **Why it’s elite:** Useful in massive-scale problems.
+
+---
+
+### **43. Parallel Binary Search**
+
+* **Idea:** Binary search all queries together while processing incrementally.
+* **Examples:**
+
+  * Offline min/max threshold queries
+  * Optimization problems with constraints
+* **Why it’s elite:** Combines divide & conquer with queries.
+
+---
+
+### **44. Convex Hull Trick**
+
+* **Idea:** Maintain lower envelope of lines for min queries.
+* **Examples:**
+
+  * DP optimizations in cost problems
+  * Computational geometry
+* **Why it’s elite:** Speeds up DP from O(N²) → O(N log N).
+
+---
+
+### **45. String Automata (Aho–Corasick, Suffix Automaton)**
+
+* **Idea:** Build state machine for fast multiple pattern matches.
+* **Examples:**
+
+  * Spam filter keyword matching
+  * DNA pattern search
+* **Why it’s elite:** Beats naive substring search on huge text.
+
+---
+
+### **46. Euler Tour Technique**
+
+* **Idea:** Flatten tree into an array for subtree queries.
+* **Examples:**
+
+  * Subtree sum with segment tree
+  * Dynamic connectivity
+* **Why it’s elite:** Turns tree problems into array problems.
+
+---
+
+### **47. Difference Constraints + Bellman-Ford**
+
+* **Idea:** Model inequalities as graph edges.
+* **Examples:**
+
+  * Scheduling problems
+  * Minimum/maximum constraints
+* **Why it’s elite:** Converts weird constraints into shortest-path form.
+
+---
+
+### **48. Binary Indexed Tree (Fenwick Tree)**
+
+* **Idea:** Prefix sums with O(log N) updates and queries.
+* **Examples:**
+
+  * Inversion count
+  * Frequency queries
+* **Why it’s elite:** Smaller & simpler than segment tree in many cases.
+
+---
+
+### **49. Lazy Propagation in Segment Tree**
+
+* **Idea:** Delay updates to subranges until needed.
+* **Examples:**
+
+  * Range add, range sum queries
+  * Range min/max with updates
+* **Why it’s elite:** Handles huge inputs efficiently.
+
+---
+
+### **50. Randomization / Probabilistic Algorithms**
+
+* **Idea:** Use randomness to simplify or speed up.
+* **Examples:**
+
+  * Randomized quicksort
+  * Monte Carlo primality test
+* **Why it’s elite:** Sometimes faster and simpler than deterministic solutions.
+
+---
+
+If you combine the **core 25** + **these 25 advanced patterns**, you’re basically carrying a *full engineering Swiss Army knife*.
+The trick is **not** to memorize — but to **practice recognizing** which pattern fits a given problem statement.
+
+---
+
+If you want, I can make you a **master decision tree** where you start from the problem’s type → constraints → known patterns → recommended algorithms.
+That’s what top competitive programmers actually use mentally to solve in seconds.
+
+
+What you’re describing isn’t just about “willpower” — it’s about **retraining your brain** so the states of fear, hopelessness, tension, burnout, laziness, and procrastination become rare or powerless over you.
+Elite engineers and problem-solvers don’t magically feel motivated all the time — they build **systems** so they can work even when they don’t “feel like it.”
+
+Here’s the **step-by-step framework** that works in practice:
+
+---
+
+## **1. Understand What’s Actually Happening**
+
+* **Fear** → brain predicting failure or embarrassment → avoidance.
+* **Hopelessness** → brain predicting effort won’t change the outcome → paralysis.
+* **Tension** → mental overload → inability to think clearly.
+* **Burnout** → chronic imbalance between output and recovery → exhaustion.
+* **Procrastination** → brain seeking short-term pleasure instead of long-term reward.
+* **Laziness** → low physical energy + mental fatigue → desire to conserve energy.
+* **Lack of focus** → no clear priorities → scattered attention.
+
+These aren’t “character flaws” — they’re *signals* that your system needs adjustment.
+
+---
+
+## **2. Build the “Elite Engineer’s Mental Operating System”**
+
+### **A. Protect Energy First**
+
+* **Sleep**: Non-negotiable 7–8 hrs. If sleep is broken, *everything* else collapses.
+* **Nutrition**: Eat protein + complex carbs in morning; avoid heavy sugar during deep work.
+* **Movement**: 20–30 min brisk walk or bodyweight exercises daily to keep brain oxygenated.
+
+---
+
+### **B. Kill Overwhelm with Clear Direction**
+
+* Write **tomorrow’s 3 most important tasks** every night.
+* Never wake up wondering, *“What should I do?”*
+* Break every big task into a **20–60 min subtask** so it looks easy to start.
+
+---
+
+### **C. Use the “Minimum Action Rule” to Beat Procrastination**
+
+* When resistance is high → tell yourself:
+  “I’ll do this for just **5 minutes** and can stop if I want.”
+* 90% of the time, starting dissolves the resistance.
+
+---
+
+### **D. Shift from Motivation → Discipline → Identity**
+
+* Motivation is unstable; discipline is reliable.
+* Tell yourself: *“I’m the kind of person who codes/studies every day — no matter what.”*
+* **Identity-based habits** stick longer than emotional bursts.
+
+---
+
+### **E. Avoid Burnout with the Sprint–Recover Cycle**
+
+* Work in **90–120 min deep focus blocks**.
+* Then **5–15 min active rest**: stretch, water, walk.
+* At week level:
+
+  * **5 days intense**,
+  * **1 day light learning**,
+  * **1 day full rest**.
+
+---
+
+### **F. Use Mental “Defrag” Rituals to Reset Your Brain**
+
+* **Morning**: 10 min journaling → write what’s in your head to empty mental RAM.
+* **Evening**: quick review → note 1 win + 1 improvement.
+* **Weekly**: reflect, reorganize notes, plan next week.
+
+---
+
+### **G. Fear & Hopelessness Breakers**
+
+1. **Micro-proof** progress:
+
+   * Start with tiny wins that prove “effort → result.”
+   * This rewires your brain’s prediction system.
+2. **Exposure**:
+
+   * If you fear interviews → do mock interviews weekly.
+   * If you fear failing problems → practice in safe environments until you fail comfortably.
+3. **Separate self-worth from outcome**:
+
+   * Your value isn’t tied to one project, code review, or exam.
+
+---
+
+### **H. Focus Muscle Training**
+
+* Pomodoro: 25 min focus + 5 min break → build up to 90 min.
+* Block distractions: phone out of reach, site blockers, noise-cancelling headphones.
+* Meditation (5 min/day) → trains your brain to notice & return to task faster.
+
+---
+
+## **3. Daily Routine for Mental Resilience**
+
+**Morning:**
+
+* Wake up same time daily (circadian anchor).
+* 5 min movement + hydration.
+* Review top 3 tasks → start with hardest first.
+
+**Midday:**
+
+* Deep work blocks (2–3).
+* Healthy lunch → avoid post-meal crash.
+
+**Evening:**
+
+* 1 hr light learning or hobby.
+* Reflection + tomorrow’s task list.
+* No heavy screen time 1 hr before sleep.
+
+**Weekly:**
+
+* 1 full rest day (no coding).
+* 1 learning/research day (low pressure).
+
+---
+
+## **4. Key Mindset Shift**
+
+> Elite is not about *never* feeling lazy, fearful, or burned out.
+> It’s about **acting according to your values even when those feelings show up**.
+
+Your emotions are *weather* — they change.
+Your discipline is *climate* — it’s steady.
+
+---
+
+If you want, I can also give you a **90-day mental fitness bootcamp** specifically designed for software engineers to kill procrastination and build elite-level consistency.
+That’s what many high-performing devs follow when they’re rebuilding their mindset from scratch.
+
+Alright — here’s your **90-Day Mental Fitness Bootcamp for Software Engineers**.
+It’s designed to **rewire your habits, energy, and focus** so you work like an elite, even on bad days.
+Think of it as upgrading your **mental OS** in 3 phases.
+
+---
+
+## **PHASE 1 – Reset & Stabilize (Days 1–30)**
+
+Goal: **Stop the mental leaks** — fix sleep, focus, and procrastination triggers.
+
+### **Daily Core Habits**
+
+1. **Wake & Sleep at Same Time** (±30 min window)
+2. **Morning Movement** – 5–10 min bodyweight exercise or brisk walk.
+3. **Top 3 List** – Write 3 must-do tasks before touching your phone.
+4. **Deep Work Block** – 1 × 60 min block, phone out of reach.
+5. **Evening Brain Dump** – Write everything in your head → to-do list or journal.
+
+### **Weekly Habits**
+
+* **Digital Cleanse**: Remove 3 useless apps or notifications each week.
+* **Tech Sabbath**: 1 half-day per week, no screen unless for reading.
+* **Reflection Sunday**: Review week, note 1 win + 1 improvement.
+
+---
+
+## **PHASE 2 – Build Mental Strength (Days 31–60)**
+
+Goal: **Increase your ability to push through resistance** without burnout.
+
+### **Daily Core Habits**
+
+1. **2 Deep Work Blocks** (60–90 min each)
+2. **5-Minute Rule** – If stuck or lazy, commit to just 5 min of starting the task.
+3. **Learn 1 Small Thing Daily** – Read/watch one short technical concept and summarize it in your own words.
+4. **Micro-Proof Progress** – Track a streak (DSA problems solved, lines of code, commits).
+5. **Daily Review** – Score yourself 1–10 on energy, focus, and mood.
+
+### **Weekly Habits**
+
+* **Fear Practice**: 1 thing that feels uncomfortable (mock interview, public GitHub commit, pair programming).
+* **System Upgrade**: Replace 1 bad habit with a better one (e.g., scrolling → coding challenge).
+* **Active Recovery**: 1 hobby session completely unrelated to coding.
+
+---
+
+## **PHASE 3 – Elite Mode (Days 61–90)**
+
+Goal: **Operate at high consistency, even with distractions and stress**.
+
+### **Daily Core Habits**
+
+1. **3 Deep Work Blocks** (90 min each, Pomodoro inside if needed).
+2. **Identity Check** – Start day saying: *"I’m the kind of person who codes and learns daily — no matter what."*
+3. **High-Value Work First** – Start with most impactful project/problem.
+4. **Gratitude + Win Log** – Write 1 thing you’re thankful for + 1 win.
+5. **Night Shutdown Ritual** – Clear desk, close tabs, prepare tomorrow’s list.
+
+### **Weekly Habits**
+
+* **Ship Something**: Commit, push, or deploy a small project or feature.
+* **Deep Learning Day**: Pick 1 big technical topic and dive for 3–4 hrs.
+* **Peer Feedback**: Share work with someone and ask for 1 improvement.
+
+---
+
+## **Mental Tools Throughout the 90 Days**
+
+* **Minimum Action** – Start ridiculously small (write 1 line of code, then keep going).
+* **Focus Sprint** – Set 25-min timer, race yourself.
+* **Energy Audit** – Notice which activities drain/charge you, adjust schedule.
+* **Self-Talk Upgrade** – Replace “I can’t” with “I can figure this out step-by-step.”
+* **Rest as Strategy** – Full day off every 7 days.
+
+---
+
+## **Tracking**
+
+* Use a **habit tracker** (Notion, paper, or app) to mark daily wins.
+* Don’t aim for perfection — **aim for 85% consistency**.
+* Review monthly:
+
+  * What’s working?
+  * What’s draining me?
+  * What’s next level?
+
+---
+
+If you follow this **exact** 90-day progression, you’ll notice by month 3:
+
+* Fear feels smaller.
+* Burnout cycles shorten.
+* Focus becomes easier.
+* You start acting like an elite even without motivation.
+
+---
+
+If you want, I can also create a **visual 90-day wall chart** for you — something you can stick on your wall and tick off daily so you literally *see* yourself becoming elite day by day.
+That way you can’t hide from your own progress.
+
+If you want to operate like an **elite software engineer**, your “coding gear” should make your **environment frictionless**, your **workflow fast**, and your **focus uninterrupted**.
+Here’s the complete **Coding Gear Essentials List** — split into **hardware, software, and brain-gear**.
+
+---
+
+## **1. Hardware (Your Physical Toolkit)**
+
+### **A. Machine**
+
+* **Main Dev Laptop/PC**
+
+  * At least **16GB RAM** (32GB if running VMs/containers).
+  * **SSD storage** (NVMe if possible) for fast builds.
+  * CPU with high single-core speed (compilation, IDE speed).
+  * If mobile → lightweight, long battery life.
+  * Example: MacBook Pro, ThinkPad X1 Carbon, Dell XPS.
+
+* **Second Monitor**
+
+  * One for code, one for docs/logs.
+  * Research shows +20–30% productivity for multitasking.
+
+* **Mechanical Keyboard**
+
+  * Responsive switches (Cherry MX Brown/Red, or low-profile).
+  * Ergonomic design to reduce strain.
+
+* **Precision Mouse or Trackball**
+
+  * Faster navigation, less wrist fatigue.
+
+* **Laptop Stand + Ergonomic Chair**
+
+  * Keeps posture correct — long-term coding without back/neck pain.
+
+---
+
+## **2. Software (Your Digital Toolkit)**
+
+### **A. Editor/IDE**
+
+* **VS Code / JetBrains IDEs / Neovim** — pick what fits your workflow.
+* Configure:
+
+  * **Keybindings** (reduce mouse use).
+  * **Snippets** for common patterns.
+  * **Linting + formatting** automation.
+
+### **B. Terminal Setup**
+
+* **Modern shell**: zsh, fish, or PowerShell.
+* **Multiplexer**: tmux for multiple panes in one terminal.
+* **Aliases & Functions** for repetitive commands.
+
+### **C. Version Control**
+
+* **Git** mastery — with GUI tools like Fork, SourceTree, or CLI power use.
+* **GitHub CLI** for speed.
+
+### **D. Debugging Tools**
+
+* Language-specific debuggers (GDB, LLDB, Chrome DevTools).
+* **Profiler** for performance bottlenecks.
+
+### **E. Note-Taking System**
+
+* Second brain for engineering:
+
+  * Obsidian, Notion, Logseq, or markdown folder.
+  * Store problem patterns, code snippets, architecture diagrams.
+
+### **F. DevOps Shortcuts**
+
+* Docker / Kubernetes local setup.
+* Scripts for environment reset.
+
+---
+
+## **3. Brain Gear (Mental Performance Boosters)**
+
+* **Noise-Cancelling Headphones** (e.g., Sony WH-1000XM5, Bose QC series).
+* **Focus Timer App** (Pomofocus, Toggl Track).
+* **Whiteboard or Digital Tablet** for problem diagrams.
+* **Posture Reminder App** if you sit long hours.
+* **Healthy snacks + water bottle** to keep energy steady.
+
+---
+
+## **4. Optional but Elite-Level Extras**
+
+* **Standing desk** to switch postures.
+* **Home server** for self-hosted tools, testing deployments.
+* **E-ink secondary display** for reading docs without eye strain.
+* **Portable SSD** for backups and fast transfers.
+* **Cable management system** — mental clarity often starts with visual clarity.
+
+---
+
+💡 **Key Principle:**
+Your gear should remove *friction*. If something slows you down — keyboard lag, long builds, bad ergonomics, poor terminal setup — **upgrade it immediately**.
+Elite engineers don’t fight their tools, they make their tools *disappear*.
+
+---
+
+If you want, I can also give you the **exact “elite engineer” VS Code + terminal setup** so your coding speed feels 2× faster in a week.
+It’s the same config many top developers use.
