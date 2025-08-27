@@ -30,7 +30,7 @@ macro_rules! say_hello {
 }
 
 // Use the macro
-say_hello!();           // Expands to: println!("Hello, World!");
+say_hello!();           // Expands to: println!("Hello, World!"); see macro.rs file
 say_hello!("Alice");    // Expands to: println!("Hello, Alice!");
 ```
 
