@@ -879,6 +879,7 @@ type String = [Char]
 type FilePath = String
 ```
 
+
 **Record Types:**
 ```haskell
 data Person = Person 
