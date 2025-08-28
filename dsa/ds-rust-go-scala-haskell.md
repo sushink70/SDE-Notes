@@ -3,10 +3,11 @@ Here's a comprehensive overview of data structures available in Rust, Go, and Sc
 ## Rust Data Structures
 
 **Built-in Types:**
+
 - **Scalars**: `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`, `f32`, `f64`, `bool`, `char`
 - **Arrays**: `[T; N]` (fixed size)
 - **Slices**: `&[T]` (view into arrays/vectors)
-- **Tuples**: `(T1, T2, ...)` 
+- **Tuples**: `(T1, T2, ...)`
 - **Structs**: Custom data structures with named fields
 - **Enums**: Algebraic data types with variants
 - **References**: `&T`, `&mut T`
@@ -218,6 +219,7 @@ fn main() {
 ```
 
 **Standard Library Collections:**
+
 - **Vec<T>**: Dynamic arrays (growable)
 - **VecDeque<T>**: Double-ended queue
 - **LinkedList<T>**: Doubly-linked list
@@ -230,6 +232,7 @@ fn main() {
 - **&str**: String slices
 
 use std::collections::{HashMap, BTreeMap, HashSet, BTreeSet, BinaryHeap, VecDeque, LinkedList};
+
 ```rust
 fn main() {
     println!("=== Rust Standard Library Collections Examples ===\n");
@@ -411,7 +414,9 @@ fn main() {
     println!("&str: Borrowed string slice, very efficient");
 }
 ```
+
 **Smart Pointers:**
+
 - **Box<T>**: Heap allocation
 - **Rc<T>**: Reference counting
 - **Arc<T>**: Atomic reference counting
@@ -470,6 +475,7 @@ impl List {
     }
 }
 ```
+
 ```rust
 fn main() {
     println!("=== Rust Smart Pointers Examples ===\n");
@@ -712,9 +718,11 @@ fn main() {
     println!("Arc<RwLock<T>>: Multi-threaded shared data with frequent reads");
 }
 ```
+
 ## Go Data Structures
 
 **Built-in Types:**
+
 - **Numeric**: `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `float32`, `float64`, `complex64`, `complex128`
 - **Boolean**: `bool`
 - **String**: `string`
@@ -728,6 +736,7 @@ fn main() {
 - **Functions**: `func` types
 
 **Standard Library:**
+
 - **container/list**: Doubly-linked list
 - **container/ring**: Circular list
 - **container/heap**: Heap operations (priority queue)
@@ -738,6 +747,7 @@ fn main() {
 ## Scala Data Structures
 
 **Immutable Collections (scala.collection.immutable):**
+
 - **List**: Linked list
 - **Vector**: Indexed sequence (trie-based)
 - **Array**: Mutable arrays (from Java)
@@ -752,6 +762,7 @@ fn main() {
 - **Range**: Arithmetic sequences
 
 **Mutable Collections (scala.collection.mutable):**
+
 - **ArrayBuffer**: Resizable array
 - **ListBuffer**: Mutable list builder
 - **LinkedList**: Mutable linked list
@@ -767,6 +778,7 @@ fn main() {
 - **StringBuilder**: Efficient string building
 
 **Specialized Types:**
+
 - **Option[T]**: Optional values (Some/None)
 - **Either[A, B]**: Union types (Left/Right)
 - **Try[T]**: Success/Failure handling
@@ -776,6 +788,7 @@ fn main() {
 - **Sealed Traits**: Algebraic data types
 
 **Concurrent Collections:**
+
 - **TrieMap**: Lock-free concurrent map
 - **Concurrent collections** in `scala.collection.concurrent`
 
@@ -786,6 +799,7 @@ Here's a comprehensive overview of data structures in Haskell, along with the pr
 ## Haskell Data Structures
 
 **Basic Types:**
+
 - **Int**: Fixed-precision integers
 - **Integer**: Arbitrary-precision integers
 - **Float**, **Double**: Floating-point numbers
@@ -795,12 +809,14 @@ Here's a comprehensive overview of data structures in Haskell, along with the pr
 - **Unit**: `()` (empty tuple)
 
 **Built-in Algebraic Data Types:**
+
 - **Maybe a**: Optional values (`Nothing | Just a`)
 - **Either a b**: Union types (`Left a | Right b`)
 - **Ordering**: `LT | EQ | GT`
 - **IO a**: I/O actions
 
 **Lists and Sequences:**
+
 - **List [a]**: Singly-linked lists (fundamental structure)
 - **Data.Sequence**: Finger trees (efficient random access)
 - **Data.Vector**: Boxed vectors (array-like)
@@ -810,10 +826,12 @@ Here's a comprehensive overview of data structures in Haskell, along with the pr
 - **Data.Text**: Efficient Unicode text
 
 **Tuples:**
+
 - **Tuples**: `(a, b)`, `(a, b, c)`, etc. (up to large arities)
 - **Data.Tuple**: Tuple utilities
 
 **Trees:**
+
 - **Data.Tree**: Rose trees (multi-way trees)
 - **Data.Map**: Balanced binary trees (size-balanced trees)
 - **Data.IntMap**: Maps with Int keys (Patricia trees)
@@ -821,25 +839,30 @@ Here's a comprehensive overview of data structures in Haskell, along with the pr
 - **Data.IntSet**: Sets of Ints (Patricia trees)
 
 **Hash-based Structures:**
+
 - **Data.HashMap.Strict/Lazy**: Hash array mapped tries
 - **Data.HashSet**: Hash sets
 - **Data.Hashtable**: Mutable hash tables (ST/IO)
 
 **Queues and Deques:**
+
 - **Data.Sequence**: Double-ended queues (finger trees)
 - **Data.Queue**: Simple queues
 - **Data.Dequeue**: Double-ended queues
 - **Data.PSQueue**: Priority search queues
 
 **Heaps:**
+
 - **Data.Heap**: Min/max heaps
 - **Data.PQueue**: Priority queues
 
 **Graphs:**
+
 - **Data.Graph**: Basic graph representation
 - **Data.Tree**: Tree structures from graphs
 
 **Mutable Structures (ST/IO):**
+
 - **Data.Array.ST**: Mutable arrays in ST
 - **Data.Array.IO**: Mutable arrays in IO
 - **Data.Vector.Mutable**: Mutable vectors
@@ -848,24 +871,28 @@ Here's a comprehensive overview of data structures in Haskell, along with the pr
 - **Data.IORef**: Mutable references in IO
 
 **Specialized Arrays:**
+
 - **Data.Array**: Immutable arrays
 - **Data.Array.Unboxed**: Unboxed arrays
 - **Data.Array.IArray**: Array interface
 - **Data.Array.MArray**: Mutable array interface
 
 **Functional Data Structures:**
+
 - **Data.DList**: Difference lists (efficient append)
 - **Data.Edison**: Collection of functional data structures
 - **Data.FingerTree**: 2-3 finger trees
 - **Data.Trie**: Trie structures
 
 **Concurrent/Parallel Structures:**
+
 - **Control.Concurrent.STM**: Software transactional memory
 - **Data.Concurrent.Queue**: Lock-free queues
 - **Control.Concurrent.MVar**: Mutable variables
 - **Control.Concurrent.Chan**: Channels
 
 **Custom Algebraic Data Types:**
+
 ```haskell
 data Tree a = Leaf | Node a (Tree a) (Tree a)
 data Rose a = Rose a [Rose a]
@@ -873,14 +900,15 @@ data List a = Nil | Cons a (List a)
 ```
 
 **Newtypes and Type Synonyms:**
+
 ```haskell
 newtype Identity a = Identity a
 type String = [Char]
 type FilePath = String
 ```
 
-
 **Record Types:**
+
 ```haskell
 data Person = Person 
   { name :: String
