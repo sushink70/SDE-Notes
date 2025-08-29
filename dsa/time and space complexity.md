@@ -1,8 +1,10 @@
+# Time and Space Complexity in DSA
+
 Got it 👍 Let’s go step by step in a **clear, addictive, and fun way** so you’ll actually enjoy learning time and space complexities in DSA.
 
 ---
 
-# 🚀 What Are Time and Space Complexities?
+## 🚀 What Are Time and Space Complexities?
 
 When we write an algorithm, two big questions always matter:
 
@@ -16,7 +18,7 @@ Think of it like this:
 
 ---
 
-# 📊 Big-O Notation
+## 📊 Big-O Notation
 
 We usually describe both **time** and **space** using **Big-O notation**.
 Big-O gives us an **upper bound** (worst-case growth rate) of the algorithm.
@@ -35,7 +37,7 @@ Examples of common complexities (from fastest to slowest):
 
 ---
 
-# 🔍 Time Complexity Examples
+## 🔍 Time Complexity Examples
 
 ### 1. O(1) – Constant Time
 
@@ -100,7 +102,7 @@ fn binary_search(arr: &[i32], target: i32) -> bool {
 
 ---
 
-# 🧠 Space Complexity Examples
+## 🧠 Space Complexity Examples
 
 1. **O(1)** → No extra memory (just variables).
 
@@ -126,7 +128,7 @@ fn binary_search(arr: &[i32], target: i32) -> bool {
 
 ---
 
-# ⚡ Memory: Stack vs Heap Connection
+## ⚡ Memory: Stack vs Heap Connection
 
 When talking about space:
 
@@ -140,7 +142,7 @@ Example:
 
 ---
 
-# 🎯 Quick Trick to Analyze Complexity
+## 🎯 Quick Trick to Analyze Complexity
 
 1. **Loops:**
 
@@ -168,7 +170,7 @@ Perfect 😃 Let’s build a **visual memory map** of time & space complexities 
 
 ---
 
-# 🧩 Complexity Cheat Map (ASCII Diagram)
+## 🧩 Complexity Cheat Map (ASCII Diagram)
 
 ```
                    Time & Space Complexities
@@ -207,7 +209,7 @@ O(n!)   Factorial
 
 ---
 
-# 💾 Space Complexity Map
+## 💾 Space Complexity Map
 
 ```
 STACK (fixed size, fast, local)
@@ -224,7 +226,7 @@ Common Patterns:
 
 ---
 
-# 🔑 Quick Recognition Tricks
+## 🔑 Quick Recognition Tricks
 
 * **One loop → O(n)**
 * **Two nested loops → O(n²)**
@@ -243,40 +245,40 @@ Common Patterns:
 
 Would you like me to make this into a **picture-style diagram (like blocks/flow chart)** so you can print or keep as wallpaper?
 
-
 I'll provide a comprehensive guide to DSA time and space complexity analysis strategies and techniques.I've created a comprehensive guide covering DSA time and space complexity analysis. The guide includes:
 
 **Core Techniques:**
-- Loop analysis patterns (single, nested, logarithmic)
-- Recursive complexity using Master Theorem
-- Amortized analysis methods
-- Space complexity considerations (auxiliary vs total space)
+* Loop analysis patterns (single, nested, logarithmic)
+* Recursive complexity using Master Theorem
+* Amortized analysis methods
+* Space complexity considerations (auxiliary vs total space)
 
 **Practical Knowledge:**
-- Complete complexity tables for sorting, searching, and graph algorithms
-- Algorithm design pattern complexities
-- Time-space tradeoff strategies
-- Data structure selection guidelines
+* Complete complexity tables for sorting, searching, and graph algorithms
+* Algorithm design pattern complexities
+* Time-space tradeoff strategies
+* Data structure selection guidelines
 
 **Advanced Topics:**
-- Probabilistic and competitive analysis
-- Lower bound proof techniques
-- Parameterized complexity
-- Cache-aware algorithm design
+* Probabilistic and competitive analysis
+* Lower bound proof techniques
+* Parameterized complexity
+* Cache-aware algorithm design
 
 **Real-World Application:**
-- Common pitfalls to avoid
-- Best practices for analysis and optimization
-- Complexity constraints by problem size
-- Memory usage guidelines
+* Common pitfalls to avoid
+* Best practices for analysis and optimization
+* Complexity constraints by problem size
+* Memory usage guidelines
 
 The guide emphasizes both theoretical understanding and practical application, helping you analyze complexity accurately and choose optimal algorithms for different constraints. Each technique includes concrete examples and implementation patterns you can apply directly to your DSA problems.
 
 Would you like me to elaborate on any specific technique or provide more detailed examples for particular algorithm categories?
 
-# Comprehensive DSA Time & Space Complexity Guide
+## Comprehensive DSA Time & Space Complexity Guide
 
 ## Table of Contents
+
 1. [Fundamental Concepts](#fundamental-concepts)
 2. [Time Complexity Analysis Techniques](#time-complexity-analysis-techniques)
 3. [Space Complexity Analysis Techniques](#space-complexity-analysis-techniques)
@@ -288,24 +290,27 @@ Would you like me to elaborate on any specific technique or provide more detaile
 ## Fundamental Concepts
 
 ### Big O Notation Hierarchy
+
 ```
 O(1) < O(log n) < O(n) < O(n log n) < O(n²) < O(n³) < O(2ⁿ) < O(n!)
 ```
 
 ### Growth Rate Comparison
+
 - **O(1)**: Constant - Hash table lookup
-- **O(log n)**: Logarithmic - Binary search
-- **O(n)**: Linear - Array traversal
-- **O(n log n)**: Linearithmic - Merge sort
-- **O(n²)**: Quadratic - Nested loops
-- **O(2ⁿ)**: Exponential - Recursive Fibonacci
-- **O(n!)**: Factorial - Permutation generation
+* **O(log n)**: Logarithmic - Binary search
+* **O(n)**: Linear - Array traversal
+* **O(n log n)**: Linearithmic - Merge sort
+* **O(n²)**: Quadratic - Nested loops
+* **O(2ⁿ)**: Exponential - Recursive Fibonacci
+* **O(n!)**: Factorial - Permutation generation
 
 ## Time Complexity Analysis Techniques
 
 ### 1. Loop Analysis
 
 #### Single Loop
+
 ```python
 # O(n)
 for i in range(n):
@@ -313,6 +318,7 @@ for i in range(n):
 ```
 
 #### Nested Loops
+
 ```python
 # O(n²) - Both loops depend on n
 for i in range(n):
@@ -326,6 +332,7 @@ for i in range(n):
 ```
 
 #### Loop with Decreasing/Increasing Steps
+
 ```python
 # O(log n) - Dividing by 2 each iteration
 i = 1
@@ -343,9 +350,11 @@ while i > 0:
 ### 2. Recursive Analysis
 
 #### Master Theorem
+
 For recurrences of the form: `T(n) = aT(n/b) + f(n)`
 
 **Cases:**
+
 1. If f(n) = O(n^(log_b(a) - ε)), then T(n) = Θ(n^log_b(a))
 2. If f(n) = Θ(n^log_b(a)), then T(n) = Θ(n^log_b(a) * log n)
 3. If f(n) = Ω(n^(log_b(a) + ε)), then T(n) = Θ(f(n))
@@ -360,17 +369,20 @@ For recurrences of the form: `T(n) = aT(n/b) + f(n)`
 ### 3. Amortized Analysis
 
 #### Aggregate Method
+
 Calculate total cost of n operations, divide by n.
 
 #### Accounting Method
+
 Assign costs to operations, maintain non-negative credit.
 
 #### Potential Method
+
 Use potential function to represent stored work.
 
 **Example: Dynamic Array**
-- Individual insertion: O(n) worst case
-- Amortized insertion: O(1) average
+* Individual insertion: O(n) worst case
+* Amortized insertion: O(1) average
 
 ## Space Complexity Analysis Techniques
 
@@ -398,16 +410,17 @@ def factorial_iterative(n):
 
 ### 3. Data Structure Space Requirements
 
-- **Array:** O(n)
-- **Linked List:** O(n) + pointer overhead
-- **Binary Tree:** O(n) + pointer overhead
-- **Hash Table:** O(n) + bucket overhead
-- **Graph (Adjacency Matrix):** O(V²)
-- **Graph (Adjacency List):** O(V + E)
+* **Array:** O(n)
+* **Linked List:** O(n) + pointer overhead
+* **Binary Tree:** O(n) + pointer overhead
+* **Hash Table:** O(n) + bucket overhead
+* **Graph (Adjacency Matrix):** O(V²)
+* **Graph (Adjacency List):** O(V + E)
 
 ## Algorithm Categories & Complexities
 
 ### Sorting Algorithms
+
 | Algorithm | Best | Average | Worst | Space | Stable |
 |-----------|------|---------|-------|-------|--------|
 | Bubble Sort | O(n) | O(n²) | O(n²) | O(1) | Yes |
@@ -419,6 +432,7 @@ def factorial_iterative(n):
 | Radix Sort | O(d(n+b)) | O(d(n+b)) | O(d(n+b)) | O(n+b) | Yes |
 
 ### Search Algorithms
+
 | Algorithm | Time | Space | Requirements |
 |-----------|------|-------|--------------|
 | Linear Search | O(n) | O(1) | None |
@@ -427,6 +441,7 @@ def factorial_iterative(n):
 | BST Search | O(log n) avg | O(1) | Balanced tree |
 
 ### Graph Algorithms
+
 | Algorithm | Time | Space | Use Case |
 |-----------|------|-------|----------|
 | BFS | O(V + E) | O(V) | Shortest path (unweighted) |
@@ -437,6 +452,7 @@ def factorial_iterative(n):
 | Prim's | O((V + E) log V) | O(V) | Minimum spanning tree |
 
 ### Dynamic Programming
+
 | Problem | Time | Space | Optimization |
 |---------|------|-------|--------------|
 | Fibonacci | O(n) | O(1) | Bottom-up |
@@ -447,25 +463,30 @@ def factorial_iterative(n):
 ## Advanced Analysis Techniques
 
 ### 1. Probabilistic Analysis
+
 - **Expected Time:** Average over all possible inputs
-- **Randomized Algorithms:** Algorithm makes random choices
-- **Monte Carlo vs Las Vegas:** Correctness vs runtime guarantees
+* **Randomized Algorithms:** Algorithm makes random choices
+* **Monte Carlo vs Las Vegas:** Correctness vs runtime guarantees
 
 ### 2. Competitive Analysis
+
 - **Online Algorithms:** Process input incrementally
-- **Competitive Ratio:** Compare to optimal offline algorithm
+* **Competitive Ratio:** Compare to optimal offline algorithm
 
 ### 3. Parameterized Complexity
+
 - **Fixed Parameter Tractable (FPT):** O(f(k) * n^c)
-- **Parameter:** Small integer that affects complexity
+* **Parameter:** Small integer that affects complexity
 
 ### 4. Lower Bound Techniques
 
 #### Comparison-Based Sorting
+
 - Decision tree model proves Ω(n log n) lower bound
-- Information theoretic argument: need log(n!) bits
+* Information theoretic argument: need log(n!) bits
 
 #### Element Distinctness
+
 - Algebraic decision tree model proves Ω(n log n)
 
 ## Optimization Strategies
@@ -473,6 +494,7 @@ def factorial_iterative(n):
 ### 1. Time-Space Tradeoffs
 
 #### Memoization
+
 ```python
 # Time: O(n), Space: O(n)
 def fibonacci_memo(n, memo={}):
@@ -485,6 +507,7 @@ def fibonacci_memo(n, memo={}):
 ```
 
 #### Space Optimization
+
 ```python
 # Time: O(n), Space: O(1)
 def fibonacci_optimized(n):
@@ -499,56 +522,62 @@ def fibonacci_optimized(n):
 ### 2. Algorithm Design Patterns
 
 #### Divide and Conquer
+
 - **Time:** Often O(n log n)
-- **Space:** O(log n) due to recursion
-- **Examples:** Merge sort, quick sort, binary search
+* **Space:** O(log n) due to recursion
+* **Examples:** Merge sort, quick sort, binary search
 
 #### Greedy Algorithms
+
 - **Time:** Usually O(n log n) due to sorting
-- **Space:** O(1) typically
-- **Examples:** Huffman coding, activity selection
+* **Space:** O(1) typically
+* **Examples:** Huffman coding, activity selection
 
 #### Dynamic Programming
+
 - **Time:** O(n^k) for k-dimensional problems
-- **Space:** Can often be reduced by one dimension
-- **Examples:** LCS, knapsack, shortest paths
+* **Space:** Can often be reduced by one dimension
+* **Examples:** LCS, knapsack, shortest paths
 
 ### 3. Data Structure Optimization
 
 #### Choose Right Data Structure
+
 - **Frequent lookups:** Hash table O(1)
-- **Ordered operations:** Balanced BST O(log n)
-- **Range queries:** Segment tree O(log n)
-- **Union operations:** Disjoint set O(α(n))
+* **Ordered operations:** Balanced BST O(log n)
+* **Range queries:** Segment tree O(log n)
+* **Union operations:** Disjoint set O(α(n))
 
 #### Hybrid Approaches
+
 - **Timsort:** Merge + insertion sort
-- **Introsort:** Quick + heap + insertion sort
-- **Cache-oblivious algorithms:** Optimize for memory hierarchy
+* **Introsort:** Quick + heap + insertion sort
+* **Cache-oblivious algorithms:** Optimize for memory hierarchy
 
 ## Common Pitfalls & Best Practices
 
 ### Analysis Pitfalls
 
 1. **Ignoring Hidden Constants**
-   - O(1) hash operations can be expensive
-   - String operations often O(length)
+   * O(1) hash operations can be expensive
+   * String operations often O(length)
 
 2. **Worst Case vs Average Case**
-   - Quick sort: O(n²) worst, O(n log n) average
-   - Hash table: O(n) worst, O(1) average
+   * Quick sort: O(n²) worst, O(n log n) average
+   * Hash table: O(n) worst, O(1) average
 
 3. **Input Size Assumptions**
-   - What constitutes "n"?
-   - Multiple variables (n, m, k)
+   * What constitutes "n"?
+   * Multiple variables (n, m, k)
 
 4. **Space Complexity Oversights**
-   - Recursive call stack
-   - Input modification vs auxiliary space
+   * Recursive call stack
+   * Input modification vs auxiliary space
 
 ### Best Practices
 
 #### 1. Always Consider Both Time and Space
+
 ```python
 # Time: O(n²), Space: O(1) - in-place
 def bubble_sort_inplace(arr):
@@ -569,11 +598,13 @@ def merge_sort(arr):
 ```
 
 #### 2. Profile Before Optimizing
+
 - Identify actual bottlenecks
-- Consider input characteristics
-- Measure real performance
+* Consider input characteristics
+* Measure real performance
 
 #### 3. Document Complexity
+
 ```python
 def two_sum(nums, target):
     """
@@ -599,67 +630,71 @@ def two_sum(nums, target):
 ```
 
 #### 4. Consider Input Constraints
+
 - Small n: Even O(n³) might be acceptable
-- Large n: Need sublinear or linear solutions
-- Online vs offline algorithms
-- Memory constraints
+* Large n: Need sublinear or linear solutions
+* Online vs offline algorithms
+* Memory constraints
 
 #### 5. Understand Amortized Analysis
+
 - Dynamic arrays: O(1) amortized insertion
-- Disjoint sets: O(α(n)) amortized operations
-- Splay trees: O(log n) amortized operations
+* Disjoint sets: O(α(n)) amortized operations
+* Splay trees: O(log n) amortized operations
 
 ### Complexity Cheat Sheet
 
 #### Common Time Complexities by Problem Size
+
 - **n ≤ 10:** O(n!), O(2ⁿ)
-- **n ≤ 20:** O(2ⁿ), O(n³)
-- **n ≤ 500:** O(n³)
-- **n ≤ 5000:** O(n²)
-- **n ≤ 10⁶:** O(n log n)
-- **n ≤ 10⁸:** O(n)
-- **n > 10⁸:** O(log n), O(1)
+* **n ≤ 20:** O(2ⁿ), O(n³)
+* **n ≤ 500:** O(n³)
+* **n ≤ 5000:** O(n²)
+* **n ≤ 10⁶:** O(n log n)
+* **n ≤ 10⁸:** O(n)
+* **n > 10⁸:** O(log n), O(1)
 
 #### Memory Usage Guidelines
+
 - **Arrays:** 4-8 bytes per element (int/pointer)
-- **Strings:** 1-4 bytes per character
-- **Objects:** Additional overhead (24+ bytes in Java)
-- **Call stack:** Typically 1MB limit (1000-10000 calls)
+* **Strings:** 1-4 bytes per character
+* **Objects:** Additional overhead (24+ bytes in Java)
+* **Call stack:** Typically 1MB limit (1000-10000 calls)
 
 This comprehensive guide provides the foundation for analyzing and optimizing algorithm complexity. Remember that complexity analysis is both an art and a science - theoretical bounds matter, but so does practical performance on real inputs.
 
 I'll create a comprehensive guide covering all the important pattern recognition algorithms in Data Structures and Algorithms (DSA) with sample code and complexity analysis.I've created a comprehensive guide covering all the major pattern recognition algorithms in DSA. The document includes:
 
 **String Pattern Matching:**
-- Naive/Brute Force approach
-- KMP (Knuth-Morris-Pratt) with LPS array
-- Rabin-Karp using rolling hash
-- Boyer-Moore with bad character heuristic
+* Naive/Brute Force approach
+* KMP (Knuth-Morris-Pratt) with LPS array
+* Rabin-Karp using rolling hash
+* Boyer-Moore with bad character heuristic
 
 **Subsequence Patterns:**
-- Longest Common Subsequence (LCS)
-- Longest Increasing Subsequence (LIS) with both O(n²) and O(n log n) solutions
+* Longest Common Subsequence (LCS)
+* Longest Increasing Subsequence (LIS) with both O(n²) and O(n log n) solutions
 
 **Array Patterns:**
-- Sliding Window Maximum using deque
-- Kadane's Algorithm for maximum subarray sum
+* Sliding Window Maximum using deque
+* Kadane's Algorithm for maximum subarray sum
 
 **Tree & Graph Patterns:**
-- Various tree traversals and path sum
-- Cycle detection in both directed and undirected graphs
+* Various tree traversals and path sum
+* Cycle detection in both directed and undirected graphs
 
 **Advanced Algorithms:**
-- Z Algorithm for linear time pattern matching
-- Manacher's Algorithm for palindrome detection
+* Z Algorithm for linear time pattern matching
+* Manacher's Algorithm for palindrome detection
 
 Each algorithm includes:
-- Complete working code with examples
-- Detailed time and space complexity analysis
-- Practical use cases and applications
+* Complete working code with examples
+* Detailed time and space complexity analysis
+* Practical use cases and applications
 
 The algorithms range from basic O(n*m) brute force approaches to sophisticated O(n) linear time solutions, covering the most important pattern recognition techniques you'll encounter in competitive programming and technical interviews.
 
-# Pattern Recognition Algorithms in DSA
+## Pattern Recognition Algorithms in DSA
 
 ## 1. String Pattern Matching Algorithms
 
@@ -1225,34 +1260,34 @@ I've completed the comprehensive guide with advanced real-world pattern recognit
 **Key highlights of the advanced sections:**
 
 **Real-World Applications:**
-- **Aho-Corasick**: Used in antivirus software and intrusion detection systems
-- **Suffix Arrays**: Essential for bioinformatics and genome analysis
-- **Rolling Hash**: Powers content deduplication in distributed systems
-- **Bloom Filters**: Optimize database queries and web crawling
-- **Radix Trees**: Enable efficient IP routing and autocomplete features
-- **Geometric Pattern Matching**: Used in computer vision and robotics
-- **Time Series DTW**: Powers speech recognition and financial analysis
-- **HMMs**: Enable speech recognition and gene finding
-- **Neural Networks**: Form the basis of modern AI pattern recognition
-- **Graph Pattern Matching**: Analyzes social networks and protein structures
-- **Streaming Pattern Detection**: Enables real-time analytics and IoT monitoring
+* **Aho-Corasick**: Used in antivirus software and intrusion detection systems
+* **Suffix Arrays**: Essential for bioinformatics and genome analysis
+* **Rolling Hash**: Powers content deduplication in distributed systems
+* **Bloom Filters**: Optimize database queries and web crawling
+* **Radix Trees**: Enable efficient IP routing and autocomplete features
+* **Geometric Pattern Matching**: Used in computer vision and robotics
+* **Time Series DTW**: Powers speech recognition and financial analysis
+* **HMMs**: Enable speech recognition and gene finding
+* **Neural Networks**: Form the basis of modern AI pattern recognition
+* **Graph Pattern Matching**: Analyzes social networks and protein structures
+* **Streaming Pattern Detection**: Enables real-time analytics and IoT monitoring
 
 **Advanced Features:**
-- Complete implementations with proper error handling
-- Real-world examples from different domains
-- Performance optimization techniques
-- Scalability considerations
-- Memory-efficient algorithms for large datasets
+* Complete implementations with proper error handling
+* Real-world examples from different domains
+* Performance optimization techniques
+* Scalability considerations
+* Memory-efficient algorithms for large datasets
 
 **Industry Applications:**
-- Cybersecurity (pattern matching in network traffic)
-- Bioinformatics (DNA/protein sequence analysis)
-- Finance (algorithmic trading, fraud detection)
-- Search engines (text indexing and retrieval)
-- Computer vision (object recognition, medical imaging)
-- Natural language processing (machine translation, sentiment analysis)
-- Social media (recommendation systems, community detection)
-- IoT and sensor networks (anomaly detection, predictive maintenance)
+* Cybersecurity (pattern matching in network traffic)
+* Bioinformatics (DNA/protein sequence analysis)
+* Finance (algorithmic trading, fraud detection)
+* Search engines (text indexing and retrieval)
+* Computer vision (object recognition, medical imaging)
+* Natural language processing (machine translation, sentiment analysis)
+* Social media (recommendation systems, community detection)
+* IoT and sensor networks (anomaly detection, predictive maintenance)
 
 Each algorithm includes complexity analysis, practical examples, and discusses trade-offs between accuracy, speed, and memory usage that are crucial for production deployments.
 
@@ -1803,6 +1838,7 @@ print(f"Longest palindrome in '{s}': {longest_palindrome(s)}")
 ## 7. Advanced Real-World Pattern Recognition
 
 ### 7.1 Aho-Corasick Algorithm (Multiple Pattern Matching)
+
 *Used in: Antivirus software, intrusion detection, text editors*
 
 ```python
@@ -1893,6 +1929,7 @@ for start, idx, pattern in matches:
 **Real-world use:** Antivirus scanning, network intrusion detection, plagiarism detection
 
 ### 7.2 Suffix Array with LCP (Longest Common Prefix)
+
 *Used in: Bioinformatics, data compression, text indexing*
 
 ```python
@@ -1986,6 +2023,7 @@ print(f"Pattern 'ATC' found at: {sa_lcp.search_pattern('ATC')}")
 **Real-world use:** Genome analysis, data compression algorithms, full-text search
 
 ### 7.3 Rolling Hash with Polynomial Hashing
+
 *Used in: Distributed systems, database sharding, content deduplication*
 
 ```python
@@ -2058,6 +2096,7 @@ for substr, positions in duplicates:
 **Real-world use:** Content deduplication, distributed hash tables, caching systems
 
 ### 7.4 Bloom Filter for Pattern Existence
+
 *Used in: Databases, web crawlers, distributed systems*
 
 ```python
@@ -2134,6 +2173,7 @@ print(f"False positive probability: {bf.false_positive_probability():.4f}")
 **Real-world use:** Database query optimization, web crawling, caching
 
 ### 7.5 Trie with Compressed Paths (Radix Tree)
+
 *Used in: IP routing tables, autocomplete systems, file systems*
 
 ```python
@@ -2275,10 +2315,11 @@ print(f"Autocomplete 'ru': {rt.autocomplete('ru')}")
 ```
 
 **Time Complexity:** O(k) where k=key length  
-**Space Complexity:** O(ALPHABET_SIZE * N * M) worst case  
+**Space Complexity:** O(ALPHABET_SIZE *N* M) worst case  
 **Real-world use:** IP routing, file system directories, autocomplete
 
 ### 7.6 Geometric Pattern Matching (2D)
+
 *Used in: Computer vision, image processing, robotics*
 
 ```python
@@ -2437,6 +2478,7 @@ print(f"Found {len(matches)} potential triangle matches")
 **Real-world use:** Object recognition, medical imaging, quality control
 
 ### 7.7 Time Series Pattern Recognition (DTW)
+
 *Used in: Speech recognition, financial analysis, bioinformatics*
 
 ```python
@@ -2590,6 +2632,7 @@ print(f"Found uptrend pattern at positions: {matches}")
 **Real-world use:** Speech recognition, gesture recognition, financial analysis, medical signal processing
 
 ### 7.8 Approximate String Matching (Edit Distance Variants)
+
 *Used in: Spell checkers, DNA sequence alignment, fuzzy search*
 
 ```python
@@ -2848,6 +2891,7 @@ print(f"Score: {local_alignment[2]}")
 **Real-world use:** Bioinformatics, spell checking, plagiarism detection, version control
 
 ### 7.9 Probabilistic Pattern Matching (HMM)
+
 *Used in: Speech recognition, bioinformatics, natural language processing*
 
 ```python
@@ -3083,6 +3127,7 @@ print(f"Observation sequence probability: {obs_probability:.6f}")
 **Real-world use:** Speech recognition, gene finding, financial modeling, weather prediction
 
 ### 7.10 Neural Pattern Recognition (Simple Perceptron for Pattern Classification)
+
 *Used in: Image recognition, text classification, anomaly detection*
 
 ```python
@@ -3314,6 +3359,7 @@ for i in range(len(X_img)):
 **Real-world use:** Image classification, text sentiment analysis, fraud detection
 
 ### 7.11 Advanced Graph Pattern Matching
+
 *Used in: Social network analysis, protein structure analysis, circuit design*
 
 ```python
@@ -3887,7 +3933,7 @@ print(f"\nFinal statistics: {stream_detector.get_statistics()}")
 | Suffix Array + LCP | O(n log n) build, O(log n + k) search | O(n) | Bioinformatics, full-text search, data compression |
 | Rolling Hash | O(n) | O(1) | Content deduplication, distributed systems |
 | Bloom Filter | O(k) per operation | O(m) | Database optimization, web crawling, caching |
-| Radix Tree | O(k) | O(ALPHABET_SIZE * N * M) | IP routing, autocomplete, file systems |
+| Radix Tree | O(k) | O(ALPHABET_SIZE *N* M) | IP routing, autocomplete, file systems |
 | 2D Geometric | O(n*m) | O(m) | Computer vision, robotics, medical imaging |
 | DTW (Time Series) | O(n*m) | O(n*m) | Speech recognition, financial analysis, bioinformatics |
 | Edit Distance Variants | O(n*m) | O(n*m) | Spell checking, DNA alignment, fuzzy search |

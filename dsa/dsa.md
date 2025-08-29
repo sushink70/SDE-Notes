@@ -1,8 +1,11 @@
+# DSA
+
 Data structures and algorithms are two fundamental concepts in computer science that work together but serve different purposes:
 
 **Data Structures** are ways of organizing and storing data in a computer so that it can be accessed and used efficiently. They define how data is arranged in memory and what operations can be performed on that data. Think of them as containers or organizational systems for your data.
 
 Common examples include:
+
 - Arrays (store elements in sequential memory locations)
 - Linked Lists (elements connected through pointers)
 - Stacks (last-in, first-out structure)
@@ -13,6 +16,7 @@ Common examples include:
 **Algorithms** are step-by-step procedures or sets of rules for solving specific problems or performing computations. They define the logic and methodology for manipulating data, regardless of how that data is stored.
 
 Common examples include:
+
 - Sorting algorithms (bubble sort, merge sort, quicksort)
 - Search algorithms (linear search, binary search)
 - Graph traversal algorithms (breadth-first search, depth-first search)
@@ -36,6 +40,7 @@ Here's a comprehensive list of data structures, organized by category:
 ## Linear Data Structures
 
 **Arrays and Array-like Structures:**
+
 - Static Array (fixed size)
 - Dynamic Array (resizable, like ArrayList, Vector)
 - Sparse Array (for arrays with many empty elements)
@@ -43,6 +48,7 @@ Here's a comprehensive list of data structures, organized by category:
 - Multi-dimensional Arrays (2D, 3D, etc.)
 
 **Lists:**
+
 - Singly Linked List
 - Doubly Linked List
 - Circular Linked List
@@ -50,6 +56,7 @@ Here's a comprehensive list of data structures, organized by category:
 - Unrolled Linked List
 
 **Stack and Queue Variants:**
+
 - Stack (LIFO)
 - Queue (FIFO)
 - Circular Queue
@@ -59,6 +66,7 @@ Here's a comprehensive list of data structures, organized by category:
 ## Non-Linear Data Structures
 
 **Trees:**
+
 - Binary Tree
 - Binary Search Tree (BST)
 - AVL Tree (self-balancing BST)
@@ -84,6 +92,7 @@ Here's a comprehensive list of data structures, organized by category:
 - LSM Tree
 
 **Graphs:**
+
 - Directed Graph (Digraph)
 - Undirected Graph
 - Weighted Graph
@@ -96,6 +105,7 @@ Here's a comprehensive list of data structures, organized by category:
 - Dense Graph
 
 ## Hash-based Structures
+
 - Hash Table/Hash Map
 - Hash Set
 - Bloom Filter
@@ -106,6 +116,7 @@ Here's a comprehensive list of data structures, organized by category:
 - Consistent Hashing
 
 ## String Data Structures
+
 - String (basic)
 - Rope (for large strings)
 - Trie (Prefix Tree)
@@ -118,6 +129,7 @@ Here's a comprehensive list of data structures, organized by category:
 ## Advanced/Specialized Structures
 
 **Set and Map Variants:**
+
 - Disjoint Set (Union-Find)
 - Ordered Set/Map
 - Multiset/Multimap
@@ -125,6 +137,7 @@ Here's a comprehensive list of data structures, organized by category:
 - Range Tree
 
 **Geometric Data Structures:**
+
 - Point
 - Line Segment
 - Polygon
@@ -135,35 +148,41 @@ Here's a comprehensive list of data structures, organized by category:
 - Range Tree
 
 **Database Structures:**
+
 - B+ Tree (for databases)
 - LSM Tree (Log-Structured Merge Tree)
 - Merkle Tree
 - Patricia Trie
 
 **Concurrent/Parallel Structures:**
+
 - Lock-free Stack
 - Lock-free Queue
 - Concurrent Hash Map
 - Read-Copy-Update (RCU) structures
 
 **Probabilistic Structures:**
+
 - Bloom Filter
 - Count-Min Sketch
 - HyperLogLog
 - Skip List
 
 **Cache-related Structures:**
+
 - LRU Cache
 - LFU Cache
 - Cache-Oblivious structures
 
 **Functional Programming Structures:**
+
 - Persistent List
 - Persistent Tree
 - Immutable structures
 - Copy-on-Write structures
 
 **Specialized Application Structures:**
+
 - Matrix (sparse, dense)
 - Tensor
 - Time Series structures
@@ -177,6 +196,7 @@ Here's a comprehensive list of algorithms organized by category:
 ## Sorting Algorithms
 
 **Comparison-based Sorting:**
+
 - Bubble Sort
 - Selection Sort
 - Insertion Sort
@@ -191,6 +211,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Intro Sort
 
 **Non-comparison Sorting:**
+
 - Counting Sort
 - Radix Sort
 - Bucket Sort
@@ -198,6 +219,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Flash Sort
 
 **Specialized Sorting:**
+
 - Topological Sort
 - External Sorting
 - Parallel Sorting algorithms
@@ -206,6 +228,7 @@ Here's a comprehensive list of algorithms organized by category:
 ## Search Algorithms
 
 **Linear Search Variants:**
+
 - Linear Search
 - Sentinel Linear Search
 - Binary Search
