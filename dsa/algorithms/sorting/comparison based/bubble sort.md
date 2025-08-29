@@ -580,6 +580,364 @@ I'll provide comprehensive code implementations of Bubble Sort covering all the 
 
 The code includes detailed examples, performance analysis, and demonstrates how Bubble Sort maintains all the characteristics you listed while being practical for educational purposes and small datasets.
 
+## Bubble Sort - How It Works (ASCII Diagrams)
+
+## Overview: The "Bubbling" Effect
+
+```ascii
+Large elements "bubble up" to the right like air bubbles rising in water
+Small elements "sink down" to the left
+
+[64] [34] [25] [12] [22] [11] [90]
+ ↑                               ↑
+heavy                          light
+(sinks)                     (bubbles up)
+```
+
+## Complete Step-by-Step Example
+
+### Initial Array: [64, 34, 25, 12, 22, 11, 90]
+
+```ascii
+Pass 1: Bubble the largest element to the end
+========================================
+
+Step 1: Compare 64 and 34
+[64] [34] [25] [12] [22] [11] [90]
+  ↑    ↑
+64 > 34? YES → SWAP
+
+[34] [64] [25] [12] [22] [11] [90]
+      ↓    ↓
+     swapped
+
+Step 2: Compare 64 and 25
+[34] [64] [25] [12] [22] [11] [90]
+      ↑    ↑
+64 > 25? YES → SWAP
+
+[34] [25] [64] [12] [22] [11] [90]
+           ↓    ↓
+          swapped
+
+Step 3: Compare 64 and 12
+[34] [25] [64] [12] [22] [11] [90]
+           ↑    ↑
+64 > 12? YES → SWAP
+
+[34] [25] [12] [64] [22] [11] [90]
+                ↓    ↓
+               swapped
+
+Step 4: Compare 64 and 22
+[34] [25] [12] [64] [22] [11] [90]
+                ↑    ↑
+64 > 22? YES → SWAP
+
+[34] [25] [12] [22] [64] [11] [90]
+                     ↓    ↓
+                    swapped
+
+Step 5: Compare 64 and 11
+[34] [25] [12] [22] [64] [11] [90]
+                     ↑    ↑
+64 > 11? YES → SWAP
+
+[34] [25] [12] [22] [11] [64] [90]
+                          ↓    ↓
+                         swapped
+
+Step 6: Compare 64 and 90
+[34] [25] [12] [22] [11] [64] [90]
+                          ↑    ↑
+64 > 90? NO → NO SWAP
+
+Result after Pass 1:
+[34] [25] [12] [22] [11] [64] [90]
+                               ↑
+                          largest element
+                         is now in place
+```
+
+```ascii
+Pass 2: Bubble the second largest to its position
+================================================
+
+[34] [25] [12] [22] [11] [64] [90]
+ ↑    ↑                     │    │
+                      already sorted
+
+Step 1: 34 > 25? YES → SWAP
+[25] [34] [12] [22] [11] [64] [90]
+
+Step 2: 34 > 12? YES → SWAP
+[25] [12] [34] [22] [11] [64] [90]
+
+Step 3: 34 > 22? YES → SWAP
+[25] [12] [22] [34] [11] [64] [90]
+
+Step 4: 34 > 11? YES → SWAP
+[25] [12] [22] [11] [34] [64] [90]
+
+Step 5: 34 > 64? NO → NO SWAP
+[25] [12] [22] [11] [34] [64] [90]
+                     ↑    │    │
+              second largest  │    │
+                 in place  sorted region
+```
+
+```ascii
+Pass 3: Continue the process
+===========================
+
+[25] [12] [22] [11] [34] [64] [90]
+ ↑    ↑              │    │    │
+                  sorted region
+
+Step 1: 25 > 12? YES → SWAP
+[12] [25] [22] [11] [34] [64] [90]
+
+Step 2: 25 > 22? YES → SWAP
+[12] [22] [25] [11] [34] [64] [90]
+
+Step 3: 25 > 11? YES → SWAP
+[12] [22] [11] [25] [34] [64] [90]
+
+Step 4: 25 > 34? NO → NO SWAP
+[12] [22] [11] [25] [34] [64] [90]
+                 ↑    │    │    │
+            third largest  │    │    │
+               in place  sorted region
+```
+
+```ascii
+Pass 4: Getting closer to completion
+===================================
+
+[12] [22] [11] [25] [34] [64] [90]
+ ↑    ↑         │    │    │    │
+              sorted region
+
+Step 1: 12 > 22? NO → NO SWAP
+[12] [22] [11] [25] [34] [64] [90]
+
+Step 2: 22 > 11? YES → SWAP
+[12] [11] [22] [25] [34] [64] [90]
+
+Step 3: 22 > 25? NO → NO SWAP
+[12] [11] [22] [25] [34] [64] [90]
+           ↑    │    │    │    │
+      fourth largest  │    │    │
+         in place  sorted region
+```
+
+```ascii
+Pass 5: Almost done
+==================
+
+[12] [11] [22] [25] [34] [64] [90]
+ ↑    ↑    │    │    │    │    │
+        sorted region
+
+Step 1: 12 > 11? YES → SWAP
+[11] [12] [22] [25] [34] [64] [90]
+
+Step 2: 12 > 22? NO → NO SWAP
+[11] [12] [22] [25] [34] [64] [90]
+      ↑    │    │    │    │    │
+ fifth largest  │    │    │    │
+    in place  sorted region
+```
+
+```ascii
+Pass 6: Final check (optional with optimization)
+===============================================
+
+[11] [12] [22] [25] [34] [64] [90]
+ ↑    │    │    │    │    │    │
+   sorted region (all elements)
+
+Step 1: 11 > 12? NO → NO SWAP
+[11] [12] [22] [25] [34] [64] [90]
+
+No swaps occurred → Array is fully sorted!
+Early termination possible with optimization.
+```
+
+## Visual Representation of Each Pass
+
+```ascii
+Original:  [64] [34] [25] [12] [22] [11] [90]
+
+Pass 1:    [34] [25] [12] [22] [11] [64] [90] ← 90 bubbled to end
+            └─────── unsorted ───────┘  └─sorted─┘
+
+Pass 2:    [25] [12] [22] [11] [34] [64] [90] ← 64 bubbled to position
+            └───── unsorted ─────┘  └──sorted───┘
+
+Pass 3:    [12] [22] [11] [25] [34] [64] [90] ← 34 bubbled to position
+            └── unsorted ──┘  └─────sorted─────┘
+
+Pass 4:    [12] [11] [22] [25] [34] [64] [90] ← 25 bubbled to position
+            └unsorted┘  └────────sorted────────┘
+
+Pass 5:    [11] [12] [22] [25] [34] [64] [90] ← 22 bubbled to position
+            └─┘  └─────────sorted──────────────┘
+
+Pass 6:    [11] [12] [22] [25] [34] [64] [90] ← All sorted!
+            └──────────all sorted──────────────┘
+```
+
+## Comparison and Swap Pattern
+
+```ascii
+Adjacent Element Comparison Pattern:
+====================================
+
+For array of size n, we compare adjacent pairs:
+
+Pass 1: (n-1) comparisons
+[0,1] [1,2] [2,3] [3,4] [4,5] [5,6]
+  ↑     ↑     ↑     ↑     ↑     ↑
+  6 comparisons for 7 elements
+
+Pass 2: (n-2) comparisons  
+[0,1] [1,2] [2,3] [3,4] [4,5] [X,X]
+  ↑     ↑     ↑     ↑     ↑    skip
+  5 comparisons (last element already sorted)
+
+Pass 3: (n-3) comparisons
+[0,1] [1,2] [2,3] [3,4] [X,X] [X,X]
+  ↑     ↑     ↑     ↑    skip  skip
+  4 comparisons
+
+...and so on until 1 comparison
+```
+
+## Swap Mechanism Visualization
+
+```ascii
+Before Swap:           After Swap:
+============           ===========
+
+arr[j] = 64            arr[j] = 34
+arr[j+1] = 34          arr[j+1] = 64
+
+Memory View:
+[...] [64] [34] [...] → [...] [34] [64] [...]
+       ↑    ↑                  ↑    ↑
+      j   j+1                 j   j+1
+      
+Temporary Variable Method:
+1. temp = arr[j]     (temp = 64)
+2. arr[j] = arr[j+1] (arr[j] = 34)  
+3. arr[j+1] = temp   (arr[j+1] = 64)
+
+Python Tuple Method:
+arr[j], arr[j+1] = arr[j+1], arr[j]
+```
+
+## Optimization: Early Termination
+
+```ascii
+Without Optimization:
+====================
+Always performs n-1 passes regardless of whether array is sorted
+
+Pass 1: [5][4][3][2][1] → [4][3][2][1][5] ✓ (swaps occurred)
+Pass 2: [4][3][2][1][5] → [3][2][1][4][5] ✓ (swaps occurred)  
+Pass 3: [3][2][1][4][5] → [2][1][3][4][5] ✓ (swaps occurred)
+Pass 4: [2][1][3][4][5] → [1][2][3][4][5] ✓ (swaps occurred)
+Pass 5: [1][2][3][4][5] → [1][2][3][4][5] ✗ (no swaps needed!)
+
+With Optimization:
+=================
+Stops when no swaps occur in a pass
+
+Pass 1: [5][4][3][2][1] → [4][3][2][1][5] ✓ (swapped = true)
+Pass 2: [4][3][2][1][5] → [3][2][1][4][5] ✓ (swapped = true)
+Pass 3: [3][2][1][4][5] → [2][1][3][4][5] ✓ (swapped = true)  
+Pass 4: [2][1][3][4][5] → [1][2][3][4][5] ✓ (swapped = true)
+Pass 5: [1][2][3][4][5] → [1][2][3][4][5] ✗ (swapped = false)
+                                             STOP! Array is sorted.
+```
+
+## Best vs Worst Case Scenarios
+
+```ascii
+Best Case - Already Sorted Array:
+=================================
+Input: [1] [2] [3] [4] [5]
+
+Pass 1: Compare all adjacent pairs, no swaps needed
+[1]<[2] ✓  [2]<[3] ✓  [3]<[4] ✓  [4]<[5] ✓
+
+Result: [1] [2] [3] [4] [5] (no changes)
+Swapped = false → STOP after 1 pass!
+Time Complexity: O(n)
+
+Worst Case - Reverse Sorted Array:
+=================================
+Input: [5] [4] [3] [2] [1]
+
+Every comparison results in a swap:
+Pass 1: [4] [3] [2] [1] [5] (4 swaps)
+Pass 2: [3] [2] [1] [4] [5] (3 swaps)  
+Pass 3: [2] [1] [3] [4] [5] (2 swaps)
+Pass 4: [1] [2] [3] [4] [5] (1 swap)
+Pass 5: [1] [2] [3] [4] [5] (0 swaps)
+
+Total: 4+3+2+1 = 10 swaps = n(n-1)/2
+Time Complexity: O(n²)
+```
+
+## Memory Usage Visualization
+
+```ascii
+Stack Memory Layout:
+===================
+
+Function bubble_sort(arr):
+┌─────────────────────────┐
+│ Local Variables:        │
+│ ├─ n = 7                │ ← O(1) space
+│ ├─ i = 0,1,2...         │ ← O(1) space  
+│ ├─ j = 0,1,2...         │ ← O(1) space
+│ └─ swapped = true/false │ ← O(1) space
+└─────────────────────────┘
+
+Heap Memory (Array):
+===================
+┌──┬──┬──┬──┬──┬──┬──┐
+│64│34│25│12│22│11│90│ ← Original array modified in-place
+└──┴──┴──┴──┴──┴──┴──┘
+ ↑                   
+ Same memory location throughout sorting
+
+Total Space: O(1) auxiliary space + O(n) input space
+```
+
+I've created comprehensive ASCII diagrams showing exactly how Bubble Sort works! The diagrams cover:
+
+**Key Visualizations:**
+
+- **Complete step-by-step trace** of sorting [64, 34, 25, 12, 22, 11, 90]
+- **Pass-by-pass progression** showing how elements "bubble" to their positions
+- **Comparison and swap patterns** with memory visualization
+- **Optimization techniques** (early termination)
+- **Best vs worst case scenarios** with complexity analysis
+- **Memory usage layout** showing O(1) space complexity
+
+**Main Concepts Illustrated:**
+
+1. **"Bubbling" effect** - large elements rise to the right like bubbles
+2. **Adjacent comparisons** - only neighboring elements are compared
+3. **In-place swapping** - elements exchange positions in the same array
+4. **Sorted region growth** - the right side becomes sorted after each pass
+5. **Early termination** - stops when no swaps occur in a pass
+
+The diagrams show why it's called "Bubble Sort" - you can visually see how the largest elements bubble up to their final positions, just like air bubbles rising through water!
+
 ## 12. **By Practical Usage**
 
 **Educational/Theoretical**
