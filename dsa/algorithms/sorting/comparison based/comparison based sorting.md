@@ -83,6 +83,7 @@ fn main() {
 ## 2. Selection Sort
 
 ### Python Implementation
+
 ```python
 def selection_sort(arr):
     n = len(arr)
@@ -101,6 +102,7 @@ print(f"Sorted: {selection_sort(numbers.copy())}")
 ```
 
 ### Rust Implementation
+
 ```rust
 fn selection_sort<T: Ord>(arr: &mut [T]) {
     let len = arr.len();
