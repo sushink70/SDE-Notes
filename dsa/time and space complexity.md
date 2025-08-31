@@ -215,7 +215,7 @@ Perfect 😃 Let’s build a **visual memory map** of time & space complexities 
 
 ## 🧩 Complexity Cheat Map (ASCII Diagram)
 
-```
+```ascii
                    Time & Space Complexities
  ┌──────────────────────────────────────────────────────┐
  |                   FAST → SLOW                        |
@@ -254,7 +254,7 @@ O(n!)   Factorial
 
 ## 💾 Space Complexity Map
 
-```
+```ascii
 STACK (fixed size, fast, local)
  ──► Function calls, local vars
 
@@ -338,7 +338,7 @@ Would you like me to elaborate on any specific technique or provide more detaile
 
 ### Big O Notation Hierarchy
 
-```
+```ascii
 O(1) < O(log n) < O(n) < O(n log n) < O(n²) < O(n³) < O(2ⁿ) < O(n!)
 ```
 
