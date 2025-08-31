@@ -1,4 +1,4 @@
-# insertion sort
+# Insertion Sort
 
 I'll create a comprehensive collection of insertion sort implementations across different programming languages, with detailed explanations and optimizations.I've created a comprehensive guide to insertion sort implementations that covers:
 
@@ -23,7 +23,7 @@ Key highlights:
 
 Would you like me to expand on any particular aspect, add implementations in other languages, or dive deeper into specific optimizations?
 
-# Comprehensive Insertion Sort Implementations
+## Comprehensive Insertion Sort Implementations
 
 ## Algorithm Overview
 

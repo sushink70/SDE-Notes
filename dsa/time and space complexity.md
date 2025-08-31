@@ -81,6 +81,29 @@ fn print_pairs(arr: &[i32]) {
 
 ---
 
+In mathematics, log refers to the logarithm function.
+
+Definition:
+The logarithm of a number n with base b (written as log_b(n)) is the exponent x such that:
+
+b^x = n
+
+So,
+
+log_b(n) = x   ⇔   b^x = n
+
+Examples:
+
+log₂(8) = 3 because 2³ = 8
+log₁₀(100) = 2 because 10² = 100
+Common bases:
+
+Base 10: log₁₀(n) (common logarithm)
+Base e: logₑ(n) or ln(n) (natural logarithm)
+Base 2: log₂(n) (binary logarithm, common in computer science)
+In summary:
+A logarithm answers: “To what power must the base be raised to get this number?”
+
 ### 4. O(log n) – Logarithmic Time
 
 ```rust
@@ -149,6 +172,26 @@ Example:
    * Single loop → O(n)
    * Nested loops → O(n²)
    * Loop halving each time → O(log n)
+
+When you see "Loop halving each time → O(log n)", it means the loop reduces the problem size by half in each iteration.
+
+Example:
+
+i = n
+while i > 1:
+    i = i // 2
+
+First iteration: i = n
+Second: i = n/2
+Third: i = n/4
+...
+Stops when i ≤ 1
+Why O(log n)?
+
+The number of times you can halve n before reaching 1 is log₂(n).
+So, the loop runs about log₂(n) times.
+Typical use:
+Binary search and similar algorithms that repeatedly divide the input size by 2.
 
 2. **Recursion:**
 
@@ -248,24 +291,28 @@ Would you like me to make this into a **picture-style diagram (like blocks/flow 
 I'll provide a comprehensive guide to DSA time and space complexity analysis strategies and techniques.I've created a comprehensive guide covering DSA time and space complexity analysis. The guide includes:
 
 **Core Techniques:**
+
 * Loop analysis patterns (single, nested, logarithmic)
 * Recursive complexity using Master Theorem
 * Amortized analysis methods
 * Space complexity considerations (auxiliary vs total space)
 
 **Practical Knowledge:**
+
 * Complete complexity tables for sorting, searching, and graph algorithms
 * Algorithm design pattern complexities
 * Time-space tradeoff strategies
 * Data structure selection guidelines
 
 **Advanced Topics:**
+
 * Probabilistic and competitive analysis
 * Lower bound proof techniques
 * Parameterized complexity
 * Cache-aware algorithm design
 
 **Real-World Application:**
+
 * Common pitfalls to avoid
 * Best practices for analysis and optimization
 * Complexity constraints by problem size
@@ -297,7 +344,8 @@ O(1) < O(log n) < O(n) < O(n log n) < O(n²) < O(n³) < O(2ⁿ) < O(n!)
 
 ### Growth Rate Comparison
 
-- **O(1)**: Constant - Hash table lookup
+* **O(1)**: Constant - Hash table lookup
+
 * **O(log n)**: Logarithmic - Binary search
 * **O(n)**: Linear - Array traversal
 * **O(n log n)**: Linearithmic - Merge sort
@@ -381,6 +429,7 @@ Assign costs to operations, maintain non-negative credit.
 Use potential function to represent stored work.
 
 **Example: Dynamic Array**
+
 * Individual insertion: O(n) worst case
 * Amortized insertion: O(1) average
 
@@ -464,30 +513,34 @@ def factorial_iterative(n):
 
 ### 1. Probabilistic Analysis
 
-- **Expected Time:** Average over all possible inputs
+* **Expected Time:** Average over all possible inputs
+
 * **Randomized Algorithms:** Algorithm makes random choices
 * **Monte Carlo vs Las Vegas:** Correctness vs runtime guarantees
 
 ### 2. Competitive Analysis
 
-- **Online Algorithms:** Process input incrementally
+* **Online Algorithms:** Process input incrementally
+
 * **Competitive Ratio:** Compare to optimal offline algorithm
 
 ### 3. Parameterized Complexity
 
-- **Fixed Parameter Tractable (FPT):** O(f(k) * n^c)
+* **Fixed Parameter Tractable (FPT):** O(f(k) * n^c)
+
 * **Parameter:** Small integer that affects complexity
 
 ### 4. Lower Bound Techniques
 
 #### Comparison-Based Sorting
 
-- Decision tree model proves Ω(n log n) lower bound
+* Decision tree model proves Ω(n log n) lower bound
+
 * Information theoretic argument: need log(n!) bits
 
 #### Element Distinctness
 
-- Algebraic decision tree model proves Ω(n log n)
+* Algebraic decision tree model proves Ω(n log n)
 
 ## Optimization Strategies
 
@@ -523,19 +576,22 @@ def fibonacci_optimized(n):
 
 #### Divide and Conquer
 
-- **Time:** Often O(n log n)
+* **Time:** Often O(n log n)
+
 * **Space:** O(log n) due to recursion
 * **Examples:** Merge sort, quick sort, binary search
 
 #### Greedy Algorithms
 
-- **Time:** Usually O(n log n) due to sorting
+* **Time:** Usually O(n log n) due to sorting
+
 * **Space:** O(1) typically
 * **Examples:** Huffman coding, activity selection
 
 #### Dynamic Programming
 
-- **Time:** O(n^k) for k-dimensional problems
+* **Time:** O(n^k) for k-dimensional problems
+
 * **Space:** Can often be reduced by one dimension
 * **Examples:** LCS, knapsack, shortest paths
 
@@ -543,14 +599,16 @@ def fibonacci_optimized(n):
 
 #### Choose Right Data Structure
 
-- **Frequent lookups:** Hash table O(1)
+* **Frequent lookups:** Hash table O(1)
+
 * **Ordered operations:** Balanced BST O(log n)
 * **Range queries:** Segment tree O(log n)
 * **Union operations:** Disjoint set O(α(n))
 
 #### Hybrid Approaches
 
-- **Timsort:** Merge + insertion sort
+* **Timsort:** Merge + insertion sort
+
 * **Introsort:** Quick + heap + insertion sort
 * **Cache-oblivious algorithms:** Optimize for memory hierarchy
 
@@ -599,7 +657,8 @@ def merge_sort(arr):
 
 #### 2. Profile Before Optimizing
 
-- Identify actual bottlenecks
+* Identify actual bottlenecks
+
 * Consider input characteristics
 * Measure real performance
 
@@ -631,14 +690,16 @@ def two_sum(nums, target):
 
 #### 4. Consider Input Constraints
 
-- Small n: Even O(n³) might be acceptable
+* Small n: Even O(n³) might be acceptable
+
 * Large n: Need sublinear or linear solutions
 * Online vs offline algorithms
 * Memory constraints
 
 #### 5. Understand Amortized Analysis
 
-- Dynamic arrays: O(1) amortized insertion
+* Dynamic arrays: O(1) amortized insertion
+
 * Disjoint sets: O(α(n)) amortized operations
 * Splay trees: O(log n) amortized operations
 
@@ -646,7 +707,8 @@ def two_sum(nums, target):
 
 #### Common Time Complexities by Problem Size
 
-- **n ≤ 10:** O(n!), O(2ⁿ)
+* **n ≤ 10:** O(n!), O(2ⁿ)
+
 * **n ≤ 20:** O(2ⁿ), O(n³)
 * **n ≤ 500:** O(n³)
 * **n ≤ 5000:** O(n²)
@@ -656,7 +718,8 @@ def two_sum(nums, target):
 
 #### Memory Usage Guidelines
 
-- **Arrays:** 4-8 bytes per element (int/pointer)
+* **Arrays:** 4-8 bytes per element (int/pointer)
+
 * **Strings:** 1-4 bytes per character
 * **Objects:** Additional overhead (24+ bytes in Java)
 * **Call stack:** Typically 1MB limit (1000-10000 calls)
@@ -666,28 +729,34 @@ This comprehensive guide provides the foundation for analyzing and optimizing al
 I'll create a comprehensive guide covering all the important pattern recognition algorithms in Data Structures and Algorithms (DSA) with sample code and complexity analysis.I've created a comprehensive guide covering all the major pattern recognition algorithms in DSA. The document includes:
 
 **String Pattern Matching:**
+
 * Naive/Brute Force approach
 * KMP (Knuth-Morris-Pratt) with LPS array
 * Rabin-Karp using rolling hash
 * Boyer-Moore with bad character heuristic
 
 **Subsequence Patterns:**
+
 * Longest Common Subsequence (LCS)
 * Longest Increasing Subsequence (LIS) with both O(n²) and O(n log n) solutions
 
 **Array Patterns:**
+
 * Sliding Window Maximum using deque
 * Kadane's Algorithm for maximum subarray sum
 
 **Tree & Graph Patterns:**
+
 * Various tree traversals and path sum
 * Cycle detection in both directed and undirected graphs
 
 **Advanced Algorithms:**
+
 * Z Algorithm for linear time pattern matching
 * Manacher's Algorithm for palindrome detection
 
 Each algorithm includes:
+
 * Complete working code with examples
 * Detailed time and space complexity analysis
 * Practical use cases and applications
@@ -1260,6 +1329,7 @@ I've completed the comprehensive guide with advanced real-world pattern recognit
 **Key highlights of the advanced sections:**
 
 **Real-World Applications:**
+
 * **Aho-Corasick**: Used in antivirus software and intrusion detection systems
 * **Suffix Arrays**: Essential for bioinformatics and genome analysis
 * **Rolling Hash**: Powers content deduplication in distributed systems
@@ -1273,6 +1343,7 @@ I've completed the comprehensive guide with advanced real-world pattern recognit
 * **Streaming Pattern Detection**: Enables real-time analytics and IoT monitoring
 
 **Advanced Features:**
+
 * Complete implementations with proper error handling
 * Real-world examples from different domains
 * Performance optimization techniques
@@ -1280,6 +1351,7 @@ I've completed the comprehensive guide with advanced real-world pattern recognit
 * Memory-efficient algorithms for large datasets
 
 **Industry Applications:**
+
 * Cybersecurity (pattern matching in network traffic)
 * Bioinformatics (DNA/protein sequence analysis)
 * Finance (algorithmic trading, fraud detection)

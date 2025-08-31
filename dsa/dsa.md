@@ -197,10 +197,10 @@ Here's a comprehensive list of algorithms organized by category:
 
 **Comparison-based Sorting:**
 
-- Bubble Sort
-- Selection Sort
+- Bubble Sort ✅
+- Selection Sort ✅
 - Insertion Sort
-- Merge Sort
+- Merge Sort ✅
 - Quick Sort
 - Heap Sort
 - Shell Sort
@@ -239,6 +239,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Ternary Search
 
 **Tree Search:**
+
 - Depth-First Search (DFS)
 - Breadth-First Search (BFS)
 - Best-First Search
@@ -248,6 +249,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Floyd-Warshall Algorithm
 
 **String Search:**
+
 - Naive String Search
 - KMP (Knuth-Morris-Pratt)
 - Boyer-Moore Algorithm
@@ -258,6 +260,7 @@ Here's a comprehensive list of algorithms organized by category:
 ## Graph Algorithms
 
 **Traversal:**
+
 - Depth-First Search (DFS)
 - Breadth-First Search (BFS)
 - Iterative Deepening
