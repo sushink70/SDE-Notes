@@ -1,3 +1,5 @@
+# Radix Sort
+
 I've completed the comprehensive Radix Sort guide with implementations in both Python and Rust. The guide covers:
 
 ## What's Included
@@ -45,7 +47,7 @@ The guide includes complete, runnable code examples with extensive test coverage
 
 Would you like me to elaborate on any specific section or add additional features to the implementations?
 
-# Comprehensive Radix Sort Guide: Python & Rust Implementations
+## Comprehensive Radix Sort Guide: Python & Rust Implementations
 
 ## Table of Contents
 
@@ -60,6 +62,28 @@ Would you like me to elaborate on any specific section or add additional feature
 ## Introduction to Radix Sort {#introduction}
 
 Radix Sort is a non-comparative sorting algorithm that sorts integers by processing individual digits. Unlike comparison-based algorithms like QuickSort or MergeSort, Radix Sort achieves linear time complexity O(d×n) where d is the number of digits and n is the number of elements.
+
+n = number of elements in the array to be sorted
+d = number of digits in the largest number
+Example:
+
+Array: [170, 45, 75, 90, 2, 802, 24, 66]
+n = 8 (elements)
+d = 3 (largest number 802 has 3 digits)
+
+Time complexity O(d×n) means:
+
+The algorithm needs to:
+Process each digit (d times)
+Look at every element (n times) for each digit
+Total operations ≈ d × n
+For example: 3 digits × 8 elements = 24 operations
+Real-world meaning:
+
+If array size (n) doubles → time doubles
+If max number of digits (d) doubles → time doubles
+Total time grows linearly with both n and d
+So O(d×n) shows that the time taken depends on both the number of elements AND the number of digits in the largest number.
 
 ### Key Characteristics
 

@@ -803,7 +803,7 @@ This is why insertion sort is:
 
 Would you like me to show you what algorithms DO actually work with dynamic sizing (like some variants of merge sort or bucket sort)?
 
-# Insertion Sort: Fixed Size vs Dynamic Behavior
+## Insertion Sort: Fixed Size vs Dynamic Behavior
 
 ## Key Concept: Fixed Size Container, Rearranged Contents
 
@@ -813,7 +813,7 @@ Insertion sort **DOES NOT** change array size. It works with a fixed-size array 
 
 ### Before Sorting: Array of size 6
 
-```
+```ascii
 Memory Address: 1000  1004  1008  1012  1016  1020
 Array Index:    [0]   [1]   [2]   [3]   [4]   [5]
 Values:         │ 5 │ │ 2 │ │ 4 │ │ 6 │ │ 1 │ │ 3 │
@@ -822,7 +822,7 @@ Values:         │ 5 │ │ 2 │ │ 4 │ │ 6 │ │ 1 │ │ 3 │
 
 ### After Sorting: Same array, same size, different arrangement
 
-```
+```ascii
 Memory Address: 1000  1004  1008  1012  1016  1020
 Array Index:    [0]   [1]   [2]   [3]   [4]   [5]
 Values:         │ 1 │ │ 2 │ │ 3 │ │ 4 │ │ 5 │ │ 6 │
@@ -837,7 +837,7 @@ The confusion comes from the **conceptual model** we use to explain insertion so
 
 ### Conceptual Model (for teaching)
 
-```
+```ascii
 Step 1: [5] | [2, 4, 6, 1, 3]
         ↑     ↑
     "sorted"  "unsorted"
@@ -851,7 +851,7 @@ This makes it **look** like the sorted portion "grows" and unsorted portion "shr
 
 ### Actual Memory Reality
 
-```
+```ascii
 Step 1: [5, 2, 4, 6, 1, 3]  ← Same 6-element array
          ^  ^
     processed | next to process
@@ -895,7 +895,7 @@ print("AFTER:", numbers, f"(size: {len(numbers)})")
 
 **Output:**
 
-```
+```ascii
 BEFORE: [5, 2, 4, 6, 1, 3] (size: 6)
 Initial array size: 6
 Step 1: [2, 5, 4, 6, 1, 3], size: 6
@@ -931,7 +931,7 @@ print(arr)             # [0, 2, 4, 1] - different size!
 
 ### Memory Efficiency
 
-```
+```ascii
 Fixed Size Insertion Sort:
 ┌─────────────────────────────┐
 │ Original Array Memory       │  ← Same memory block throughout
@@ -958,7 +958,7 @@ Think of insertion sort like **organizing books on a bookshelf**:
 
 ### Fixed Size (Insertion Sort)
 
-```
+```ascii
 Bookshelf: [Book5] [Book2] [Book4] [Book6] [Book1] [Book3]
                     ↓ Rearrange books on SAME shelf ↓
 Bookshelf: [Book1] [Book2] [Book3] [Book4] [Book5] [Book6]
@@ -968,7 +968,7 @@ Bookshelf: [Book1] [Book2] [Book3] [Book4] [Book5] [Book6]
 
 ### Dynamic Size (Not Insertion Sort)
 
-```
+```ascii
 Shelf 1: [Book5] [Book2] [Book4]
          ↓ Add more shelves, add/remove books ↓
 Shelf 1: [Book1] [Book2]  
