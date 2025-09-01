@@ -1545,3 +1545,175 @@ COMPARISON:
 
 The gap=3 phase eliminated 9 out of 15 inversions with just 3 operations!
 ```
+### Shell Sort Step-by-Step ASCII Diagram
+
+Shell Sort is an in-place comparison-based sorting algorithm that improves upon insertion sort by sorting elements at larger gaps first and gradually reducing the gap. Below, I'll demonstrate it on the example array `[8, 3, 5, 1, 7, 2, 4, 6]` using the standard gap sequence (start with `n/2` and halve each time: 4, 2, 1).
+
+I'll represent the array as a horizontal bar of numbered elements for visual clarity. Each pass shows:
+- The current gap.
+- The array state at the start of the pass.
+- Step-by-step insertions, with swaps highlighted using arrows (`<-- swap -->`).
+- The array after each insertion.
+
+```
+Initial Array:
++---+---+---+---+---+---+---+---+
+| 8 | 3 | 5 | 1 | 7 | 2 | 4 | 6 |  (Indices: 0 1 2 3 4 5 6 7)
++---+---+---+---+---+---+---+---+
+```
+
+#### Pass 1: Gap = 4
+
+Groups being sorted (subarrays every 4 positions):  
+- 0-4: 8,7  
+- 1-5: 3,2  
+- 2-6: 5,4  
+- 3-7: 1,6  
+
+```
+Current Array Before Pass:
++---+---+---+---+---+---+---+---+
+| 8 | 3 | 5 | 1 | 7 | 2 | 4 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 1: Insert 7 at index 4 (compare with index 0: 8 > 7)
+  Swap: 8 (idx 0) <-- swap --> 7 (idx 4)
+After:
++---+---+---+---+---+---+---+---+
+| 7 | 3 | 5 | 1 | 8 | 2 | 4 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 2: Insert 2 at index 5 (compare with index 1: 3 > 2)
+  Swap: 3 (idx 1) <-- swap --> 2 (idx 5)
+After:
++---+---+---+---+---+---+---+---+
+| 7 | 2 | 5 | 1 | 8 | 3 | 4 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 3: Insert 4 at index 6 (compare with index 2: 5 > 4)
+  Swap: 5 (idx 2) <-- swap --> 4 (idx 6)
+After:
++---+---+---+---+---+---+---+---+
+| 7 | 2 | 4 | 1 | 8 | 3 | 5 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 4: Insert 6 at index 7 (compare with index 3: 1 < 6, no swap)
+After (unchanged):
++---+---+---+---+---+---+---+---+
+| 7 | 2 | 4 | 1 | 8 | 3 | 5 | 6 |
++---+---+---+---+---+---+---+---+
+```
+
+#### Pass 2: Gap = 2
+Groups being sorted (subarrays every 2 positions):  
+- 0-2-4-6: 7,4,8,5  
+- 1-3-5-7: 2,1,3,6  
+
+```
+Current Array Before Pass:
++---+---+---+---+---+---+---+---+
+| 7 | 2 | 4 | 1 | 8 | 3 | 5 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 1: Insert 4 at index 2 (compare with index 0: 7 > 4)
+  Swap: 7 (idx 0) <-- swap --> 4 (idx 2)
+After:
++---+---+---+---+---+---+---+---+
+| 4 | 2 | 7 | 1 | 8 | 3 | 5 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 2: Insert 1 at index 3 (compare with index 1: 2 > 1)
+  Swap: 2 (idx 1) <-- swap --> 1 (idx 3)
+After:
++---+---+---+---+---+---+---+---+
+| 4 | 1 | 7 | 2 | 8 | 3 | 5 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 3: Insert 8 at index 4 (compare with index 2: 7 < 8, no swap)
+After (unchanged):
++---+---+---+---+---+---+---+---+
+| 4 | 1 | 7 | 2 | 8 | 3 | 5 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 4: Insert 3 at index 5 (compare with index 3: 2 < 3, no swap)
+After (unchanged):
++---+---+---+---+---+---+---+---+
+| 4 | 1 | 7 | 2 | 8 | 3 | 5 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 5: Insert 5 at index 6 (compare with index 4: 8 > 5 → swap; then index 2: 7 > 5 → swap)
+  Swap: 8 (idx 4) <-- swap --> 5 (idx 6)  → Temp array: [4,1,7,2,5,3,8,6]
+  Swap: 7 (idx 2) <-- swap --> 5 (idx 4)  → (5 bubbles back)
+After:
++---+---+---+---+---+---+---+---+
+| 4 | 1 | 5 | 2 | 7 | 3 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 6: Insert 6 at index 7 (compare with index 5: 3 < 6, no swap)
+After (unchanged):
++---+---+---+---+---+---+---+---+
+| 4 | 1 | 5 | 2 | 7 | 3 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+```
+
+#### Pass 3: Gap = 1 (Standard Insertion Sort)
+Now sorting the entire array as one group.
+
+```
+Current Array Before Pass:
++---+---+---+---+---+---+---+---+
+| 4 | 1 | 5 | 2 | 7 | 3 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 1: Insert 1 at index 1 (compare with index 0: 4 > 1)
+  Swap: 4 (idx 0) <-- swap --> 1 (idx 1)
+After:
++---+---+---+---+---+---+---+---+
+| 1 | 4 | 5 | 2 | 7 | 3 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 2: Insert 5 at index 2 (compare with index 1: 4 < 5, no swap)
+After (unchanged):
++---+---+---+---+---+---+---+---+
+| 1 | 4 | 5 | 2 | 7 | 3 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 3: Insert 2 at index 3 (compare with index 2: 5 > 2 → swap; index 1: 4 > 2 → swap; index 0: 1 < 2, stop)
+  Swap: 5 (idx 2) <-- swap --> 2 (idx 3)  → Temp: [1,4,2,5,7,3,8,6]
+  Swap: 4 (idx 1) <-- swap --> 2 (idx 2)  → (2 bubbles back)
+After:
++---+---+---+---+---+---+---+---+
+| 1 | 2 | 4 | 5 | 7 | 3 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 4: Insert 7 at index 4 (compare with index 3: 5 < 7, no swap)
+After (unchanged):
++---+---+---+---+---+---+---+---+
+| 1 | 2 | 4 | 5 | 7 | 3 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 5: Insert 3 at index 5 (compare with index 4: 7 > 3 → swap; index 3: 5 > 3 → swap; index 2: 4 > 3 → swap; index 1: 2 < 3, stop)
+  Swap: 7 (idx 4) <-- swap --> 3 (idx 5)  → Temp: [1,2,4,5,3,7,8,6]
+  Swap: 5 (idx 3) <-- swap --> 3 (idx 4)  → Temp: [1,2,4,3,5,7,8,6]
+  Swap: 4 (idx 2) <-- swap --> 3 (idx 3)  → (3 bubbles back)
+After:
++---+---+---+---+---+---+---+---+
+| 1 | 2 | 3 | 4 | 5 | 7 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 6: Insert 8 at index 6 (compare with index 5: 7 < 8, no swap)
+After (unchanged):
++---+---+---+---+---+---+---+---+
+| 1 | 2 | 3 | 4 | 5 | 7 | 8 | 6 |
++---+---+---+---+---+---+---+---+
+
+Step 7: Insert 6 at index 7 (compare with index 6: 8 > 6 → swap; index 5: 7 > 6 → swap; index 4: 5 < 6, stop)
+  Swap: 8 (idx 6) <-- swap --> 6 (idx 7)  → Temp: [1,2,3,4,5,7,6,8]
+  Swap: 7 (idx 5) <-- swap --> 6 (idx 6)  → (6 bubbles back)
+After:
++---+---+---+---+---+---+---+---+
+| 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
++---+---+---+---+---+---+---+---+
+```
+
+The array is now fully sorted. This illustrates how Shell Sort reduces inversions early with larger gaps, making the final insertion sort more efficient.
