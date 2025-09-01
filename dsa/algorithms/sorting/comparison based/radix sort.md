@@ -1655,19 +1655,19 @@ Radix Sort is a non-comparative sorting algorithm that sorts integers by process
 
 ## Algorithm Principle
 
-```
+```ascii
 ┌─────────────────────────────────────────────────────────────┐
-│                    RADIX SORT CONCEPT                      │
+│                    RADIX SORT CONCEPT                       │
 ├─────────────────────────────────────────────────────────────┤
 │  Instead of comparing elements, sort by digit positions:    │
 │                                                             │
-│  Example number: 3 4 7                                     │
-│                  │ │ └── Units place (10^0)                │
-│                  │ └──── Tens place (10^1)                 │
-│                  └────── Hundreds place (10^2)             │
+│  Example number: 3 4 7                                      │
+│                  │ │ └── Units place (10^0)                 │
+│                  │ └──── Tens place (10^1)                  │
+│                  └────── Hundreds place (10^2)              │
 │                                                             │
-│  Process from least significant digit (LSD) to most        │
-│  significant digit (MSD), or vice versa                    │
+│  Process from least significant digit (LSD) to most         │
+│  significant digit (MSD), or vice versa                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1675,7 +1675,7 @@ Radix Sort is a non-comparative sorting algorithm that sorts integers by process
 
 ### Initial Array
 
-```
+```ascii
 Original Array: [170, 45, 75, 90, 2, 802, 24, 66]
 
 ┌─────┬────┬────┬────┬───┬─────┬────┬────┐
@@ -1686,23 +1686,23 @@ Original Array: [170, 45, 75, 90, 2, 802, 24, 66]
 
 ### Step 1: Sort by Units Digit (10^0)
 
-```
+```ascii
 Extract units digits:
 170 → 0    45 → 5    75 → 5    90 → 0
   2 → 2   802 → 2    24 → 4    66 → 6
 
 ┌─────────────────────────────────────────────────────────────┐
-│                    COUNTING SORT BY UNITS                  │
+│                    COUNTING SORT BY UNITS                   │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ Digit buckets (0-9):                                       │
+│ Digit buckets (0-9):                                        │
 │                                                             │
-│ 0: [170, 90]     ←── Numbers ending in 0                   │
+│ 0: [170, 90]     ←── Numbers ending in 0                    │
 │ 1: []                                                       │
-│ 2: [2, 802]      ←── Numbers ending in 2                   │
+│ 2: [2, 802]      ←── Numbers ending in 2                    │
 │ 3: []                                                       │
-│ 4: [24]          ←── Numbers ending in 4                   │
-│ 5: [45, 75]      ←── Numbers ending in 5                   │
+│ 4: [24]          ←── Numbers ending in 4                    │
+│ 5: [45, 75]      ←── Numbers ending in 5                    │
 │ 6: [66]          ←── Numbers ending in 6                   │
 │ 7: []                                                       │
 │ 8: []                                                       │
@@ -1718,27 +1718,27 @@ After Step 1 (sorted by units digit)
 
 ### Step 2: Sort by Tens Digit (10^1)
 
-```
+```ascii
 Extract tens digits:
 170 → 7    90 → 9     2 → 0   802 → 0
  24 → 2    45 → 4    75 → 7    66 → 6
 
 ┌─────────────────────────────────────────────────────────────┐
-│                    COUNTING SORT BY TENS                   │
+│                    COUNTING SORT BY TENS                    │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ Digit buckets (0-9):                                       │
+│ Digit buckets (0-9):                                        │
 │                                                             │
-│ 0: [2, 802]      ←── Numbers with 0 in tens place          │
+│ 0: [2, 802]      ←── Numbers with 0 in tens place           │
 │ 1: []                                                       │
-│ 2: [24]          ←── Numbers with 2 in tens place          │
+│ 2: [24]          ←── Numbers with 2 in tens place           │
 │ 3: []                                                       │
-│ 4: [45]          ←── Numbers with 4 in tens place          │
+│ 4: [45]          ←── Numbers with 4 in tens place           │
 │ 5: []                                                       │
-│ 6: [66]          ←── Numbers with 6 in tens place          │
-│ 7: [170, 75]     ←── Numbers with 7 in tens place          │
+│ 6: [66]          ←── Numbers with 6 in tens place           │
+│ 7: [170, 75]     ←── Numbers with 7 in tens place           │
 │ 8: []                                                       │
-│ 9: [90]          ←── Numbers with 9 in tens place          │
+│ 9: [90]          ←── Numbers with 9 in tens place           │
 └─────────────────────────────────────────────────────────────┘
 
 Collect from buckets 0→9:
@@ -1750,18 +1750,18 @@ After Step 2 (sorted by tens digit)
 
 ### Step 3: Sort by Hundreds Digit (10^2)
 
-```
+```ascii
 Extract hundreds digits:
   2 → 0   802 → 8    24 → 0    45 → 0
  66 → 0   170 → 1    75 → 0    90 → 0
 
 ┌─────────────────────────────────────────────────────────────┐
-│                  COUNTING SORT BY HUNDREDS                 │
+│                  COUNTING SORT BY HUNDREDS                  │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ Digit buckets (0-9):                                       │
+│ Digit buckets (0-9):                                        │
 │                                                             │
-│ 0: [2, 24, 45, 66, 75, 90]  ←── Numbers with 0 in hundreds │
+│ 0: [2, 24, 45, 66, 75, 90]  ←── Numbers with 0 in hundreds  │
 │ 1: [170]                     ←── Numbers with 1 in hundreds │
 │ 2: []                                                       │
 │ 3: []                                                       │
@@ -1784,43 +1784,43 @@ FULLY SORTED ARRAY ✓
 
 ### Counting Sort Subroutine (Step 1 Detail)
 
-```
+```ascii
 ┌─────────────────────────────────────────────────────────────┐
-│           COUNTING SORT FOR UNITS DIGIT                    │
+│           COUNTING SORT FOR UNITS DIGIT                     │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ Input: [170, 45, 75, 90, 2, 802, 24, 66]                   │
+│ Input: [170, 45, 75, 90, 2, 802, 24, 66]                    │
 │                                                             │
-│ Step 1: Count occurrences of each digit                    │
-│ ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐                 │
-│ │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │  ← Digits     │
-│ ├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┤                 │
-│ │ 2 │ 0 │ 2 │ 0 │ 1 │ 2 │ 1 │ 0 │ 0 │ 0 │  ← Counts     │
-│ └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘                 │
-│   ▲       ▲       ▲   ▲   ▲                               │
-│   │       │       │   │   │                               │
-│  170,90   │      2,802│  45,75                            │
-│           │       │   24  │                               │
-│           │       │       66                              │
+│ Step 1: Count occurrences of each digit                     │
+│ ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐                   │
+│ │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │  ← Digits         │
+│ ├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┤                   │
+│ │ 2 │ 0 │ 2 │ 0 │ 1 │ 2 │ 1 │ 0 │ 0 │ 0 │  ← Counts         │
+│ └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘                   │
+│   ▲       ▲       ▲   ▲   ▲                                 │
+│   │       │       │   │   │                                 │
+│  170,90   │      2,802│  45,75                              │
+│           │       │   24  │                                 │
+│           │       │       66                                │
 │                                                             │
-│ Step 2: Calculate cumulative counts (positions)            │
-│ ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐                 │
-│ │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │                 │
-│ ├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┤                 │
-│ │ 2 │ 2 │ 4 │ 4 │ 5 │ 7 │ 8 │ 8 │ 8 │ 8 │  ← Cumulative │
-│ └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘                 │
+│ Step 2: Calculate cumulative counts (positions)             │
+│ ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐                   │
+│ │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │                   │
+│ ├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┤                   │
+│ │ 2 │ 2 │ 4 │ 4 │ 5 │ 7 │ 8 │ 8 │ 8 │ 8 │  ← Cumulative     │
+│ └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘                   │
 │                                                             │
-│ Step 3: Place elements in output array                     │
-│ Process from right to left to maintain stability           │
+│ Step 3: Place elements in output array                      │
+│ Process from right to left to maintain stability            │
 │                                                             │
-│ 66 (digit 6) → position 8-1 = 7                            │
-│ 24 (digit 4) → position 5-1 = 4                            │
-│ 802 (digit 2) → position 4-1 = 3                           │
-│ 2 (digit 2) → position 3-1 = 2                             │
-│ 90 (digit 0) → position 2-1 = 1                            │
-│ 75 (digit 5) → position 7-1 = 6                            │
-│ 45 (digit 5) → position 6-1 = 5                            │
-│ 170 (digit 0) → position 1-1 = 0                           │
+│ 66 (digit 6) → position 8-1 = 7                             │
+│ 24 (digit 4) → position 5-1 = 4                             │
+│ 802 (digit 2) → position 4-1 = 3                            │
+│ 2 (digit 2) → position 3-1 = 2                              │
+│ 90 (digit 0) → position 2-1 = 1                             │
+│ 75 (digit 5) → position 7-1 = 6                             │
+│ 45 (digit 5) → position 6-1 = 5                             │
+│ 170 (digit 0) → position 1-1 = 0                            │
 └─────────────────────────────────────────────────────────────┘
 
 Output Array:
@@ -1834,7 +1834,7 @@ Output Array:
 
 ### Base 2 (Binary) Radix Sort
 
-```
+```ascii
 Original: [13, 7, 4, 12, 8, 1]
 
 Convert to binary (4 bits):
@@ -1849,32 +1849,32 @@ Convert to binary (4 bits):
 Step 1: Sort by bit 0 (rightmost)
 ┌─────────────────────────────────────────┐
 │ Bit 0:   1    1    0    0    0    1     │
-│ Bucket 0: [4, 12, 8]                   │
-│ Bucket 1: [13, 7, 1]                   │
+│ Bucket 0: [4, 12, 8]                    │
+│ Bucket 1: [13, 7, 1]                    │
 └─────────────────────────────────────────┘
 Result: [4, 12, 8, 13, 7, 1]
 
 Step 2: Sort by bit 1
 ┌─────────────────────────────────────────┐
 │ Bit 1:   0    0    0    0    1    0     │
-│ Bucket 0: [4, 12, 8, 13, 1]            │
-│ Bucket 1: [7]                          │
+│ Bucket 0: [4, 12, 8, 13, 1]             │
+│ Bucket 1: [7]                           │
 └─────────────────────────────────────────┘
 Result: [4, 12, 8, 13, 1, 7]
 
 Step 3: Sort by bit 2
 ┌─────────────────────────────────────────┐
 │ Bit 2:   1    1    0    0    0    1     │
-│ Bucket 0: [8, 13, 1]                   │
-│ Bucket 1: [4, 12, 7]                   │
+│ Bucket 0: [8, 13, 1]                    │
+│ Bucket 1: [4, 12, 7]                    │
 └─────────────────────────────────────────┘
 Result: [8, 13, 1, 4, 12, 7]
 
 Step 4: Sort by bit 3 (leftmost)
 ┌─────────────────────────────────────────┐
 │ Bit 3:   1    1    0    0    1    0     │
-│ Bucket 0: [1, 4, 7]                    │
-│ Bucket 1: [8, 13, 12]                  │
+│ Bucket 0: [1, 4, 7]                     │
+│ Bucket 1: [8, 13, 12]                   │
 └─────────────────────────────────────────┘
 Final: [1, 4, 7, 8, 12, 13] ✓
 ```
@@ -1883,7 +1883,7 @@ Final: [1, 4, 7, 8, 12, 13] ✓
 
 ### Example with Strings
 
-```
+```ascii
 Original: ["cat", "dog", "rat", "cow", "pig", "bat"]
 
 ┌─────┬─────┬─────┬─────┬─────┬─────┐
@@ -1894,29 +1894,29 @@ Step 1: Sort by first character
 ┌─────────────────────────────────────────────────────────────┐
 │ First character buckets:                                    │
 │                                                             │
-│ 'b': [bat]                                                 │
-│ 'c': [cat, cow]                                            │
-│ 'd': [dog]                                                 │
-│ 'p': [pig]                                                 │
-│ 'r': [rat]                                                 │
+│ 'b': [bat]                                                  │
+│ 'c': [cat, cow]                                             │
+│ 'd': [dog]                                                  │
+│ 'p': [pig]                                                  │
+│ 'r': [rat]                                                  │
 └─────────────────────────────────────────────────────────────┘
 
 After Step 1: [bat, cat, cow, dog, pig, rat]
 
 Step 2: Sort each group by second character
 ┌─────────────────────────────────────────────────────────────┐
-│ Group 'b': [bat] → 'a' → [bat]                             │
-│ Group 'c': [cat, cow] → 'a':cat, 'o':cow → [cat, cow]      │
-│ Group 'd': [dog] → 'o' → [dog]                             │
-│ Group 'p': [pig] → 'i' → [pig]                             │
-│ Group 'r': [rat] → 'a' → [rat]                             │
+│ Group 'b': [bat] → 'a' → [bat]                              │
+│ Group 'c': [cat, cow] → 'a':cat, 'o':cow → [cat, cow]       │
+│ Group 'd': [dog] → 'o' → [dog]                              │
+│ Group 'p': [pig] → 'i' → [pig]                              │
+│ Group 'r': [rat] → 'a' → [rat]                              │
 └─────────────────────────────────────────────────────────────┘
 
 After Step 2: [bat, cat, cow, dog, pig, rat]
 
 Step 3: Sort each group by third character
 ┌─────────────────────────────────────────────────────────────┐
-│ All groups have unique third characters or are already sorted│
+│All groups have unique third characters or are already sorted│
 └─────────────────────────────────────────────────────────────┘
 
 Final: [bat, cat, cow, dog, pig, rat] ✓
@@ -1928,35 +1928,35 @@ Final: [bat, cat, cow, dog, pig, rat] ✓
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   RADIX SORT COMPLEXITY                    │
+│                   RADIX SORT COMPLEXITY                     │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ Time Complexity: O(d × (n + k))                            │
+│ Time Complexity: O(d × (n + k))                             │
 │                                                             │
 │ Where:                                                      │
-│ • d = number of digits in maximum number                   │
-│ • n = number of elements                                   │
-│ • k = range of each digit (e.g., 10 for decimal)          │
+│ • d = number of digits in maximum number                    │
+│ • n = number of elements                                    │
+│ • k = range of each digit (e.g., 10 for decimal)            │
 │                                                             │
-│ Space Complexity: O(n + k)                                 │
+│ Space Complexity: O(n + k)                                  │
 │                                                             │
-│ Example with n=8, k=10, d=3:                              │
-│ • Total passes: 3                                         │
-│ • Work per pass: O(8 + 10) = O(18)                        │
-│ • Total work: O(3 × 18) = O(54) = O(n)                    │
+│ Example with n=8, k=10, d=3:                                │
+│ • Total passes: 3                                           │
+│ • Work per pass: O(8 + 10) = O(18)                          │
+│ • Total work: O(3 × 18) = O(54) = O(n)                      │
 │                                                             │
-│ Comparison with other O(n log n) algorithms:               │
+│ Comparison with other O(n log n) algorithms:                │
 │                                                             │
-│    n=1000   n=10000   n=100000                             │
-│ ┌──────────┬──────────┬──────────┐                         │
-│ │ Radix    │ Radix    │ Radix    │                         │
-│ │ ~4000    │ ~50000   │ ~600000  │                         │
-│ ├──────────┼──────────┼──────────┤                         │
-│ │ QuickSort│ QuickSort│ QuickSort│                         │
-│ │ ~10000   │ ~130000  │ ~1660000 │                         │
-│ └──────────┴──────────┴──────────┘                         │
+│    n=1000   n=10000   n=100000                              │
+│ ┌──────────┬──────────┬──────────┐                          │
+│ │ Radix    │ Radix    │ Radix    │                          │
+│ │ ~4000    │ ~50000   │ ~600000  │                          │
+│ ├──────────┼──────────┼──────────┤                          │
+│ │ QuickSort│ QuickSort│ QuickSort│                          │
+│ │ ~10000   │ ~130000  │ ~1660000 │                          │
+│ └──────────┴──────────┴──────────┘                          │
 │                                                             │
-│ Radix Sort is linear O(n) when d is constant!              │
+│ Radix Sort is linear O(n) when d is constant!               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1964,12 +1964,12 @@ Final: [bat, cat, cow, dog, pig, rat] ✓
 
 ### LSD vs MSD Radix Sort
 
-```
+```asm
 ┌─────────────────────────────────────────────────────────────┐
-│                    LSD vs MSD COMPARISON                   │
+│                    LSD vs MSD COMPARISON                    │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│ LSD (Least Significant Digit First):                       │
+│ LSD (Least Significant Digit First):                        │
 │ ┌─────────────────────────────────────┐                     │
 │ │ Advantages:                         │                     │
 │ │ • Simpler implementation            │                     │
@@ -1979,10 +1979,10 @@ Final: [bat, cat, cow, dog, pig, rat] ✓
 │ │                                     │                     │
 │ │ Disadvantages:                      │                     │
 │ │ • Must process all digits           │                     │
-│ │ • Not suitable for variable length │                     │
+│ │ • Not suitable for variable length │                      │
 │ └─────────────────────────────────────┘                     │
 │                                                             │
-│ MSD (Most Significant Digit First):                        │
+│ MSD (Most Significant Digit First):                         │
 │ ┌─────────────────────────────────────┐                     │
 │ │ Advantages:                         │                     │
 │ │ • Can handle variable lengths       │                     │
@@ -2000,39 +2000,39 @@ Final: [bat, cat, cow, dog, pig, rat] ✓
 
 ## Step-by-Step Algorithm Pseudocode
 
-```
+```asm
 ┌─────────────────────────────────────────────────────────────┐
-│                  RADIX SORT PSEUDOCODE                     │
+│                  RADIX SORT PSEUDOCODE                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │ function radixSort(array):                                  │
 │   max_val = findMaximum(array)                              │
 │   num_digits = countDigits(max_val)                         │
 │                                                             │
-│   for digit_pos = 0 to num_digits-1:                       │
+│   for digit_pos = 0 to num_digits-1:                        │
 │     countingSort(array, digit_pos)                          │
 │                                                             │
 │ function countingSort(array, digit_pos):                    │
-│   count = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  // 10 buckets    │
+│   count = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  // 10 buckets     │
 │   output = new array[length(array)]                         │
 │                                                             │
 │   // Count occurrences                                      │
-│   for i = 0 to length(array)-1:                            │
+│   for i = 0 to length(array)-1:                             │
 │     digit = getDigitAt(array[i], digit_pos)                 │
 │     count[digit]++                                          │
 │                                                             │
 │   // Calculate cumulative counts                            │
-│   for i = 1 to 9:                                          │
+│   for i = 1 to 9:                                           │
 │     count[i] += count[i-1]                                  │
 │                                                             │
-│   // Build output array (right to left for stability)      │
-│   for i = length(array)-1 down to 0:                       │
+│   // Build output array (right to left for stability)       │ 
+│   for i = length(array)-1 down to 0:                        │
 │     digit = getDigitAt(array[i], digit_pos)                 │
 │     count[digit]--                                          │
 │     output[count[digit]] = array[i]                         │
 │                                                             │
-│   // Copy back to original array                           │
-│   for i = 0 to length(array)-1:                            │
+│   // Copy back to original array                            │
+│   for i = 0 to length(array)-1:                             │
 │     array[i] = output[i]                                    │
 └─────────────────────────────────────────────────────────────┘
 ```

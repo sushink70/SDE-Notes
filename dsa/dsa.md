@@ -266,6 +266,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Iterative Deepening
 
 **Shortest Path:**
+
 - Dijkstra's Algorithm
 - Bellman-Ford Algorithm
 - Floyd-Warshall Algorithm
@@ -273,27 +274,32 @@ Here's a comprehensive list of algorithms organized by category:
 - A* Algorithm
 
 **Minimum Spanning Tree:**
+
 - Kruskal's Algorithm
 - Prim's Algorithm
 - Borůvka's Algorithm
 
 **Network Flow:**
+
 - Ford-Fulkerson Algorithm
 - Edmonds-Karp Algorithm
 - Dinic's Algorithm
 - Push-Relabel Algorithm
 
 **Graph Coloring:**
+
 - Greedy Coloring
 - Welsh-Powell Algorithm
 - Brook's Algorithm
 
 **Cycle Detection:**
+
 - Floyd's Cycle Detection
 - Topological Sort (for DAG)
 - Tarjan's Algorithm
 
 **Connectivity:**
+
 - Tarjan's Strongly Connected Components
 - Kosaraju's Algorithm
 - Union-Find Algorithm
@@ -301,6 +307,7 @@ Here's a comprehensive list of algorithms organized by category:
 ## Dynamic Programming Algorithms
 
 **Classic Problems:**
+
 - Fibonacci Sequence
 - Longest Common Subsequence (LCS)
 - Longest Increasing Subsequence (LIS)
@@ -313,6 +320,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Subset Sum Problem
 
 **Advanced DP:**
+
 - Bitmasking DP
 - Tree DP
 - Digit DP
@@ -354,6 +362,7 @@ Here's a comprehensive list of algorithms organized by category:
 ## Mathematical Algorithms
 
 **Number Theory:**
+
 - Euclidean Algorithm (GCD)
 - Extended Euclidean Algorithm
 - Sieve of Eratosthenes
@@ -363,6 +372,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Fermat's Little Theorem applications
 
 **Matrix Operations:**
+
 - Matrix Multiplication
 - Gaussian Elimination
 - LU Decomposition
@@ -371,6 +381,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Eigenvalue algorithms
 
 **Combinatorics:**
+
 - Permutation Generation
 - Combination Generation
 - Catalan Numbers
@@ -390,6 +401,7 @@ Here's a comprehensive list of algorithms organized by category:
 ## String Algorithms
 
 **Pattern Matching:**
+
 - KMP Algorithm
 - Boyer-Moore Algorithm
 - Rabin-Karp Algorithm
@@ -397,6 +409,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Aho-Corasick Algorithm
 
 **String Processing:**
+
 - Longest Common Substring
 - Longest Palindromic Substring
 - String Reversal
@@ -418,6 +431,7 @@ Here's a comprehensive list of algorithms organized by category:
 ## Machine Learning Algorithms
 
 **Supervised Learning:**
+
 - Linear Regression
 - Logistic Regression
 - Decision Trees
@@ -428,6 +442,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Neural Networks/Deep Learning
 
 **Unsupervised Learning:**
+
 - K-Means Clustering
 - Hierarchical Clustering
 - DBSCAN
@@ -435,6 +450,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Independent Component Analysis (ICA)
 
 **Reinforcement Learning:**
+
 - Q-Learning
 - SARSA
 - Policy Gradient Methods

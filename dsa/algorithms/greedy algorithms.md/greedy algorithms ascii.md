@@ -2175,8 +2175,7 @@ impl JobScheduler {
                     queue_index %= job_queue.len();
                 }
             }
-        }
-        
+        }        
         execution_order
     }
 }
