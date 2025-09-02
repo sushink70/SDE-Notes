@@ -1695,12 +1695,12 @@ This visual guide complements the code implementations by showing exactly what h
 
 ## Overview of Quick Sort Algorithm
 
-```
+```ascii
 Quick Sort Process:
 ┌─────────────────────────────────────────────────────────────┐
 │  1. Choose Pivot  →  2. Partition  →  3. Recursively Sort   │
 │                                                             │
-│  [unsorted array] → [< pivot][pivot][> pivot] → [sorted]   │
+│  [unsorted array] → [< pivot][pivot][> pivot] → [sorted]    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1708,7 +1708,7 @@ Quick Sort Process:
 
 ### Initial Array: [64, 34, 25, 12, 22, 11, 90]
 
-```
+```ascii
 Step 0: Initial Array
 ┌────┬────┬────┬────┬────┬────┬────┐
 │ 64 │ 34 │ 25 │ 12 │ 22 │ 11 │ 90 │
@@ -1803,7 +1803,7 @@ Final Result:
 
 ### Array: [8, 3, 5, 4, 7, 6, 1, 2] with Pivot = 2 (last element)
 
-```
+```ascii
 Initial State:
 ┌───┬───┬───┬───┬───┬───┬───┬───┐
 │ 8 │ 3 │ 5 │ 4 │ 7 │ 6 │ 1 │ 2 │
@@ -1882,7 +1882,7 @@ Partition Complete! Pivot index = 1
 
 ### Array: [6, 2, 8, 1, 9, 3] with Pivot = 6 (first element)
 
-```
+```ascii
 Initial Setup:
 ┌───┬───┬───┬───┬───┬───┐
 │ 6 │ 2 │ 8 │ 1 │ 9 │ 3 │

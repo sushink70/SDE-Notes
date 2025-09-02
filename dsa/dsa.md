@@ -201,7 +201,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Selection Sort ✅
 - Insertion Sort
 - Merge Sort ✅
-- Quick Sort
+- Quick Sort ✅
 - Heap Sort
 - Shell Sort
 - Cocktail Shaker Sort
