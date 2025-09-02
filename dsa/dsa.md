@@ -213,7 +213,7 @@ Here's a comprehensive list of algorithms organized by category:
 **Non-comparison Sorting:**
 
 - Counting Sort
-- Radix Sort
+- Radix Sort ✅
 - Bucket Sort
 - Pigeonhole Sort
 - Flash Sort

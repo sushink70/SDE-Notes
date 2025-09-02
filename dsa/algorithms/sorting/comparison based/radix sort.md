@@ -1979,7 +1979,7 @@ Final: [bat, cat, cow, dog, pig, rat] ✓
 │ │                                     │                     │
 │ │ Disadvantages:                      │                     │
 │ │ • Must process all digits           │                     │
-│ │ • Not suitable for variable length │                      │
+│ │ • Not suitable for variable length  │                     │
 │ └─────────────────────────────────────┘                     │
 │                                                             │
 │ MSD (Most Significant Digit First):                         │
