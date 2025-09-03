@@ -25,6 +25,34 @@ I'll create a comprehensive guide to Heap Sort with complete implementations in 
 - Iterator-based functional interface
 - Complete test suite using Rust's built-in testing framework
 
+```python
+Key extraction means getting a specific value from an element that will be used for comparison during sorting.
+
+Example in Python:
+# Sorting by length of strings
+words = ["python", "rust", "go", "javascript"]
+sorted(words, key=len)  # key extracts the length of each string
+
+# Sorting tuples by second element
+pairs = [(1, 5), (3, 2), (2, 8)]
+sorted(pairs, key=lambda x: x[1])  # key extracts second element
+
+Example in Rust:
+// Sorting by length of strings
+let mut words = vec!["rust", "python", "go", "javascript"];
+words.sort_by_key(|s| s.len());  // key extracts the length
+
+// Sorting tuples by second element
+let mut pairs = vec![(1, 5), (3, 2), (2, 8)];
+pairs.sort_by_key(|pair| pair.1);  // key extracts second element
+
+Key extraction helps when:
+
+Sorting complex objects
+Sorting by specific attributes
+Customizing the sorting criteria
+```
+
 **Advanced Features:**
 
 - Performance benchmarking code for both languages
