@@ -3,16 +3,19 @@ I'll create a comprehensive guide to Trie (Prefix Tree) data structure implement
 ## Key Highlights:
 
 **Complete Implementations:**
+
 - Fully functional Trie classes in both languages
 - All core operations: insert, search, delete, prefix queries
 - Advanced features like word counting, autocomplete, and longest common prefix
 
 **Detailed Documentation:**
+
 - Time and space complexity analysis
 - Visual representations and examples
 - Comprehensive usage examples for both implementations
 
 **Advanced Features:**
+
 - Prefix-based word retrieval
 - Word counting and frequency analysis
 - Autocomplete functionality
@@ -20,12 +23,14 @@ I'll create a comprehensive guide to Trie (Prefix Tree) data structure implement
 - Robust deletion with proper cleanup
 
 **Production-Ready Code:**
+
 - Error handling and edge cases
 - Memory-efficient implementations
 - Clean, well-documented APIs
 - Both recursive and iterative approaches where appropriate
 
 **Language-Specific Optimizations:**
+
 - Python: Dictionary-based children with dynamic typing
 - Rust: HashMap with strong typing and memory safety
 - Proper ownership and borrowing in Rust
@@ -38,6 +43,7 @@ Would you like me to explain any specific part in more detail or add additional 
 # Comprehensive Guide to Trie Data Structure Implementation
 
 ## Table of Contents
+
 1. [What is a Trie?](#what-is-a-trie)
 2. [Key Concepts](#key-concepts)
 3. [Time and Space Complexity](#time-and-space-complexity)
@@ -52,6 +58,7 @@ Would you like me to explain any specific part in more detail or add additional 
 A Trie (pronounced "try") is a tree-like data structure used to store a collection of strings efficiently. Each node in the trie represents a single character, and paths from the root to leaf nodes represent complete words. The name comes from "re**trie**val" as it's particularly efficient for string retrieval operations.
 
 ### Visual Representation
+
 ```
 Example Trie storing words: ["cat", "car", "card", "care", "careful"]
 
@@ -79,15 +86,18 @@ Example Trie storing words: ["cat", "car", "card", "care", "careful"]
 ## Key Concepts
 
 ### 1. Node Structure
+
 - Each node contains references to child nodes (typically 26 for lowercase English letters)
 - A boolean flag to mark if the node represents the end of a word
 - Optional: character value and word count for additional functionality
 
 ### 2. Root Node
+
 - The root node represents an empty string
 - All words start from the root node
 
 ### 3. Path Representation
+
 - Each path from root to a node represents a prefix
 - Paths ending at nodes marked as "end of word" represent complete words
 
@@ -101,6 +111,7 @@ Example Trie storing words: ["cat", "car", "card", "care", "careful"]
 | Prefix Search | O(p + k) | O(1)            |
 
 Where:
+
 - m = length of the word
 - n = number of words
 - p = length of prefix
@@ -712,61 +723,75 @@ fn main() {
 ## Advanced Operations
 
 ### 1. Autocomplete/Suggestion System
+
 Both implementations support autocomplete by finding all words with a given prefix.
 
 ### 2. Spell Checker with Edit Distance
+
 You can extend the trie to find words within a certain edit distance for spell checking.
 
 ### 3. Longest Common Prefix
+
 Both implementations include methods to find the longest common prefix of all stored words.
 
 ### 4. Word Count and Frequency
+
 The implementations track how many words pass through each node, enabling frequency analysis.
 
 ## Use Cases and Applications
 
 ### 1. **Autocomplete Systems**
+
 - Search engines
 - IDE code completion
 - Mobile keyboard predictions
 
 ### 2. **Spell Checkers**
+
 - Word processors
 - Text editors
 - Web browsers
 
 ### 3. **IP Routing**
+
 - Network routers use tries for longest prefix matching
 - CIDR block management
 
 ### 4. **Dictionary Implementations**
+
 - Fast word lookup
 - Prefix-based operations
 - Anagram detection
 
 ### 5. **Data Compression**
+
 - Huffman coding trees
 - LZ77/LZ78 algorithms
 
 ## Optimization Techniques
 
 ### 1. **Compressed Tries (Patricia Trees)**
+
 - Merge chains of single-child nodes
 - Reduces space complexity for sparse tries
 
 ### 2. **Array-based Implementation**
+
 - Use arrays instead of hash maps for fixed alphabets
 - Faster access but higher memory usage
 
 ### 3. **Lazy Deletion**
+
 - Mark nodes as deleted instead of removing them
 - Useful for undo operations
 
 ### 4. **Memory Pooling**
+
 - Reuse deleted nodes
 - Reduces allocation overhead
 
 ### 5. **Radix Trees**
+
 - Compress common prefixes
 - More space-efficient for large datasets
 
@@ -798,6 +823,7 @@ I'll create a detailed ASCII diagram showing how a Trie data structure works ste
 4. **Technical details**: Node structure, time/space complexity, and practical applications
 
 Key features illustrated:
+
 - Root node concept
 - End-of-word markers (*)
 - Shared prefixes (like "CA" shared between CAT, CAR, CARD, CARE, CAREFUL)
@@ -809,9 +835,11 @@ The diagram shows how tries are particularly efficient for prefix-based operatio
 # Trie Data Structure - Step by Step ASCII Diagram
 
 ## What is a Trie?
+
 A Trie (pronounced "try") is a tree-like data structure used to store strings efficiently. Each node represents a character, and paths from root to leaf represent complete words.
 
 ## Key Properties:
+
 - Root node is empty
 - Each edge represents a character
 - End-of-word nodes are marked (shown with *)
@@ -820,6 +848,7 @@ A Trie (pronounced "try") is a tree-like data structure used to store strings ef
 ---
 
 ## Step 1: Empty Trie
+
 ```
     [ROOT]
       │
