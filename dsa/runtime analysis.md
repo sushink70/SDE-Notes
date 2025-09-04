@@ -2072,3 +2072,196 @@ where
 
 This completes our comprehensive guide to runtime analysis in data structures and algorithms.
 
+I'll create a comprehensive ASCII diagram showing how runtime analysis in Data Structures and Algorithms works step by step.This comprehensive ASCII diagram walks through the complete process of runtime analysis for Data Structures and Algorithms using Bubble Sort as an example. Here's what each step accomplishes:
+
+**Steps 1-3** establish the foundation by identifying the algorithm, counting basic operations, and expressing the count as a function of input size.
+
+**Steps 4-5** perform the mathematical analysis, converting the operation count into a mathematical formula and then applying asymptotic analysis to determine Big-O complexity.
+
+**Steps 6-7** analyze different cases (best, worst, average) and examine space complexity alongside time complexity.
+
+**Steps 8-9** provide practical context by showing how the algorithm scales with input size and comparing it with other sorting algorithms.
+
+The diagram also includes:
+- A visual representation of common complexity classes
+- A practical performance scaling table
+- A comprehensive algorithm comparison chart
+- A checklist for systematic runtime analysis
+
+This systematic approach can be applied to analyze any algorithm, helping you understand not just what the time complexity is, but *why* it is that complexity and how it compares to alternatives.
+
+# Runtime Analysis in Data Structures & Algorithms - Step by Step
+
+```
+                    RUNTIME ANALYSIS WORKFLOW
+                    ========================
+
+Step 1: IDENTIFY THE ALGORITHM
+┌─────────────────────────────────────────────────────────────────┐
+│  Input: Algorithm/Code to Analyze                               │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  function bubbleSort(arr):                              │    │
+│  │      for i = 0 to n-1:                                 │    │
+│  │          for j = 0 to n-i-2:                           │    │
+│  │              if arr[j] > arr[j+1]:                     │    │
+│  │                  swap(arr[j], arr[j+1])                │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 2: COUNT BASIC OPERATIONS
+┌─────────────────────────────────────────────────────────────────┐
+│  Identify Elementary Operations:                                │
+│  • Comparisons: arr[j] > arr[j+1]                              │
+│  • Assignments: i = 0, j = 0                                   │
+│  • Arithmetic: j+1, n-i-2                                      │
+│  • Array Access: arr[j], arr[j+1]                              │
+│  • Function Calls: swap()                                      │
+│                                                                 │
+│  Focus on MOST FREQUENT operation → Comparisons                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 3: EXPRESS AS FUNCTION OF INPUT SIZE
+┌─────────────────────────────────────────────────────────────────┐
+│  Input Size: n (array length)                                  │
+│                                                                 │
+│  Operation Count Analysis:                                      │
+│  Outer loop: runs n times                                      │
+│  Inner loop: runs (n-i-1) times for each i                    │
+│                                                                 │
+│  Total comparisons:                                             │
+│  i=0: (n-1) comparisons                                        │
+│  i=1: (n-2) comparisons                                        │
+│  i=2: (n-3) comparisons                                        │
+│  ...                                                            │
+│  i=n-1: 0 comparisons                                          │
+│                                                                 │
+│  T(n) = (n-1) + (n-2) + (n-3) + ... + 1 + 0                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 4: MATHEMATICAL ANALYSIS
+┌─────────────────────────────────────────────────────────────────┐
+│  Sum Formula: T(n) = Σ(k=1 to n-1) k                          │
+│                                                                 │
+│  Using arithmetic series formula:                               │
+│  T(n) = (n-1) × n / 2                                          │
+│  T(n) = (n² - n) / 2                                           │
+│  T(n) = n²/2 - n/2                                             │
+│                                                                 │
+│  Expanded: T(n) = 0.5n² - 0.5n                                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 5: ASYMPTOTIC ANALYSIS (Big-O)
+┌─────────────────────────────────────────────────────────────────┐
+│                    Growth Rate Analysis                         │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │  T(n) = 0.5n² - 0.5n                                   │    │
+│  │                                                         │    │
+│  │  As n → ∞:                                              │    │
+│  │  • n² term dominates                                   │    │
+│  │  • Constants and lower-order terms become negligible   │    │
+│  │                                                         │    │
+│  │  Therefore: T(n) ∈ O(n²)                               │    │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 6: ANALYZE DIFFERENT CASES
+┌─────────────────────────────────────────────────────────────────┐
+│  ┌─────────────┬─────────────┬──────────────┬─────────────────┐  │
+│  │    Case     │ Input Type  │ Comparisons  │ Time Complexity │  │
+│  ├─────────────┼─────────────┼──────────────┼─────────────────┤  │
+│  │ Best Case   │ Already     │ n²/2 - n/2   │     O(n²)       │  │
+│  │             │ Sorted      │              │                 │  │
+│  ├─────────────┼─────────────┼──────────────┼─────────────────┤  │
+│  │ Worst Case  │ Reverse     │ n²/2 - n/2   │     O(n²)       │  │
+│  │             │ Sorted      │              │                 │  │
+│  ├─────────────┼─────────────┼──────────────┼─────────────────┤  │
+│  │ Average     │ Random      │ n²/2 - n/2   │     O(n²)       │  │
+│  │ Case        │ Order       │              │                 │  │
+│  └─────────────┴─────────────┴──────────────┴─────────────────┘  │
+│                                                                 │
+│  Note: Bubble Sort has same complexity for all cases!          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 7: SPACE COMPLEXITY ANALYSIS
+┌─────────────────────────────────────────────────────────────────┐
+│  Memory Usage Analysis:                                         │
+│  • Input array: n elements                                     │
+│  • Loop variables (i, j): constant space                       │
+│  • Temporary variables in swap: constant space                 │
+│  • No additional data structures                               │
+│                                                                 │
+│  Space Complexity: O(1) - Constant extra space                │
+│  (Not counting input array)                                    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 8: PRACTICAL IMPLICATIONS
+┌─────────────────────────────────────────────────────────────────┐
+│                    Performance Scaling                          │
+│                                                                 │
+│  Input Size │ Operations  │ Relative Time │ Real Time Est.     │
+│  ───────────┼─────────────┼───────────────┼────────────────    │
+│     n=10    │    45       │      1x       │    0.001ms         │
+│     n=100   │   4,950     │    110x       │    0.1ms           │
+│     n=1,000 │  499,500    │  11,100x      │    10ms            │
+│     n=10,000│ 49,995,000  │1,110,000x     │    1 second        │
+│                                                                 │
+│  Conclusion: Algorithm becomes impractical for large inputs    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+Step 9: COMPARISON WITH OTHER ALGORITHMS
+┌─────────────────────────────────────────────────────────────────┐
+│  ┌────────────────┬─────────────┬──────────────┬──────────────┐  │
+│  │   Algorithm    │ Best Case   │ Average Case │ Worst Case   │  │
+│  ├────────────────┼─────────────┼──────────────┼──────────────┤  │
+│  │ Bubble Sort    │   O(n²)     │    O(n²)     │    O(n²)     │  │
+│  │ Selection Sort │   O(n²)     │    O(n²)     │    O(n²)     │  │
+│  │ Insertion Sort │   O(n)      │    O(n²)     │    O(n²)     │  │
+│  │ Merge Sort     │  O(n log n) │  O(n log n)  │  O(n log n)  │  │
+│  │ Quick Sort     │  O(n log n) │  O(n log n)  │    O(n²)     │  │
+│  │ Heap Sort      │  O(n log n) │  O(n log n)  │  O(n log n)  │  │
+│  └────────────────┴─────────────┴──────────────┴──────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+
+COMMON BIG-O COMPLEXITIES (from best to worst):
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  O(1)      ■                           Constant                │
+│  O(log n)  ■■                          Logarithmic             │
+│  O(n)      ■■■■■■■■                    Linear                  │
+│  O(n log n)■■■■■■■■■■■■■■■■             Linearithmic           │
+│  O(n²)     ■■■■■■■■■■■■■■■■■■■■■■■■■    Quadratic              │
+│  O(n³)     ■■■■■■■■■■■■■■■■■■■■■■■■■■■  Cubic                  │
+│  O(2ⁿ)     ████████████████████████████ Exponential            │
+│                                                                 │
+│            Growth Rate Visualization                            │
+└─────────────────────────────────────────────────────────────────┘
+
+ANALYSIS CHECKLIST:
+┌─────────────────────────────────────────────────────────────────┐
+│  ✓ Identify basic operations                                    │
+│  ✓ Count operations as function of input size                  │
+│  ✓ Apply mathematical analysis                                 │
+│  ✓ Determine dominant term                                     │
+│  ✓ Express in Big-O notation                                  │
+│  ✓ Analyze best, average, worst cases                         │
+│  ✓ Calculate space complexity                                  │
+│  ✓ Consider practical implications                             │
+│  ✓ Compare with alternative algorithms                        │
+└─────────────────────────────────────────────────────────────────┘
+```

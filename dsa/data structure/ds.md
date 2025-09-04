@@ -3,6 +3,7 @@
 I'll provide you with a comprehensive overview of data structures from basics to advanced, organized by their applications in different domains. This will be a substantial reference guide.I've created a comprehensive guide covering data structures from basics to advanced applications across all the domains you mentioned. The guide is organized by complexity and application areas, including:
 
 **Key highlights:**
+
 - **Fundamentals**: Arrays, linked lists, stacks, queues, trees, graphs
 - **Database Systems**: B+ trees, LSM trees, skip lists, bloom filters for both SQL and NoSQL
 - **Advanced Applications**: Merkle trees for blockchain, tries for compilers, consistent hashing for distributed systems
@@ -13,11 +14,12 @@ Each section includes real-world usage examples and performance characteristics.
 
 Would you like me to elaborate on any specific domain or data structure? I can also provide implementation examples or dive deeper into the theoretical aspects of any particular area.
 
-# Complete Data Structures Guide: From Basics to Advanced Applications
+## Complete Data Structures Guide: From Basics to Advanced Applications
 
 ## 1. Fundamental Data Structures
 
 ### Linear Data Structures
+
 - **Arrays**: Contiguous memory allocation, O(1) access
 - **Linked Lists**: Dynamic memory, O(n) search, O(1) insertion/deletion
 - **Stacks**: LIFO principle, function calls, expression evaluation
@@ -25,18 +27,21 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 - **Deques**: Double-ended queues, sliding window problems
 
 ### Non-Linear Data Structures
+
 - **Trees**: Hierarchical structure, file systems, decision trees
 - **Graphs**: Vertices and edges, social networks, routing algorithms
 
 ## 2. Advanced Tree Structures
 
 ### Self-Balancing Trees
+
 - **AVL Trees**: Height-balanced BST, guaranteed O(log n) operations
 - **Red-Black Trees**: Used in C++ STL map, Java TreeMap
 - **Splay Trees**: Self-adjusting BST, recently accessed nodes move to root
 - **Treaps**: Randomized BST using heap property
 
 ### Specialized Trees
+
 - **B-Trees**: Multi-way search trees, database indexing
 - **B+ Trees**: Leaf nodes linked, range queries in databases
 - **Segment Trees**: Range queries and updates in O(log n)
@@ -48,6 +53,7 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 3. Database-Specific Data Structures
 
 ### SQL Database Structures
+
 - **B+ Trees**: Primary indexing structure in most RDBMS
   - Used in: MySQL InnoDB, PostgreSQL, SQL Server
   - Optimized for disk-based storage
@@ -57,6 +63,7 @@ Would you like me to elaborate on any specific domain or data structure? I can a
   - Used in: Apache Cassandra, RocksDB, LevelDB
 
 ### NoSQL Database Structures
+
 - **Consistent Hashing**: Distributed hash tables, load balancing
   - Used in: Amazon DynamoDB, Apache Cassandra
 - **Merkle Trees**: Data integrity verification in distributed systems
@@ -70,11 +77,14 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 4. Advanced Graph Structures
 
 ### Graph Representations
+
 - **Adjacency Matrix**: O(V²) space, O(1) edge lookup
 - **Adjacency List**: O(V + E) space, efficient for sparse graphs
 - **Edge List**: Simple representation for algorithms
 
 ### Specialized Graph Structures
+
+- **Directed Graphs**: Web page linking, task scheduling
 - **Directed Acyclic Graphs (DAGs)**: Dependency graphs, blockchain
 - **Weighted Graphs**: Network routing, shortest path algorithms
 - **Bipartite Graphs**: Matching problems, recommendation systems
@@ -83,6 +93,7 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 5. Operating Systems Data Structures
 
 ### Memory Management
+
 - **Free Lists**: Track available memory blocks
 - **Buddy System**: Binary tree-based memory allocation
 - **Slab Allocator**: Object caching in kernel
@@ -90,11 +101,13 @@ Would you like me to elaborate on any specific domain or data structure? I can a
   - Multi-level page tables, inverted page tables
 
 ### Process Management
+
 - **Process Control Blocks (PCB)**: Process state information
 - **Ready Queues**: Multi-level feedback queues for scheduling
 - **Wait Queues**: Blocked processes waiting for resources
 
 ### File Systems
+
 - **Inodes**: File metadata storage in Unix-like systems
 - **B-Trees**: Directory indexing in NTFS, ext4
 - **Extent Trees**: Contiguous block allocation
@@ -103,21 +116,27 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 6. Compiler Data Structures
 
 ### Lexical Analysis
+
+- **Symbol Tables**: Variable/function scope and type information
+  - Implemented using hash tables or balanced trees
 - **Finite Automata**: Token recognition
 - **Trie**: Keyword recognition, symbol tables
 
 ### Syntax Analysis
+
 - **Parse Trees**: Concrete syntax representation
 - **Abstract Syntax Trees (AST)**: Simplified parse trees
 - **LR/LALR Parse Tables**: Bottom-up parsing
 
 ### Semantic Analysis
+
 - **Symbol Tables**: Variable and function information
   - Hash tables with chaining
   - Scoped symbol tables using stacks
 - **Type Trees**: Type checking and inference
 
 ### Code Generation
+
 - **Control Flow Graphs**: Program flow analysis
 - **Data Flow Graphs**: Variable usage analysis
 - **Intermediate Representation**: Three-address code, SSA form
@@ -125,17 +144,20 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 7. Networking Data Structures
 
 ### Routing
+
 - **Routing Tables**: IP address to next-hop mapping
 - **Trie-based IP Lookup**: Longest prefix matching
 - **Radix Trees**: Compressed tries for routing tables
 
 ### Network Protocols
+
 - **Hash Tables**: ARP tables, DNS caches
 - **Priority Queues**: QoS packet scheduling
 - **Ring Buffers**: Network packet buffering
 - **Sliding Window**: TCP flow control
 
 ### Network Security
+
 - **Bloom Filters**: Intrusion detection systems
 - **Hash Chains**: One-time password systems
 - **Merkle Trees**: Secure multicast protocols
@@ -143,11 +165,13 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 8. Cryptographic Data Structures
 
 ### Hash-Based Structures
+
 - **Merkle Trees**: Blockchain integrity, certificate transparency
 - **Hash Chains**: Secure audit logs, one-time signatures
 - **Merkle DAGs**: IPFS content addressing
 
 ### Advanced Cryptographic Structures
+
 - **Accumulators**: Cryptographic sets with membership proofs
 - **Zero-Knowledge Proofs**: Privacy-preserving verification
 - **Commitment Schemes**: Secure multiparty computation
@@ -155,17 +179,20 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 9. Blockchain Data Structures
 
 ### Core Structures
+
 - **Blockchain**: Linked list of cryptographically linked blocks
 - **Merkle Trees**: Transaction integrity within blocks
 - **Patricia Tries**: Ethereum state trees
   - Modified Merkle Patricia Trie for key-value storage
 
 ### Consensus Mechanisms
+
 - **Hash Pointers**: Tamper-evident linking
 - **Merkle Mountain Ranges**: Efficient append-only logs
 - **Sparse Merkle Trees**: Efficient state updates
 
 ### Smart Contract Storage
+
 - **State Tries**: Ethereum account state storage
 - **Storage Tries**: Contract storage organization
 - **Receipt Tries**: Transaction receipt organization
@@ -173,17 +200,20 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 10. Search Engine Data Structures
 
 ### Text Processing
+
 - **Inverted Index**: Document-term mapping
   - Term frequency, document frequency storage
 - **Suffix Arrays**: Efficient string searching
 - **N-gram Indexes**: Phrase and proximity searching
 
 ### Web Graph Analysis
+
 - **Web Graph**: Hyperlink structure representation
 - **Link Analysis**: PageRank calculation structures
 - **Anchor Text Indexes**: Link text indexing
 
 ### Query Processing
+
 - **Query Trees**: Search query parsing and optimization
 - **Result Heaps**: Top-k result retrieval
 - **Caching Structures**: Query result caching
@@ -191,17 +221,20 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 11. Big Data Structures
 
 ### Distributed Data Structures
+
 - **Distributed Hash Tables (DHT)**: Chord, Pastry protocols
 - **Consistent Hashing**: Data distribution across nodes
 - **Vector Clocks**: Distributed system event ordering
 - **Gossip Protocols**: Information dissemination
 
 ### Stream Processing
+
 - **Sliding Windows**: Time-based and count-based windows
 - **Watermarks**: Out-of-order event handling
 - **State Backends**: Fault-tolerant state storage
 
 ### Approximation Structures
+
 - **Count-Min Sketch**: Frequency estimation
 - **HyperLogLog**: Cardinality estimation
 - **Top-K Sketches**: Heavy hitter detection
@@ -210,11 +243,14 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 12. Embedded Systems Data Structures
 
 ### Memory-Constrained Structures
+
+- **Static Arrays**: Fixed-size data storage
 - **Circular Buffers**: FIFO queues in fixed memory
 - **Bit Arrays**: Space-efficient boolean storage
 - **Packed Structures**: Memory alignment optimization
 
 ### Real-Time Structures
+
 - **Priority Queues**: Task scheduling
 - **Ring Buffers**: Interrupt-driven data collection
 - **State Machines**: Event-driven programming
@@ -222,12 +258,14 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 13. Machine Learning Data Structures
 
 ### Core ML Structures
+
 - **Decision Trees**: Classification and regression
 - **Random Forests**: Ensemble of decision trees
 - **Neural Network Graphs**: Computational graphs
 - **KD-Trees**: Nearest neighbor search
 
 ### Feature Engineering
+
 - **Feature Hashing**: Dimensionality reduction
 - **Sparse Matrices**: High-dimensional data representation
 - **Embedding Tables**: Dense vector representations
@@ -235,17 +273,20 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 14. Performance Considerations
 
 ### Time Complexities
+
 - **Access**: Array O(1), Linked List O(n)
 - **Search**: BST O(log n), Hash Table O(1) average
 - **Insertion**: Dynamic Array O(1) amortized, BST O(log n)
 - **Deletion**: Hash Table O(1), BST O(log n)
 
 ### Space Complexities
+
 - **Memory Overhead**: Pointers, metadata storage
 - **Cache Locality**: Array vs. Linked structures
 - **Memory Fragmentation**: Dynamic allocation concerns
 
 ### Choosing the Right Structure
+
 - **Read vs. Write Heavy**: Different optimization strategies
 - **Memory Constraints**: Embedded vs. server applications
 - **Concurrency Requirements**: Thread-safe structures
@@ -254,18 +295,22 @@ Would you like me to elaborate on any specific domain or data structure? I can a
 ## 15. Implementation Languages and Libraries
 
 ### C/C++
+
 - STL containers: vector, map, unordered_map, set
 - Custom implementations for performance-critical code
 
 ### Java
+
 - Collections Framework: ArrayList, HashMap, TreeMap
 - Concurrent collections for multi-threaded applications
 
 ### Python
+
 - Built-in: list, dict, set, tuple
 - Libraries: NumPy arrays, Pandas DataFrames
 
 ### Specialized Libraries
+
 - **Graph Processing**: NetworkX (Python), SNAP (C++)
 - **Numerical Computing**: BLAS, LAPACK
 - **Database Engines**: RocksDB, LevelDB
@@ -311,11 +356,12 @@ The guide includes practical code examples, performance comparisons, and cross-l
 
 Would you like me to dive deeper into any specific language or provide more implementation examples for particular data structures?
 
-# Data Structures in Go, Rust, Scala, Haskell, Python & TypeScript
+## Data Structures in Go, Rust, Scala, Haskell, Python & TypeScript
 
 ## 1. Go (Golang) Data Structures
 
 ### Built-in Types
+
 ```go
 // Arrays - Fixed size
 var arr [5]int = [5]int{1, 2, 3, 4, 5}
@@ -333,6 +379,7 @@ ch := make(chan int, 100) // Buffered channel
 ```
 
 ### Custom Data Structures
+
 ```go
 // Linked List
 type Node struct {
@@ -360,6 +407,7 @@ type Graph struct {
 ```
 
 ### Concurrent Data Structures
+
 ```go
 import "sync"
 
@@ -376,12 +424,14 @@ type SafeQueue struct {
 ```
 
 ### Go-Specific Advanced Structures
+
 - **Sync.Map**: Concurrent map for high-performance scenarios
 - **Container/heap**: Priority queue implementation
 - **Container/ring**: Circular lists
 - **Context trees**: Request scoping and cancellation
 
 ### Performance Considerations
+
 - Garbage collector optimizations for pointer-heavy structures
 - Memory alignment for structs
 - Channel-based patterns for concurrent access
@@ -447,6 +497,7 @@ struct LockFreeStack<T> {
 ```
 
 ### Rust-Specific Features
+
 - **Ownership system**: Prevents data races and memory leaks
 - **Lifetimes**: Ensures references are valid
 - **Send/Sync traits**: Thread safety guarantees
@@ -454,6 +505,7 @@ struct LockFreeStack<T> {
 - **Pattern matching**: Powerful destructuring
 
 ### Specialized Crates
+
 - **Serde**: Serialization framework
 - **Rayon**: Data parallelism
 - **Crossbeam**: Lock-free concurrency
@@ -464,6 +516,7 @@ struct LockFreeStack<T> {
 ## 3. Scala Data Structures
 
 ### Immutable Collections
+
 ```scala
 // Lists - Persistent linked lists
 val list = List(1, 2, 3)
