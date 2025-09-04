@@ -44,7 +44,7 @@ The guide provides both theoretical understanding and practical implementations,
 
 Would you like me to expand on any particular aspect of the guide or add additional features?
 
-# Comprehensive Shell Sort Guide: Python & Rust Implementations
+## Comprehensive Shell Sort Guide: Python & Rust Implementations
 
 ## Table of Contents
 

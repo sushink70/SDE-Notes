@@ -203,7 +203,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Merge Sort ✅
 - Quick Sort ✅
 - Heap Sort
-- Shell Sort
+- Shell Sort ✅
 - Cocktail Shaker Sort
 - Gnome Sort
 - Comb Sort
@@ -506,5 +506,7 @@ Here's a comprehensive list of algorithms organized by category:
 - Sutherland-Hodgman Clipping
 - Cohen-Sutherland Line Clipping
 - Bresenham's Line Algorithm
+
+## Summary
 
 Each category contains algorithms with different time and space complexities, use cases, and performance characteristics. The choice of algorithm depends on the specific problem requirements, input size, and performance constraints.
