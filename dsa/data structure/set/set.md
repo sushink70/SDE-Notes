@@ -1,3 +1,5 @@
+# Comprehensive Guide to Sets in Data Structures and Algorithms
+
 I've completed the comprehensive guide to sets in Data Structures and Algorithms with implementations in both Python and Rust. The guide covers:
 
 ## Key Highlights:
@@ -28,6 +30,7 @@ I've completed the comprehensive guide to sets in Data Structures and Algorithms
 5. **Practical Examples** showing how to use each implementation effectively
 
 The implementations are production-ready and include optimizations like:
+
 - Hash table resizing based on load factor
 - AVL tree self-balancing with rotations  
 - Path compression in Union-Find for near-constant time operations
@@ -35,9 +38,10 @@ The implementations are production-ready and include optimizations like:
 
 Each implementation includes comprehensive error handling, proper memory management, and follows best practices for both Python and Rust. The guide serves as both a learning resource and a reference for implementing sets in real-world applications.
 
-# Comprehensive Guide to Sets in Data Structures and Algorithms
+## Comprehensive Guide to Sets in Data Structures and Algorithms
 
 ## Table of Contents
+
 1. [Introduction to Sets](#introduction-to-sets)
 2. [Set Operations](#set-operations)
 3. [Implementation Approaches](#implementation-approaches)
@@ -53,6 +57,7 @@ Each implementation includes comprehensive error handling, proper memory managem
 A **Set** is an abstract data type that stores unique elements without any particular order. Sets are fundamental in computer science and mathematics, providing efficient operations for membership testing, insertion, deletion, and set operations like union, intersection, and difference.
 
 ### Key Properties:
+
 - **Uniqueness**: No duplicate elements
 - **Unordered**: Elements have no specific sequence (in most implementations)
 - **Dynamic**: Can grow and shrink during runtime
@@ -61,6 +66,7 @@ A **Set** is an abstract data type that stores unique elements without any parti
 ## Set Operations
 
 ### Basic Operations:
+
 - **Insert**: Add an element to the set
 - **Delete**: Remove an element from the set
 - **Contains**: Check if an element exists in the set
@@ -68,6 +74,7 @@ A **Set** is an abstract data type that stores unique elements without any parti
 - **Clear**: Remove all elements
 
 ### Set-Specific Operations:
+
 - **Union**: Combine two sets (A ∪ B)
 - **Intersection**: Find common elements (A ∩ B)
 - **Difference**: Elements in A but not in B (A - B)
@@ -77,21 +84,25 @@ A **Set** is an abstract data type that stores unique elements without any parti
 ## Implementation Approaches
 
 ### 1. Hash-Based Sets
+
 - **Time Complexity**: O(1) average for basic operations
 - **Space Complexity**: O(n)
 - **Best For**: General-purpose sets with fast operations
 
 ### 2. Tree-Based Sets
+
 - **Time Complexity**: O(log n) for basic operations
 - **Space Complexity**: O(n)
 - **Best For**: Maintaining sorted order, range queries
 
 ### 3. Bit Sets
+
 - **Time Complexity**: O(1) for basic operations
 - **Space Complexity**: O(universe size)
 - **Best For**: Small universe of integers, bit manipulation
 
 ### 4. Disjoint Sets (Union-Find)
+
 - **Time Complexity**: O(α(n)) amortized (inverse Ackermann function)
 - **Space Complexity**: O(n)
 - **Best For**: Dynamic connectivity problems

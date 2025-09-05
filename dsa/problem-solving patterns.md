@@ -735,8 +735,12 @@ If you meant a different context for "Quick Select" or need details about its im
 ## 4. Dynamic Programming Patterns
 
 ### Linear DP
+
 **Concept**: Build solution using previously computed subproblems in linear sequence.
+
 **When to use**:
+
+- Problems with optimal substructure and overlapping subproblems
 - Optimization problems with optimal substructure
 - Counting problems
 **Common patterns**:
@@ -744,17 +748,24 @@ If you meant a different context for "Quick Select" or need details about its im
 **Example Problems**: Fibonacci, Climbing Stairs, House Robber
 
 ### 2D DP
+
 **Concept**: Use 2D table to store subproblem solutions.
 **When to use**:
+
 - Problems involving two sequences/dimensions
 - Grid-based problems
+- Matrix pathfinding
+
 **Common patterns**:
+
 - dp[i][j] = f(dp[i-1][j], dp[i][j-1], ...)
 **Example Problems**: Unique Paths, Longest Common Subsequence, Edit Distance
 
 ### Knapsack Patterns
+
 **Concept**: Optimization problems involving selection with constraints.
 **Types**:
+
 - 0/1 Knapsack (each item once)
 - Unbounded Knapsack (unlimited items)
 - Multiple Knapsack
@@ -762,16 +773,20 @@ If you meant a different context for "Quick Select" or need details about its im
 **Example Problems**: Partition Equal Subset Sum, Coin Change, Target Sum
 
 ### Interval DP
+
 **Concept**: Solve problems on intervals by combining solutions of smaller intervals.
 **When to use**:
+
 - Problems on ranges/intervals
 - Matrix chain multiplication type problems
 **Pattern**: dp[i][j] = min/max(dp[i][k] + dp[k+1][j]) for all k
 **Example Problems**: Matrix Chain Multiplication, Burst Balloons, Palindrome Partitioning
 
 ### State Machine DP
+
 **Concept**: Model problem as finite state machine with transitions.
 **When to use**:
+
 - Problems with distinct states and transitions
 - Stock trading problems
 **Example Problems**: Best Time to Buy/Sell Stock, Paint House
@@ -779,13 +794,19 @@ If you meant a different context for "Quick Select" or need details about its im
 ## 5. Backtracking Patterns
 
 ### Generate All Combinations/Permutations
+
 **Concept**: Systematically generate all possible solutions by trying choices and backtracking.
 **When to use**:
+
+- Combinatorial generation
+- Combinatorial problems
 - Generating all subsets
 - Permutations and combinations
 - N-Queens type problems
+
 **Template**:
-```
+
+```python
 def backtrack(current_state):
     if is_complete(current_state):
         add_to_result(current_state)
@@ -796,11 +817,15 @@ def backtrack(current_state):
         backtrack(new_state)
         undo_choice(choice)
 ```
+
 **Example Problems**: Subsets, Permutations, N-Queens, Sudoku Solver
 
 ### Constraint Satisfaction
+
 **Concept**: Find solutions that satisfy given constraints.
 **When to use**:
+
+- Sudoku
 - Puzzle solving
 - Assignment problems
 - Graph coloring
@@ -809,8 +834,11 @@ def backtrack(current_state):
 ## 6. Greedy Patterns
 
 ### Activity Selection
+
 **Concept**: Make locally optimal choices hoping to find global optimum.
 **When to use**:
+
+- Interval scheduling
 - Scheduling problems
 - When greedy choice property holds
 **Common strategies**:
@@ -820,6 +848,7 @@ def backtrack(current_state):
 **Example Problems**: Activity Selection, Meeting Rooms, Jump Game
 
 ### Huffman Coding Pattern
+
 **Concept**: Build optimal solution by repeatedly selecting minimum elements.
 **When to use**: Compression, optimal merging problems
 **Example Problems**: Huffman Coding, Minimum Cost to Connect Sticks
@@ -827,26 +856,31 @@ def backtrack(current_state):
 ## 7. Advanced Graph Patterns
 
 ### Dijkstra's Algorithm
+
 **Concept**: Find shortest paths from source using priority queue.
 **When to use**: Shortest path in weighted graphs with non-negative weights
 **Time Complexity**: O((V + E) log V) with priority queue
 **Example Problems**: Network Delay Time, Cheapest Flights
 
 ### Bellman-Ford Algorithm
+
 **Concept**: Find shortest paths, can handle negative weights.
 **When to use**: Graphs with negative edge weights, cycle detection
 **Time Complexity**: O(VE)
 **Example Problems**: Cheapest Flights with K Stops
 
 ### Floyd-Warshall Algorithm
+
 **Concept**: Find all-pairs shortest paths using dynamic programming.
 **When to use**: Dense graphs, all-pairs shortest paths
 **Time Complexity**: O(V³)
 **Example Problems**: Find the City, Shortest Distance to All Buildings
 
 ### Topological Sort
+
 **Concept**: Linear ordering of vertices in DAG.
 **When to use**:
+
 - Dependency resolution
 - Task scheduling
 - Detecting cycles in directed graphs
@@ -854,8 +888,10 @@ def backtrack(current_state):
 **Example Problems**: Course Schedule, Alien Dictionary
 
 ### Minimum Spanning Tree
+
 **Concept**: Find minimum cost tree connecting all vertices.
 **Algorithms**:
+
 - Kruskal's (union-find based)
 - Prim's (priority queue based)
 **When to use**: Network design, clustering
@@ -864,20 +900,25 @@ def backtrack(current_state):
 ## 8. String Processing Patterns
 
 ### KMP (Knuth-Morris-Pratt) Algorithm
+
 **Concept**: Pattern matching using failure function to avoid unnecessary comparisons.
 **When to use**: Efficient string matching
 **Time Complexity**: O(n + m)
 **Example Problems**: Implement strStr(), Repeated Substring Pattern
 
 ### Rabin-Karp Algorithm
+
 **Concept**: Rolling hash for pattern matching.
 **When to use**: Multiple pattern matching, substring search
 **Time Complexity**: O(n + m) average case
 **Example Problems**: Find All Anagrams, Longest Duplicate Substring
 
 ### Trie (Prefix Tree)
+
 **Concept**: Tree structure for efficient string storage and retrieval.
 **When to use**:
+
+- Dictionary implementations
 - Prefix matching
 - Word games
 - Auto-complete
@@ -885,6 +926,7 @@ def backtrack(current_state):
 **Example Problems**: Implement Trie, Word Search II, Replace Words
 
 ### Manacher's Algorithm
+
 **Concept**: Find all palindromes in linear time.
 **When to use**: Palindrome-related problems
 **Time Complexity**: O(n)
@@ -893,24 +935,29 @@ def backtrack(current_state):
 ## 9. Mathematical Patterns
 
 ### Sieve of Eratosthenes
+
 **Concept**: Generate all prime numbers up to n.
 **When to use**: Prime number problems
 **Time Complexity**: O(n log log n)
 **Example Problems**: Count Primes, Prime Factorization
 
 ### Fast Exponentiation
+
 **Concept**: Compute a^b in O(log b) time using divide and conquer.
 **When to use**: Large exponentiation, modular arithmetic
 **Example Problems**: Power(x, n), Modular Exponentiation
 
 ### Extended Euclidean Algorithm
+
 **Concept**: Find GCD and coefficients for Bézout's identity.
 **When to use**: Modular inverse, Diophantine equations
 **Example Problems**: Modular Inverse, Chinese Remainder Theorem
 
 ### Catalan Numbers
+
 **Concept**: Sequence counting various combinatorial structures.
 **When to use**: 
+
 - Balanced parentheses
 - Binary trees
 - Path counting problems
@@ -920,25 +967,30 @@ def backtrack(current_state):
 ## 10. Advanced Data Structure Patterns
 
 ### Segment Tree
+
 **Concept**: Binary tree for range queries and updates.
 **When to use**: Range minimum/maximum/sum queries with updates
 **Time Complexity**: O(log n) for query and update
 **Example Problems**: Range Sum Query - Mutable, Count of Smaller Numbers
 
 ### Fenwick Tree (Binary Indexed Tree)
+
 **Concept**: Efficient data structure for prefix sums with updates.
 **When to use**: Dynamic prefix sum queries
 **Time Complexity**: O(log n) for query and update
 **Example Problems**: Count Inversions, Range Sum Query
 
 ### LRU Cache Pattern
+
 **Concept**: Combine hash map with doubly linked list for O(1) operations.
 **When to use**: Cache implementation, maintaining recent items
 **Example Problems**: LRU Cache, LFU Cache
 
 ### Monotonic Stack/Queue
+
 **Concept**: Maintain elements in monotonic order for optimization.
 **When to use**:
+
 - Next greater/smaller element problems
 - Histogram problems
 - Sliding window maximum
@@ -947,8 +999,10 @@ def backtrack(current_state):
 ## 11. Bit Manipulation Patterns
 
 ### XOR Properties
+
 **Concept**: Use XOR properties for solving problems efficiently.
 **Key properties**:
+
 - a ⊕ a = 0
 - a ⊕ 0 = a
 - XOR is commutative and associative
@@ -956,14 +1010,17 @@ def backtrack(current_state):
 **Example Problems**: Single Number, Missing Number
 
 ### Bit Masking
+
 **Concept**: Use bits to represent subsets or states.
 **When to use**:
+
 - Subset enumeration
 - State compression in DP
 - Permissions/flags
 **Example Problems**: Subsets, Traveling Salesman Problem
 
 ### Brian Kernighan's Algorithm
+
 **Concept**: Count set bits by repeatedly clearing lowest set bit.
 **When to use**: Bit counting, subset iteration
 **Example Problems**: Number of 1 Bits, Power of Two
@@ -971,30 +1028,36 @@ def backtrack(current_state):
 ## 12. Miscellaneous Advanced Patterns
 
 ### Reservoir Sampling
+
 **Concept**: Randomly sample k items from stream of unknown length.
 **When to use**: Streaming data, random sampling
 **Time Complexity**: O(n), O(k) space
 **Example Problems**: Random Pick Index, Linked List Random Node
 
 ### Boyer-Moore Majority Vote
+
 **Concept**: Find majority element in O(1) space.
 **When to use**: Finding elements appearing more than n/2 times
 **Example Problems**: Majority Element, Majority Element II
 
 ### Dutch National Flag Algorithm
+
 **Concept**: Partition array into three sections in single pass.
 **When to use**: Three-way partitioning, sorting with limited values
 **Example Problems**: Sort Colors, Partition Labels
 
 ### Kadane's Algorithm
+
 **Concept**: Find maximum subarray sum in linear time.
 **When to use**: Maximum/minimum subarray problems
 **Extensions**: 2D version, circular array
 **Example Problems**: Maximum Subarray, Maximum Product Subarray
 
 ### Meet in the Middle
+
 **Concept**: Divide problem space and solve halves separately.
 **When to use**: 
+
 - Subset sum with large constraints
 - Reducing exponential to square root exponential
 **Time Complexity**: Reduces O(2^n) to O(2^(n/2))
@@ -1044,61 +1107,76 @@ The guide also provides a systematic framework for approaching problems, debuggi
 
 Would you like me to elaborate on any specific technique or provide code examples for particular algorithms?
 
-# Comprehensive Programming Problem-Solving Techniques
+## Comprehensive Programming Problem-Solving Techniques
 
 ## Part 1: Fundamental Problem-Solving Approaches
 
 ### 1. Divide and Conquer
+
 **Concept**: Break a complex problem into smaller, manageable sub-problems, solve each independently, then combine solutions.
 
 **How it works**:
+
 - Divide: Split problem into smaller instances
 - Conquer: Solve sub-problems recursively
 - Combine: Merge sub-solutions into final solution
 
 **Real-world applications**:
+
 - **Merge Sort/Quick Sort**: Database sorting operations in e-commerce platforms
 - **Binary Search**: Search engines, autocomplete features
 - **FFT (Fast Fourier Transform)**: Audio processing in Spotify, image compression
 - **Closest Pair Problem**: GPS navigation, collision detection in games
 
 ### 2. Brute Force
+
 **Concept**: Try all possible solutions systematically until finding the correct one.
 
 **How it works**:
+
 - Generate all potential solutions
 - Test each against problem constraints
 - Select the one that works
 
 **Real-world applications**:
+
 - **Password cracking**: Security testing
 - **Small dataset searches**: Finding patterns in limited data
 - **Game AI**: Chess engines for endgame positions
 - **Cryptanalysis**: Breaking simple encryption schemes
 
 ### 3. Greedy Algorithms
+
 **Concept**: Make locally optimal choices at each step, hoping to find a global optimum.
 
 **How it works**:
+
 - Make the best choice available at current step
 - Never reconsider previous choices
 - Continue until solution is complete
 
 **Real-world applications**:
+
 - **Dijkstra's Algorithm**: GPS navigation (Google Maps, Waze)
 - **Huffman Coding**: File compression (ZIP files)
 - **Kruskal's/Prim's Algorithm**: Network design, circuit board routing
 - **Activity Selection**: Conference room scheduling, CPU task scheduling
 
 ### 4. Dynamic Programming
+
 **Concept**: Solve complex problems by breaking them down into overlapping subproblems and storing results.
 
 **How it works**:
+
 - Identify overlapping subproblems
 - Store solutions in a table (memoization)
 - Build up to the final solution
 
 **Real-world applications**:
+
+- **Route Planning**: Google Maps, Uber/Lyft route optimization
+- **Recommendation Systems**: Netflix, Amazon product recommendations
+- **Inventory Management**: Supply chain optimization
 - **Text Diff Algorithms**: Git version control, Google Docs
 - **Route Optimization**: Uber/Lyft driver routing
 - **Resource Allocation**: Cloud computing resource management (AWS, Azure)
@@ -1108,41 +1186,50 @@ Would you like me to elaborate on any specific technique or provide code example
 ## Part 2: Data Structure-Based Problem Solving
 
 ### 5. Stack-Based Solutions
+
 **Concept**: Use LIFO (Last In, First Out) structure for problems with nested or recursive nature.
 
 **How it works**:
+
 - Push elements onto stack
 - Pop elements when needed
 - Process in reverse order of insertion
 
 **Real-world applications**:
+
 - **Browser History**: Back button functionality
 - **Undo Operations**: Text editors, Photoshop
 - **Expression Evaluation**: Calculator apps, compilers
 - **Function Call Management**: Programming language runtimes
 
 ### 6. Queue-Based Solutions
+
 **Concept**: Use FIFO (First In, First Out) for problems requiring order preservation.
 
 **How it works**:
+
 - Enqueue elements at rear
 - Dequeue from front
 - Process in order of arrival
 
 **Real-world applications**:
+
 - **Print Spoolers**: Printer job management
 - **Message Queues**: WhatsApp, Slack message delivery
 - **BFS Algorithms**: Social network friend suggestions
 - **Task Scheduling**: Operating system process management
 
 ### 7. Tree/Graph Traversal
+
 **Concept**: Systematically visit all nodes in tree or graph structures.
 
 **Types**:
+
 - **DFS (Depth-First Search)**: Explore as far as possible before backtracking
 - **BFS (Breadth-First Search)**: Explore level by level
 
 **Real-world applications**:
+
 - **Web Crawling**: Google's web indexing
 - **Social Network Analysis**: LinkedIn connection recommendations
 - **Game AI**: Pathfinding in video games
@@ -1150,14 +1237,17 @@ Would you like me to elaborate on any specific technique or provide code example
 - **Dependency Resolution**: Package managers (npm, pip)
 
 ### 8. Hash Table Solutions
+
 **Concept**: Use key-value mapping for O(1) average-case lookups.
 
 **How it works**:
+
 - Convert keys to array indices via hash function
 - Handle collisions through chaining or open addressing
 - Provide constant-time access
 
 **Real-world applications**:
+
 - **Database Indexing**: MySQL, PostgreSQL query optimization
 - **Caching Systems**: Redis, Memcached
 - **Duplicate Detection**: Plagiarism checkers, email spam filters
@@ -1166,56 +1256,73 @@ Would you like me to elaborate on any specific technique or provide code example
 ## Part 3: Algorithmic Paradigms
 
 ### 9. Two Pointers Technique
+
 **Concept**: Use two pointers to traverse data structure, often from different directions.
 
 **How it works**:
+
 - Initialize pointers at specific positions
 - Move based on problem logic
 - Meet condition or converge
 
 **Real-world applications**:
+
+- **Array Pairing**: Merging sorted arrays (merge step in merge sort)
+- **String Reversal**: Palindrome checking
 - **Palindrome Checking**: Text validation
 - **Container Problems**: Memory allocation algorithms
 - **Sliding Window**: Network packet analysis, stock trading
 - **Array Manipulation**: Image processing filters
 
 ### 10. Sliding Window
+
 **Concept**: Maintain a window of elements and slide it through data.
 
 **How it works**:
+
 - Define window size or condition
 - Slide window by adding/removing elements
 - Track properties within window
 
 **Real-world applications**:
-- **Network Traffic Analysis**: DDoS detection
+
+- **Network Traffic Analysis**: DDoS detection, bandwidth monitoring, real-time analytics
+- **Real-Time Analytics**: Monitoring user activity on websites (Google Analytics)
+- **Signal Processing**: Audio signal filtering, noise reduction
+- **Financial Data Analysis**: Moving averages in stock trading
 - **Time Series Analysis**: Stock market indicators
 - **String Pattern Matching**: Text editors' find functionality
 - **Rate Limiting**: API request throttling
 
 ### 11. Backtracking
+
 **Concept**: Build solutions incrementally and abandon paths that fail.
 
 **How it works**:
+
 - Make a choice
 - Recursively solve remaining problem
 - Undo choice if it doesn't work
 
 **Real-world applications**:
+
 - **Sudoku Solvers**: Puzzle games
 - **N-Queens Problem**: Circuit board component placement
 - **Maze Solving**: Robotics navigation
 - **Constraint Satisfaction**: Scheduling systems, resource allocation
 
 ### 12. Branch and Bound
+
 **Concept**: Systematic enumeration with pruning of suboptimal solutions.
 
 **How it works**:
+
 - Branch: Divide problem into subproblems
 - Bound: Calculate bounds on optimal solution
 - Prune: Eliminate branches that can't be optimal
 
 **Real-world applications**:
+
 - **Traveling Salesman**: Delivery route optimization (FedEx, Amazon)
 - **Job Scheduling**: Manufacturing systems
 - **Integer Programming**: Supply chain optimization
@@ -1224,30 +1331,44 @@ Would you like me to elaborate on any specific technique or provide code example
 ## Part 4: Advanced Techniques
 
 ### 13. Binary Search Variations
+
 **Concept**: Efficiently search or find optimal values in sorted/monotonic spaces.
 
 **Variations**:
+
 - Standard binary search
 - Binary search on answer
 - Ternary search
 - Exponential search
 
 **Real-world applications**:
+
+- **E-commerce**: Price optimization
+- **Stock Market**: Finding optimal buy/sell points
 - **Database Queries**: B-tree index searches
 - **Load Balancing**: Finding optimal server capacity
 - **Machine Learning**: Hyperparameter tuning
 - **Version Control**: Git bisect for bug finding
 
 ### 14. Bit Manipulation
+
 **Concept**: Use bitwise operations for efficient computation.
 
 **Techniques**:
+
 - Setting/clearing/toggling bits
 - Bit masking
 - XOR properties
 - Bit counting
 
 **Real-world applications**:
+
+- **Graphics Rendering**: Color manipulation
+- **Compression Algorithms**: Data encoding (JPEG, PNG)
+- **Error Detection**: Checksums, CRC
+- **Cryptography**: Hash functions
+- **Game Development**: Collision detection
+- **Embedded Systems**: Sensor data processing
 - **Permissions Systems**: Unix file permissions
 - **Network Subnetting**: IP address calculations
 - **Cryptography**: Encryption algorithms
@@ -1257,19 +1378,25 @@ Would you like me to elaborate on any specific technique or provide code example
 ### 15. Mathematical Approaches
 
 #### Number Theory
+
 **Applications**:
+
 - **Cryptography**: RSA encryption (banking, secure communications)
 - **Hash Functions**: Distributed databases
 - **Random Number Generation**: Gaming, simulations
 
 #### Combinatorics
+
 **Applications**:
+
 - **Password Strength**: Calculating possibilities
 - **Lottery Systems**: Probability calculations
 - **Network Reliability**: Calculating redundancy needs
 
 #### Linear Algebra
+
 **Applications**:
+
 - **Computer Graphics**: 3D transformations in games/movies
 - **Machine Learning**: Neural networks, recommendation systems
 - **Search Engines**: PageRank algorithm
@@ -1277,11 +1404,19 @@ Would you like me to elaborate on any specific technique or provide code example
 ### 16. String Algorithms
 
 #### Pattern Matching
+
+**Concept**: Efficiently find occurrences of a substring within a string.
+**Applications**:
+
 - **KMP Algorithm**: Text editors, DNA sequence analysis
 - **Rabin-Karp**: Plagiarism detection
 - **Boyer-Moore**: grep command, antivirus scanning
 
 #### String Processing
+
+**Concept**: Manipulate and analyze strings efficiently.
+**Applications**:
+
 - **Trie Data Structure**: Autocomplete, spell checkers
 - **Suffix Arrays**: Text compression, bioinformatics
 - **Edit Distance**: Spell correction, DNA alignment
@@ -1289,65 +1424,87 @@ Would you like me to elaborate on any specific technique or provide code example
 ### 17. Probabilistic Algorithms
 
 #### Monte Carlo Methods
+
 **Concept**: Use randomness to solve deterministic problems.
 
 **Applications**:
+
 - **Financial Modeling**: Option pricing, risk assessment
 - **Game AI**: Monte Carlo Tree Search in AlphaGo
 - **Physics Simulations**: Particle physics, weather prediction
 
 #### Las Vegas Algorithms
+
 **Concept**: Always correct but running time is probabilistic.
 
 **Applications**:
+
 - **Randomized QuickSort**: Database systems
 - **Randomized Binary Search Trees**: Self-balancing data structures
 
 ### 18. Parallel and Distributed Algorithms
 
 #### MapReduce Paradigm
+
+**Concept**: Process large data sets with distributed algorithms on clusters.
 **Applications**:
+
 - **Big Data Processing**: Hadoop, Spark
 - **Search Indexing**: Google's web indexing
 - **Log Analysis**: Server log processing
 
 #### Parallel Sorting
+
+**Concept**: Divide sorting task across multiple processors.
 **Applications**:
+
+- **Large-scale Data Sorting**: Distributed databases
+- **Real-time Analytics**: Financial data processing
+- **Scientific Computing**: Simulations, data analysis
 - **GPU Computing**: Graphics rendering, ML training
 - **Distributed Databases**: Sharding and querying
 
 ## Part 5: Optimization Techniques
 
 ### 19. Memoization
+
 **Concept**: Cache results of expensive function calls.
 
 **Implementation**:
+
 - Use dictionary/array to store results
 - Check cache before computing
 - Store new results for future use
 
 **Real-world applications**:
+
+- **Fibonacci Sequence**: Dynamic programming optimization
 - **Web Caching**: CDN optimization
 - **Fibonacci Calculations**: Mathematical computations
 - **API Response Caching**: Reducing server load
 
 ### 20. Space-Time Tradeoffs
+
 **Concept**: Balance memory usage against execution time.
 
 **Techniques**:
+
 - Precomputation
 - Lookup tables
 - Caching strategies
 
 **Real-world applications**:
+
 - **Rainbow Tables**: Password cracking
 - **Database Indexing**: Query optimization
 - **Game Physics**: Precomputed collision detection
 
 ### 21. Approximation Algorithms
+
 **Concept**: Find near-optimal solutions when exact solutions are impractical.
 
 **Applications**:
+
 - **Traveling Salesman**: Delivery optimization
 - **Bin Packing**: Container loading, memory allocation
 - **Vertex Cover**: Network security, circuit design
@@ -1358,12 +1515,14 @@ Would you like me to elaborate on any specific technique or provide code example
 ### 22. Problem Analysis Framework
 
 #### Understanding the Problem
+
 1. **Input/Output Specification**: Define clearly what goes in and comes out
 2. **Constraints Analysis**: Time, space, and other limitations
 3. **Edge Cases**: Empty inputs, single elements, maximum values
 4. **Hidden Requirements**: Implicit assumptions in problem statement
 
 #### Solution Design Process
+
 1. **Brute Force First**: Start with simplest solution
 2. **Identify Bottlenecks**: Find what makes it slow
 3. **Apply Patterns**: Recognize similar problems
@@ -1372,12 +1531,14 @@ Would you like me to elaborate on any specific technique or provide code example
 ### 23. Debugging Strategies
 
 #### Systematic Debugging
+
 - **Binary Search Debugging**: Isolate problem area
 - **Rubber Duck Debugging**: Explain code aloud
 - **Print Debugging**: Strategic output statements
 - **Debugger Tools**: Breakpoints and watches
 
 #### Testing Approaches
+
 - **Unit Testing**: Test individual functions
 - **Integration Testing**: Test component interactions
 - **Stress Testing**: Large inputs, edge cases
@@ -1386,39 +1547,57 @@ Would you like me to elaborate on any specific technique or provide code example
 ## Part 7: Real-World Problem Categories
 
 ### 24. System Design Problems
+
 **Techniques**:
+
 - Load balancing algorithms
 - Caching strategies
 - Database sharding
 - Message queuing
 
 **Applications**:
+
+- URL shortening services (Bitly)
+- Content delivery networks (CDNs) (Akamai, Cloudflare)
+- Real-time collaboration tools (Google Docs)
+- Search engines (Google, Bing)
+- Ride-sharing apps (Uber, Lyft)
 - Social media platforms (Facebook, Twitter)
 - Video streaming (Netflix, YouTube)
 - E-commerce (Amazon, eBay)
 - Cloud services (AWS, Google Cloud)
 
 ### 25. Concurrent Programming
+
 **Concepts**:
+
+- Thread management
+- Synchronization techniques
+- Avoiding deadlocks
 - Mutex and locks
 - Deadlock prevention
 - Race condition handling
 - Thread pooling
 
 **Applications**:
+
 - Web servers
 - Database systems
 - Operating systems
 - Real-time systems
 
 ### 26. Machine Learning Integration
+
 **Techniques**:
+
+- Data preprocessing
 - Feature engineering
 - Model selection
 - Optimization algorithms
 - Ensemble methods
 
 **Applications**:
+
 - Recommendation systems
 - Fraud detection
 - Image recognition
@@ -1427,23 +1606,26 @@ Would you like me to elaborate on any specific technique or provide code example
 ## Best Practices Summary
 
 ### Code Quality
+
 1. **Readability**: Clear variable names, comments
 2. **Modularity**: Single responsibility functions
 3. **Error Handling**: Graceful failure modes
 4. **Performance**: Profile before optimizing
 
 ### Problem-Solving Approach
+
 1. **Start Simple**: Implement brute force first
 2. **Test Early**: Verify with small examples
 3. **Iterate**: Refine solution gradually
 4. **Document**: Explain your approach
 
 ### Learning Path
+
 1. **Master Basics**: Arrays, strings, basic algorithms
 2. **Build Foundation**: Data structures, complexity analysis
 3. **Practice Patterns**: Recognize common problem types
 4. **Solve Regularly**: Consistent practice on platforms
-5. **Review Solutions**: Learn from others' approaches
+5. **Review Solutions**: Learn from other's approaches
 6. **Implement Variations**: Modify solutions for similar problems
 
 This comprehensive guide covers the spectrum of problem-solving techniques used in professional software development, from fundamental approaches to cutting-edge methods used by tech giants and startups alike.
