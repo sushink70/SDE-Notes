@@ -1,33 +1,43 @@
+# Comprehensive Guide to Deque Implementation in Python and Rust
+
 The comprehensive guide to deque implementation is now complete! This guide covers:
 
 ## What's Included:
 
 **📚 Theoretical Foundation:**
+
 - Complete explanation of deque data structures
 - Analysis of different implementation approaches
 - Time and space complexity analysis
 
 **💻 Complete Implementations:**
+
 - **Python**: Full-featured deque with circular buffer, resizing, iteration, and comprehensive error handling
 - **Rust**: Generic, memory-safe implementation with advanced features like drain iterators and zero-copy operations
 
 **🚀 Advanced Topics:**
+
 - Thread safety patterns for both languages
 - Memory management and optimization techniques
 - Specialized variants (fixed-size, priority deques)
 - Performance benchmarking code
 
 **🛠 Practical Applications:**
+
 - Web server request queues
 - LRU cache implementation
 - Real-world usage patterns
 
 **⚡ Performance Analysis:**
+
+- Time complexity for all operations
 - Detailed benchmarking frameworks
 - Comparison with built-in implementations
 - Memory pool patterns for optimization
 
 Both implementations are production-ready with:
+
+- Clear documentation and comments
 - Comprehensive error handling
 - Full iterator support
 - Memory safety (especially in Rust)
@@ -36,9 +46,10 @@ Both implementations are production-ready with:
 
 The guide serves as both a learning resource for understanding deque internals and a reference for implementing your own optimized versions when needed. Each implementation showcases the strengths of its respective language - Python's simplicity and dynamic features, and Rust's memory safety and zero-cost abstractions.
 
-# Comprehensive Guide to Deque Implementation
+## Comprehensive Guide to Deque Implementation
 
 ## Table of Contents
+
 1. [What is a Deque?](#what-is-a-deque)
 2. [Key Characteristics](#key-characteristics)
 3. [Implementation Approaches](#implementation-approaches)
@@ -63,18 +74,21 @@ A **deque** (pronounced "deck") is a double-ended queue data structure that allo
 ## Implementation Approaches
 
 ### 1. Circular Buffer (Array-based)
+
 - Uses a fixed-size array with wraparound logic
 - Most memory-efficient
 - Best cache performance
 - Requires resizing when capacity is exceeded
 
 ### 2. Doubly Linked List
+
 - Each node points to both previous and next nodes
 - No fixed capacity
 - Higher memory overhead due to pointers
 - Less cache-friendly
 
 ### 3. Segmented Approach
+
 - Combination of arrays and linked lists
 - Used by many standard library implementations
 - Balances memory efficiency and performance
