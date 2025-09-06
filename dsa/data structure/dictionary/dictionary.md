@@ -1,3 +1,5 @@
+# Dictionary Data Structure Implementations in Python and Rust
+
 Each implementation includes all fundamental dictionary operations (insert, get, delete, contains) with proper error handling and memory management.
 
 ## Additional Implementation Details:
@@ -7,24 +9,31 @@ Let me add some important aspects that complement the main guide:I've extended t
 ## New Additions:
 
 ### 🚀 **Advanced Hash Table Techniques**
+
 - **Robin Hood Hashing**: Reduces clustering by swapping entries to minimize probe distances
 - **Consistent Hashing**: Essential for distributed systems and load balancing
 
 ### 🔒 **Concurrent Implementations**
+
 - **Lock-Free Skip List**: Thread-safe operations using atomic operations
 - **Memory ordering** and **compare-and-swap** techniques for high-performance concurrent access
 
 ### 💾 **Memory-Efficient Structures**
+
 - **Trie Dictionary**: Optimal for string keys with common prefixes
 - **Prefix matching** and **autocomplete** functionality
 - Space-efficient storage for dictionary words
 
 ### 📊 **Performance Benchmarking Suite**
+
+- **Comprehensive benchmarks** for all implementations
 - **Automated testing framework** for comparing implementations
 - **Graphical performance visualization**
 - **Statistical analysis** across different data sizes and access patterns
 
 ### 🏢 **Real-World Applications**
+
+- **In-Memory Cache**: High-performance caching layer using LRU eviction
 - **Database B+ Tree Index**: Optimized for disk storage with range queries
 - **LRU Cache**: Memory-efficient caching with automatic eviction
 - **Production-ready patterns** used in systems like databases and web servers
@@ -38,9 +47,10 @@ Let me add some important aspects that complement the main guide:I've extended t
 
 The guide now covers everything from basic implementations to advanced concurrent data structures used in production systems. Each implementation is fully functional with proper error handling and optimization techniques.
 
-# Comprehensive Dictionary DSA Implementation Guide
+## Comprehensive Dictionary DSA Implementation Guide
 
 ## Table of Contents
+
 1. [Introduction](#introduction)
 2. [Hash Table Implementation](#hash-table-implementation)
 3. [Balanced Binary Search Tree (AVL)](#balanced-binary-search-tree-avl)
@@ -54,6 +64,7 @@ The guide now covers everything from basic implementations to advanced concurren
 A dictionary (also known as a map, associative array, or symbol table) is a fundamental data structure that stores key-value pairs and provides efficient operations for insertion, deletion, and lookup. This guide covers multiple implementation approaches with complete code in Python and Rust.
 
 ### Key Operations
+
 - **Insert(key, value)**: Add or update a key-value pair
 - **Get(key)**: Retrieve the value associated with a key
 - **Delete(key)**: Remove a key-value pair

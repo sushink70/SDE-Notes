@@ -1,8 +1,8 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to Backtracking implementation Complete implementations in Python and Rust.
+1. Create a comprehensive guide to Robin Hood Hashing Complete implementations in Python and Rust.
 
-2. Create a detailed ASCII diagram showing how Backtracking work step by step.
+2. Create a detailed ASCII diagram showing how Robin Hood Hashing work step by step.
 
 
 undirected graphs

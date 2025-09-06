@@ -2,6 +2,168 @@
 
 The comprehensive guide to deque implementation is now complete! This guide covers:
 
+Great follow-up 👌
+
+Let’s go step by step:
+
+---
+
+## 🔹 What is a **Deque**?
+
+* **Deque** = **Double Ended Queue**.
+* It’s a data structure where you can **insert** and **remove** elements from **both ends** (front & back).
+* Pronounced as *“deck”*.
+
+---
+
+## 🔹 How It’s Usually Implemented
+
+There are **two common ways** to implement a deque:
+
+### 1. **Array-Based Deque (Circular Array)**
+
+* Uses a fixed-size **array**.
+* Maintains **front** and **rear** indices that wrap around (circular buffer).
+* Very fast because array indices = O(1) access.
+* Downsides: resizing is costly (need to allocate a bigger array and copy).
+
+ASCII diagram:
+
+```
+Array (size 8): [ _  _  10  20  30  _  _  _ ]
+Indices:         f           r
+```
+
+* `f` = front
+* `r` = rear
+* If you push/pop, indices move **circularly**.
+
+---
+
+### 2. **Linked List-Based Deque (Doubly Linked List)**
+
+* Uses **doubly linked list nodes**: each node has `prev`, `value`, and `next`.
+* Easy to grow/shrink — no resizing needed.
+* Slower access (must traverse nodes).
+
+ASCII diagram:
+
+```
+NULL ← [10 | prev,next] ↔ [20 | prev,next] ↔ [30 | prev,next] → NULL
+```
+
+---
+
+## 🔹 Summary of Difference
+
+| Aspect        | Array-based Deque           | Linked List-based Deque    |
+| ------------- | --------------------------- | -------------------------- |
+| Memory        | Continuous block            | Scattered nodes (pointers) |
+| Insert/Remove | O(1) (with circular buffer) | O(1) at ends               |
+| Random Access | O(1)                        | O(n)                       |
+| Resizing      | Costly                      | Easy                       |
+
+---
+
+## 🔹 In Rust
+
+Rust’s standard library (`std::collections::VecDeque`) uses a **circular buffer (array-based)** for deques because it gives the best performance in most cases.
+
+Example:
+
+```rust
+use std::collections::VecDeque;
+
+fn main() {
+    let mut dq: VecDeque<i32> = VecDeque::new();
+    
+    dq.push_back(10);  // add to back
+    dq.push_back(20);
+    dq.push_front(5);  // add to front
+    
+    println!("{:?}", dq); // [5, 10, 20]
+    
+    dq.pop_back();
+    dq.pop_front();
+    
+    println!("{:?}", dq); // [10]
+}
+```
+
+---
+
+✅ **So:**
+
+* A **deque** can be implemented using **arrays** (circular buffer) **or** a **doubly linked list**.
+* In practice, languages like Rust, C++, and Java usually use the **array-based version** for speed.
+
+---
+
+👉 Do you want me to also show you **ASCII memory diagrams comparing `VecDeque` vs Linked List deque** so you can “see” how they look in memory?
+
+Good question 👍
+
+No — a **linked list is not made by using many arrays**.
+It’s a totally different idea from an array. Let me break it down:
+
+---
+
+### 🔹 Array
+
+* **Memory:** One continuous block in memory.
+* **Access:** You can access any element directly using its index (O(1)).
+* **Resize:** Hard to resize (need to copy to a bigger block if full).
+* **Structure:** Just values stored side by side.
+
+Example:
+
+```
+Index:   0    1    2    3
+Array:  [10] [20] [30] [40]
+```
+
+---
+
+### 🔹 Linked List
+
+* **Memory:** Elements (called **nodes**) are scattered anywhere in memory.
+* **Access:** You must start from the head and follow links to reach the element (O(n)).
+* **Resize:** Easy to grow/shrink (just adjust links).
+* **Structure:** Each node has:
+
+  1. The value
+  2. A pointer (reference) to the next node
+
+Example (singly linked list):
+
+```
+[10 | next] → [20 | next] → [30 | next] → [40 | null]
+```
+
+Here:
+
+* `10, 20, 30, 40` are values.
+* `next` is a pointer (not an array index, but a memory address of the next node).
+
+---
+
+### 🔹 Why Confusion Happens
+
+Some beginners think linked lists are "arrays stitched together" because:
+
+* Both hold collections of data.
+* In some implementations (like C or C++), we **allocate memory for nodes dynamically**, which might look like arrays.
+
+But **a linked list is fundamentally based on pointers/references, not arrays**.
+
+---
+
+✅ **In short:**
+A linked list is **not made of arrays** — it’s made of *nodes with pointers*.
+
+👉 Do you want me to also show you a **Rust or C code example** side by side with an array, so you see the difference in memory usage and access?
+
+
 ## What's Included:
 
 **📚 Theoretical Foundation:**
