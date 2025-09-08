@@ -442,6 +442,7 @@ type SafeQueue struct {
 ## 2. Rust Data Structures
 
 ### Ownership-Based Collections
+
 ```rust
 // Vec - Growable arrays
 let mut vec = vec![1, 2, 3];
@@ -458,6 +459,7 @@ let mut btree = BTreeMap::new();
 ```
 
 ### Memory-Safe Linked Structures
+
 ```rust
 // Box for heap allocation
 type Link<T> = Option<Box<Node<T>>>;
@@ -481,6 +483,7 @@ type SafeNode<T> = Arc<Mutex<Node<T>>>;
 ```
 
 ### Advanced Rust Structures
+
 ```rust
 // Custom allocators
 use std::alloc::{Allocator, Global};
@@ -533,6 +536,7 @@ val set = Set(1, 2, 3)
 ```
 
 ### Mutable Collections
+
 ```scala
 import scala.collection.mutable
 
@@ -542,6 +546,7 @@ val hashSet = mutable.HashSet[Int]()
 ```
 
 ### Functional Data Structures
+
 ```scala
 // Streams (lazy evaluation)
 val stream = Stream.from(1).take(1000000)
@@ -561,6 +566,7 @@ type LoggedInt = Writer[List[String], Int]
 ```
 
 ### Advanced Scala Patterns
+
 ```scala
 // Zipper for tree navigation
 case class Zipper[A](focus: Tree[A], context: List[Context[A]])
@@ -578,6 +584,7 @@ trait Monoid[A] {
 ```
 
 ### Actor Model (Akka)
+
 ```scala
 import akka.actor.{Actor, ActorSystem, Props}
 
@@ -593,6 +600,7 @@ class DistributedMap extends Actor {
 ```
 
 ### Scala-Specific Features
+
 - **Persistent data structures**: Structural sharing
 - **For-comprehensions**: Monadic operations
 - **Implicit conversions**: Seamless type extensions
@@ -604,6 +612,7 @@ class DistributedMap extends Actor {
 ## 4. Haskell Data Structures
 
 ### Basic Types
+
 ```haskell
 -- Lists - Linked lists with lazy evaluation
 list = [1, 2, 3, 4, 5]
@@ -620,6 +629,7 @@ safeDivide x y = Just (x / y)
 ```
 
 ### Algebraic Data Types
+
 ```haskell
 -- Binary trees
 data Tree a = Empty | Node a (Tree a) (Tree a)
@@ -634,6 +644,7 @@ data TreeContext a = LeftTree a (Tree a) | RightTree a (Tree a)
 ```
 
 ### Functional Data Structures
+
 ```haskell
 -- Finger trees (efficient sequences)
 data FingerTree a = Empty
@@ -649,6 +660,7 @@ data SkewHeap a = Empty | Node a (SkewHeap a) (SkewHeap a)
 ```
 
 ### Monadic Structures
+
 ```haskell
 -- State monad for stateful computations
 import Control.Monad.State
@@ -679,6 +691,7 @@ transfer (Account from) (Account to) amount = do
 ```
 
 ### Advanced Haskell Patterns
+
 ```haskell
 -- Free monads
 data Free f a = Pure a | Free (f (Free f a))
@@ -699,6 +712,7 @@ data Tree a = Leaf | Branch (Tree a) a (Tree a)
 ```
 
 ### Haskell-Specific Features
+
 - **Lazy evaluation**: Infinite data structures
 - **Type classes**: Ad-hoc polymorphism
 - **Higher-order functions**: Functions as first-class values
@@ -710,6 +724,7 @@ data Tree a = Leaf | Branch (Tree a) a (Tree a)
 ## 5. Python Data Structures
 
 ### Built-in Collections
+
 ```python
 # Lists - Dynamic arrays
 lst = [1, 2, 3]
@@ -732,6 +747,7 @@ Point = namedtuple('Point', ['x', 'y'])
 ```
 
 ### Advanced Collections
+
 ```python
 from collections import (
     defaultdict, Counter, deque, 
@@ -752,6 +768,7 @@ dd['key'].append('value')
 ```
 
 ### Custom Data Structures
+
 ```python
 # Linked List
 class Node:
@@ -778,6 +795,7 @@ class TrieNode:
 ```
 
 ### NumPy and Scientific Computing
+
 ```python
 import numpy as np
 
@@ -795,6 +813,7 @@ df = pd.DataFrame({'A': [1, 2, 3], 'B': [4, 5, 6]})
 ```
 
 ### Concurrent Data Structures
+
 ```python
 import threading
 from queue import Queue, LifoQueue, PriorityQueue
@@ -814,6 +833,7 @@ condition = threading.Condition()
 ```
 
 ### Python-Specific Advanced Patterns
+
 ```python
 # Descriptors for computed properties
 class Property:
@@ -849,6 +869,7 @@ def expensive_function(n):
 ## 6. TypeScript Data Structures
 
 ### Basic Types and Interfaces
+
 ```typescript
 // Arrays with type safety
 const numbers: number[] = [1, 2, 3, 4, 5];
@@ -869,6 +890,7 @@ const dict: Dictionary<number> = { 'one': 1, 'two': 2 };
 ```
 
 ### Generic Data Structures
+
 ```typescript
 // Linked List with generics
 class ListNode<T> {
@@ -923,6 +945,7 @@ class BinarySearchTree<T extends Comparable> {
 ```
 
 ### Advanced Type System Features
+
 ```typescript
 // Conditional types for data structure operations
 type Head<T extends readonly unknown[]> = T extends readonly [infer H, ...unknown[]] ? H : never;
@@ -948,6 +971,7 @@ type ReadOnly<T> = {
 ```
 
 ### Functional Data Structures
+
 ```typescript
 // Immutable list using recursion
 type ImmutableList<T> = {
@@ -999,6 +1023,7 @@ class None<T> extends Option<T> {
 ```
 
 ### Async Data Structures
+
 ```typescript
 // Promise-based queue
 class AsyncQueue<T> {
@@ -1050,6 +1075,7 @@ class Observable<T> {
 ```
 
 ### TypeScript-Specific Features
+
 - **Structural typing**: Duck typing with compile-time checks
 - **Union and intersection types**: Flexible type combinations
 - **Type guards**: Runtime type checking
@@ -1061,6 +1087,7 @@ class Observable<T> {
 ## 7. Cross-Language Comparisons
 
 ### Memory Management
+
 | Language | Strategy | Data Structure Impact |
 |----------|----------|---------------------|
 | Go | Garbage collected | Simple pointers, channel-based sharing |
@@ -1071,6 +1098,7 @@ class Observable<T> {
 | TypeScript | JavaScript GC | Similar to Python, but with type safety |
 
 ### Concurrency Models
+
 | Language | Model | Data Structure Implications |
 |----------|-------|---------------------------|
 | Go | CSP with goroutines | Channel-based communication |
@@ -1081,6 +1109,7 @@ class Observable<T> {
 | TypeScript | Event loop | Promise-based async operations |
 
 ### Type System Strengths
+
 - **Go**: Simple, fast compilation, excellent for systems programming
 - **Rust**: Memory safety without GC, zero-cost abstractions
 - **Scala**: Powerful type system, functional/OOP hybrid
@@ -1089,6 +1118,7 @@ class Observable<T> {
 - **TypeScript**: Gradual typing, JavaScript interop, modern language features
 
 ### Performance Characteristics
+
 1. **Compile-time optimization**: Rust > Haskell > Scala > Go > TypeScript > Python
 2. **Runtime performance**: Rust ≈ Go > Scala > Haskell > TypeScript > Python
 3. **Development speed**: Python > TypeScript > Go > Scala > Haskell > Rust
@@ -4227,18 +4257,21 @@ This comprehensive guide examines the implementation characteristics, performanc
 ### Thread-Safe Collections
 
 #### Python Implementation Characteristics
+
 - **GIL Limitations**: Global Interpreter Lock affects concurrent performance
 - **Queue Module**: Thread-safe queue implementations
 - **Multiprocessing**: Process-based parallelism for CPU-intensive tasks
 - **Asyncio**: Asynchronous programming model for I/O-bound operations
 
 #### Rust Implementation Characteristics
+
 - **Fearless Concurrency**: Compile-time prevention of data races
 - **Arc/Mutex**: Atomic reference counting with mutual exclusion
 - **Channels**: Message passing between threads
 - **Lock-free Structures**: crossbeam crate for advanced concurrent data structures
 
 #### Advanced Real-World Use Cases
+
 - **Web Servers**: Request handling and connection pooling
 - **Message Queues**: Kafka-like distributed messaging systems
 - **Real-time Analytics**: Stream processing with Apache Flink patterns
@@ -4250,6 +4283,7 @@ This comprehensive guide examines the implementation characteristics, performanc
 ### Lock-Free Data Structures
 
 #### Advanced Real-World Use Cases
+
 - **High-Frequency Trading**: Ultra-low latency order processing
 - **Real-time Systems**: Interrupt handlers and signal processing
 - **Garbage Collectors**: Concurrent memory management
@@ -4262,16 +4296,19 @@ This comprehensive guide examines the implementation characteristics, performanc
 ### Immutable Collections
 
 #### Python Implementation Characteristics
+
 - **pyrsistent Library**: Persistent data structure implementations
 - **Functional Programming**: Integration with functional programming patterns
 - **Memory Sharing**: Structural sharing for memory efficiency
 
 #### Rust Implementation Characteristics
+
 - **im Crate**: Efficient persistent data structure implementations
 - **Ownership Model**: Natural fit for immutable data patterns
 - **Performance**: Zero-cost abstractions for persistent operations
 
 #### Advanced Real-World Use Cases
+
 - **Version Control**: Git-like systems with efficient branching
 - **Undo/Redo Systems**: Editor state management
 - **Database Transactions**: MVCC implementations
@@ -4285,6 +4322,7 @@ This comprehensive guide examines the implementation characteristics, performanc
 ### External Sorting and Merging
 
 #### Advanced Real-World Use Cases
+
 - **Big Data Processing**: MapReduce-style data processing
 - **Database Systems**: Large table sorting and indexing
 - **Log Processing**: Large-scale log analysis systems
@@ -4295,6 +4333,7 @@ This comprehensive guide examines the implementation characteristics, performanc
 ### Streaming Algorithms
 
 #### Advanced Real-World Use Cases
+
 - **Network Monitoring**: Real-time traffic analysis
 - **Financial Analytics**: Real-time risk calculation
 - **Social Media**: Trending topic detection
@@ -4305,18 +4344,21 @@ This comprehensive guide examines the implementation characteristics, performanc
 ## 9. Performance Characteristics and Trade-offs
 
 ### Memory Usage Patterns
+
 - **Python**: Higher memory overhead due to object model and garbage collection
 - **Rust**: Predictable memory usage with zero-cost abstractions
 - **Cache Performance**: Rust's control over memory layout provides better cache locality
 - **Allocation Patterns**: Rust allows custom allocators for specialized use cases
 
 ### Computational Complexity
+
 - **Time Complexity**: Both languages achieve similar algorithmic complexity
 - **Constant Factors**: Rust typically has lower constant factors due to compilation
 - **Predictability**: Rust provides more predictable performance characteristics
 - **Optimization**: Python relies on library optimizations, Rust on compiler optimizations
 
 ### Scalability Considerations
+
 - **Vertical Scaling**: Rust better utilizes single-machine resources
 - **Horizontal Scaling**: Python's ecosystem better supports distributed computing
 - **Memory Scaling**: Rust handles large datasets more efficiently
@@ -4325,12 +4367,14 @@ This comprehensive guide examines the implementation characteristics, performanc
 ## 10. Ecosystem and Tooling Comparison
 
 ### Python Ecosystem Strengths
+
 - **Library Richness**: Extensive ecosystem for scientific computing and data analysis
 - **Rapid Prototyping**: Quick iteration and experimentation capabilities
 - **Community**: Large community with extensive documentation and examples
 - **Integration**: Easy integration with databases, web frameworks, and cloud services
 
 ### Rust Ecosystem Strengths
+
 - **Performance**: Predictable, high-performance implementations
 - **Safety**: Memory safety without garbage collection overhead
 - **Concurrency**: Excellent support for concurrent and parallel programming
@@ -4339,6 +4383,7 @@ This comprehensive guide examines the implementation characteristics, performanc
 ## 11. Selection Criteria and Decision Framework
 
 ### Choose Python When:
+
 - **Rapid Development**: Prototyping and time-to-market are priorities
 - **Data Science**: Heavy integration with scientific computing libraries
 - **Team Expertise**: Team has strong Python background
@@ -4346,6 +4391,7 @@ This comprehensive guide examines the implementation characteristics, performanc
 - **Integration Needs**: Extensive integration with existing Python infrastructure
 
 ### Choose Rust When:
+
 - **Performance Critical**: Microsecond-level latencies are required
 - **Memory Constraints**: Operating in resource-constrained environments
 - **Safety Requirements**: Memory safety is a hard requirement
@@ -4353,6 +4399,7 @@ This comprehensive guide examines the implementation characteristics, performanc
 - **Long-term Maintenance**: Building systems for long-term stability
 
 ### Hybrid Approaches:
+
 - **Python for Prototyping, Rust for Production**: Develop in Python, rewrite critical components in Rust
 - **Polyglot Systems**: Use each language for its strengths within the same system
 - **FFI Integration**: Call Rust code from Python using PyO3 or similar bindings
@@ -4361,12 +4408,14 @@ This comprehensive guide examines the implementation characteristics, performanc
 ## 12. Future Trends and Considerations
 
 ### Emerging Patterns
+
 - **WebAssembly**: Rust's growing presence in browser-based applications
 - **Machine Learning**: Rust's emergence in ML inference and high-performance computing
 - **Cloud Native**: Both languages adapting to containerized and serverless environments
 - **Edge Computing**: Rust's advantages in resource-constrained edge deployments
 
 ### Evolution Trajectories
+
 - **Python**: Continued focus on performance improvements and typing systems
 - **Rust**: Growing ecosystem and improved ergonomics for application development
 - **Interoperability**: Better integration patterns between the two ecosystems
