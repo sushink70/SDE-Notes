@@ -1,3 +1,5 @@
+# Comprehensive Guide to Memoization
+
 I'll create a comprehensive guide to memoization with complete implementations in both Python and Rust. This will be a detailed technical reference that covers theory, practical applications, and real-world examples.I've created a comprehensive guide to memoization covering both theory and practical implementations in Python and Rust. The guide includes:
 
 **Key Features:**
@@ -1219,3 +1221,263 @@ fn fibonacci_simple(n: u64) -> u64 {
 - Memory is extremely limited
 - Input space is too large to cache effectively
 - Functions are already fast enough
+
+### Examples
+
+I'll create an ASCII diagram showing how this manual memoization decorator works with the Fibonacci function.The ASCII diagram shows exactly how your manual memoization decorator optimizes the Fibonacci calculation. The key insight is that without memoization, `fibonacci(5)` would redundantly calculate `fibonacci(2)` three times and `fibonacci(3)` twice. With memoization, each value is computed only once and then retrieved from the cache.
+
+The decorator essentially wraps your original function with a "smart" version that remembers previous results. When `fibonacci(3)` is needed again later in the recursion, instead of recalculating it (which would involve more recursive calls), it simply returns the cached value `2` instantly.
+
+This transforms the time complexity from O(2^n) - which grows exponentially and becomes unusably slow for large n - to O(n), making it practical even for large Fibonacci numbers.
+
+# Manual Memoization Decorator - How It Works
+
+## Code Structure
+```
+@manual_memoize          ← Decorator applied to fibonacci function
+def fibonacci(n):        ← Original function becomes wrapped
+    if n < 2:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+```
+
+## ASCII Diagram: Execution Flow for fibonacci(5)
+
+```
+Call: fibonacci(5)
+│
+├─ Check cache: (5,) not found
+├─ Execute: fibonacci(4) + fibonacci(3)
+│   │
+│   ├─ fibonacci(4):
+│   │   ├─ Check cache: (4,) not found  
+│   │   ├─ Execute: fibonacci(3) + fibonacci(2)
+│   │   │   │
+│   │   │   ├─ fibonacci(3):
+│   │   │   │   ├─ Check cache: (3,) not found
+│   │   │   │   ├─ Execute: fibonacci(2) + fibonacci(1)
+│   │   │   │   │   │
+│   │   │   │   │   ├─ fibonacci(2):
+│   │   │   │   │   │   ├─ Check cache: (2,) not found
+│   │   │   │   │   │   ├─ Execute: fibonacci(1) + fibonacci(0)
+│   │   │   │   │   │   │   │
+│   │   │   │   │   │   │   ├─ fibonacci(1): return 1
+│   │   │   │   │   │   │   └─ fibonacci(0): return 0
+│   │   │   │   │   │   │
+│   │   │   │   │   │   ├─ Result: 1 + 0 = 1
+│   │   │   │   │   │   └─ Cache: {(2,): 1}
+│   │   │   │   │   │
+│   │   │   │   │   └─ fibonacci(1): return 1
+│   │   │   │   │
+│   │   │   │   ├─ Result: 1 + 1 = 2
+│   │   │   │   └─ Cache: {(2,): 1, (3,): 2}
+│   │   │   │
+│   │   │   └─ fibonacci(2): ✓ CACHE HIT! return 1
+│   │   │
+│   │   ├─ Result: 2 + 1 = 3
+│   │   └─ Cache: {(2,): 1, (3,): 2, (4,): 3}
+│   │
+│   └─ fibonacci(3): ✓ CACHE HIT! return 2
+│
+├─ Result: 3 + 2 = 5
+└─ Final Cache: {(2,): 1, (3,): 2, (4,): 3, (5,): 5}
+```
+
+## How the Decorator Works
+
+### 1. **Decorator Setup**
+```
+def manual_memoize(func):
+    cache = {}                    ← Creates persistent cache dictionary
+    
+    def wrapper(*args):           ← Wrapper function replaces original
+        if args in cache:         ← Check if result already computed
+            return cache[args]    ← Return cached result (fast!)
+        result = func(*args)      ← Compute result (slow)
+        cache[args] = result      ← Store in cache for future
+        return result
+    
+    wrapper.cache = cache         ← Expose cache for inspection
+    wrapper.cache_clear = lambda: cache.clear()  ← Add clear method
+    return wrapper                ← Return wrapper (now acts as fibonacci)
+```
+
+### 2. **Cache State Evolution**
+
+| Call Stack | Cache State | Action |
+|------------|-------------|---------|
+| `fibonacci(5)` starts | `{}` | Cache miss, needs fib(4) + fib(3) |
+| `fibonacci(4)` starts | `{}` | Cache miss, needs fib(3) + fib(2) |
+| `fibonacci(3)` starts | `{}` | Cache miss, needs fib(2) + fib(1) |
+| `fibonacci(2)` starts | `{}` | Cache miss, needs fib(1) + fib(0) |
+| Base cases computed | `{}` | fib(1)=1, fib(0)=0 |
+| `fibonacci(2)` ends | `{(2,): 1}` | Cache stores result |
+| `fibonacci(3)` ends | `{(2,): 1, (3,): 2}` | Cache stores result |
+| `fibonacci(4)` needs fib(2) | `{(2,): 1, (3,): 2}` | **CACHE HIT!** Returns 1 |
+| `fibonacci(4)` ends | `{(2,): 1, (3,): 2, (4,): 3}` | Cache stores result |
+| `fibonacci(5)` needs fib(3) | `{...}` | **CACHE HIT!** Returns 2 |
+| `fibonacci(5)` ends | `{(2,): 1, (3,): 2, (4,): 3, (5,): 5}` | Final cache |
+
+### 3. **Key Benefits**
+
+**Without Memoization:**
+- fibonacci(5) would make **15 function calls**
+- Lots of redundant computation
+- Time complexity: O(2^n) - exponential!
+
+**With Memoization:**
+- fibonacci(5) makes only **9 function calls**
+- Each unique input computed only once
+- Time complexity: O(n) - linear!
+
+### 4. **Memory vs Speed Tradeoff**
+
+```
+Memory Usage: O(n) space to store n cached results
+Time Savings: Dramatic - from exponential to linear time
+
+Cache contents after fibonacci(5):
+{
+    (2,): 1,    ← fibonacci(2) = 1
+    (3,): 2,    ← fibonacci(3) = 2  
+    (4,): 3,    ← fibonacci(4) = 3
+    (5,): 5     ← fibonacci(5) = 5
+}
+Cache size: 4 entries
+```
+
+The decorator transforms a slow recursive function into a fast one by trading memory for speed - a classic computer science optimization technique!
+
+Great questions! You're thinking deeply about the mechanics. Let me clarify some important points:Your intuition about recursion is good, but there's a crucial distinction to understand:
+
+**The decorator `manual_memoize` runs only ONCE** - when Python first encounters the `@manual_memoize` line. It creates the wrapper function and the cache dict, then replaces the original `fibonacci` with the wrapper.
+
+After that, every recursive call uses the **same wrapper function** with the **same cache dict**. The decorator itself doesn't run again.
+
+Think of it this way:
+1. **Decoration time**: `manual_memoize` runs once, creates one cache dict in heap memory
+2. **Runtime**: All `fibonacci()` calls (including recursive ones) use the same wrapper and same cache
+
+The cache dict lives in heap memory (not stack) and persists across all function calls. Each recursive call frame on the stack gets its own `args` parameter, but they all reference the same cache dict object.
+
+This shared reference is actually **exactly what we want** - when `fibonacci(3)` computes and caches its result, later calls to `fibonacci(3)` from other recursion levels can instantly retrieve that cached value.
+
+The only potential issue with dict references would be if you used mutable arguments (like lists) as keys, since modifying the original list could cause cache mismatches. But with immutable arguments like integers, it works perfectly.
+
+# Manual Memoization Decorator - How It Works
+
+## Code Structure
+```
+@manual_memoize          ← Decorator applied to fibonacci function
+def fibonacci(n):        ← Original function becomes wrapped
+    if n < 2:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+```
+
+## ASCII Diagram: Execution Flow for fibonacci(5)
+
+```
+Call: fibonacci(5)
+│
+├─ Check cache: (5,) not found
+├─ Execute: fibonacci(4) + fibonacci(3)
+│   │
+│   ├─ fibonacci(4):
+│   │   ├─ Check cache: (4,) not found  
+│   │   ├─ Execute: fibonacci(3) + fibonacci(2)
+│   │   │   │
+│   │   │   ├─ fibonacci(3):
+│   │   │   │   ├─ Check cache: (3,) not found
+│   │   │   │   ├─ Execute: fibonacci(2) + fibonacci(1)
+│   │   │   │   │   │
+│   │   │   │   │   ├─ fibonacci(2):
+│   │   │   │   │   │   ├─ Check cache: (2,) not found
+│   │   │   │   │   │   ├─ Execute: fibonacci(1) + fibonacci(0)
+│   │   │   │   │   │   │   │
+│   │   │   │   │   │   │   ├─ fibonacci(1): return 1
+│   │   │   │   │   │   │   └─ fibonacci(0): return 0
+│   │   │   │   │   │   │
+│   │   │   │   │   │   ├─ Result: 1 + 0 = 1
+│   │   │   │   │   │   └─ Cache: {(2,): 1}
+│   │   │   │   │   │
+│   │   │   │   │   └─ fibonacci(1): return 1
+│   │   │   │   │
+│   │   │   │   ├─ Result: 1 + 1 = 2
+│   │   │   │   └─ Cache: {(2,): 1, (3,): 2}
+│   │   │   │
+│   │   │   └─ fibonacci(2): ✓ CACHE HIT! return 1
+│   │   │
+│   │   ├─ Result: 2 + 1 = 3
+│   │   └─ Cache: {(2,): 1, (3,): 2, (4,): 3}
+│   │
+│   └─ fibonacci(3): ✓ CACHE HIT! return 2
+│
+├─ Result: 3 + 2 = 5
+└─ Final Cache: {(2,): 1, (3,): 2, (4,): 3, (5,): 5}
+```
+
+## How the Decorator Works
+
+### 1. **Decorator Setup**
+```
+def manual_memoize(func):
+    cache = {}                    ← Creates persistent cache dictionary
+    
+    def wrapper(*args):           ← Wrapper function replaces original
+        if args in cache:         ← Check if result already computed
+            return cache[args]    ← Return cached result (fast!)
+        result = func(*args)      ← Compute result (slow)
+        cache[args] = result      ← Store in cache for future
+        return result
+    
+    wrapper.cache = cache         ← Expose cache for inspection
+    wrapper.cache_clear = lambda: cache.clear()  ← Add clear method
+    return wrapper                ← Return wrapper (now acts as fibonacci)
+```
+
+### 2. **Cache State Evolution**
+
+| Call Stack | Cache State | Action |
+|------------|-------------|---------|
+| `fibonacci(5)` starts | `{}` | Cache miss, needs fib(4) + fib(3) |
+| `fibonacci(4)` starts | `{}` | Cache miss, needs fib(3) + fib(2) |
+| `fibonacci(3)` starts | `{}` | Cache miss, needs fib(2) + fib(1) |
+| `fibonacci(2)` starts | `{}` | Cache miss, needs fib(1) + fib(0) |
+| Base cases computed | `{}` | fib(1)=1, fib(0)=0 |
+| `fibonacci(2)` ends | `{(2,): 1}` | Cache stores result |
+| `fibonacci(3)` ends | `{(2,): 1, (3,): 2}` | Cache stores result |
+| `fibonacci(4)` needs fib(2) | `{(2,): 1, (3,): 2}` | **CACHE HIT!** Returns 1 |
+| `fibonacci(4)` ends | `{(2,): 1, (3,): 2, (4,): 3}` | Cache stores result |
+| `fibonacci(5)` needs fib(3) | `{...}` | **CACHE HIT!** Returns 2 |
+| `fibonacci(5)` ends | `{(2,): 1, (3,): 2, (4,): 3, (5,): 5}` | Final cache |
+
+### 3. **Key Benefits**
+
+**Without Memoization:**
+- fibonacci(5) would make **15 function calls**
+- Lots of redundant computation
+- Time complexity: O(2^n) - exponential!
+
+**With Memoization:**
+- fibonacci(5) makes only **9 function calls**
+- Each unique input computed only once
+- Time complexity: O(n) - linear!
+
+### 4. **Memory vs Speed Tradeoff**
+
+```
+Memory Usage: O(n) space to store n cached results
+Time Savings: Dramatic - from exponential to linear time
+
+Cache contents after fibonacci(5):
+{
+    (2,): 1,    ← fibonacci(2) = 1
+    (3,): 2,    ← fibonacci(3) = 2  
+    (4,): 3,    ← fibonacci(4) = 3
+    (5,): 5     ← fibonacci(5) = 5
+}
+Cache size: 4 entries
+```
+
+The decorator transforms a slow recursive function into a fast one by trading memory for speed - a classic computer science optimization technique!
