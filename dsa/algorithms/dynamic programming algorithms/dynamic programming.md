@@ -1,3 +1,5 @@
+# Dynamic Programming Complete Guide - Python & Rust
+
 I've completed the comprehensive Dynamic Programming guide with implementations in both Python and Rust. The guide covers:
 
 ## Key Features:
@@ -25,11 +27,13 @@ I've completed the comprehensive Dynamic Programming guide with implementations 
 ## Language-Specific Benefits:
 
 **Python**:
+
 - More concise and readable syntax
 - Built-in data structures like lists and dictionaries
 - Easier debugging and prototyping
 
 **Rust**:
+
 - Memory safety without garbage collection
 - Better performance for large-scale problems
 - Strong type system prevents common errors
@@ -39,9 +43,10 @@ The guide includes both theoretical explanations and practical, runnable code th
 
 Would you like me to expand on any particular section or add more advanced DP problems?
 
-# Dynamic Programming Complete Guide - Python & Rust
+## Dynamic Programming Complete Guide - Python & Rust
 
 ## Table of Contents
+
 1. [Introduction to Dynamic Programming](#introduction)
 2. [Core Principles](#core-principles)
 3. [Implementation Patterns](#implementation-patterns)
@@ -55,6 +60,7 @@ Would you like me to expand on any particular section or add more advanced DP pr
 Dynamic Programming (DP) is an algorithmic paradigm that solves complex problems by breaking them down into simpler subproblems. It stores the results of subproblems to avoid computing the same results again, following the principle of **optimal substructure** and **overlapping subproblems**.
 
 ### Key Characteristics:
+
 - **Optimal Substructure**: Optimal solution contains optimal solutions to subproblems
 - **Overlapping Subproblems**: Same subproblems are solved multiple times
 - **Memoization**: Store results to avoid recomputation
@@ -62,12 +68,15 @@ Dynamic Programming (DP) is an algorithmic paradigm that solves complex problems
 ## Core Principles
 
 ### 1. Memoization (Top-Down)
+
 Start with the original problem and recursively break it down, storing results.
 
 ### 2. Tabulation (Bottom-Up)  
+
 Start with the smallest subproblems and build up to the original problem.
 
 ### 3. State Definition
+
 Clearly define what each state represents in your DP solution.
 
 ## Implementation Patterns
