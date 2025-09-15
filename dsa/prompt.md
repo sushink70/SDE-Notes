@@ -1,13 +1,13 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to math Complete implementations in Python and Rust for leetcode problems.
+1. Create a comprehensive guide to stack overflow Complete implementations in Python and Rust.
 
-2. Create a detailed ASCII diagram showing how Dynamic Programming works step by step.
+2. Create a detailed ASCII diagram showing how stack overflow works step by step.
 
 
-undirected graphs
-priority queue
-CRC
+
+
+
 
 ------------------------
 

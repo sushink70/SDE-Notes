@@ -1,14 +1,18 @@
+# Comprehensive Guide to String Implementation in Python and Rust
+
 I've completed the comprehensive guide to String implementation in Python and Rust! This guide covers:
 
 ## Key Features Implemented:
 
 **Python Implementation:**
+
 - `MutableString` with Small String Optimization (SSO)
 - `StringBuilder` for efficient concatenation
 - `RopeString` for large document editing
 - Complete Unicode support and proper UTF-8 handling
 
 **Rust Implementation:**
+
 - `GrowableString` with SSO and safe memory management
 - `StringBuilder` with pre-allocation optimization
 - `RopeString` with efficient splitting and concatenation
@@ -31,9 +35,10 @@ I've completed the comprehensive guide to String implementation in Python and Ru
 
 The guide includes complete working implementations, comprehensive tests, performance benchmarks, and best practices for choosing the right string implementation for your specific use case. Each implementation is production-ready and demonstrates different trade-offs between memory usage, performance, and functionality.
 
-# Comprehensive Guide to String Implementation in Python and Rust
+## Comprehensive Guide to String Implementation in Python and Rust
 
 ## Table of Contents
+
 1. [Introduction](#introduction)
 2. [Theoretical Foundation](#theoretical-foundation)
 3. [Memory Management Strategies](#memory-management-strategies)
@@ -67,10 +72,14 @@ String implementation is one of the most fundamental aspects of programming lang
 ## Memory Management Strategies
 
 ### Small String Optimization (SSO)
+
 Many implementations optimize for small strings by storing them directly in the string object rather than allocating separate heap memory. This reduces memory fragmentation and improves cache locality.
 
 ### Growth Strategies
+
 When strings need to grow beyond their current capacity:
+
+- **Exponential Growth**: Double the capacity to minimize reallocations
 - **Doubling**: Multiply capacity by 2
 - **Golden Ratio**: Multiply by ~1.6 for better memory utilization
 - **Linear Growth**: Add fixed amount (better for very large strings)
