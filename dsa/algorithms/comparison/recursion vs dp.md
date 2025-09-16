@@ -47,7 +47,7 @@ I've completed the comprehensive guide to recursion vs dynamic programming with 
 
 The guide serves as both a learning resource and a practical reference for implementing efficient dynamic programming solutions. Each example builds from basic recursive solutions to highly optimized implementations, demonstrating the evolution of problem-solving approaches.
 
-# Recursion vs Dynamic Programming: Complete Guide
+## Recursion vs Dynamic Programming: Complete Guide
 
 ## Table of Contents
 

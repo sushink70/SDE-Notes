@@ -1,6 +1,6 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to stack overflow Complete implementations in Python and Rust.
+1. Create a comprehensive guide to blockchain Complete implementations in Python and Rust.
 
 2. Create a detailed ASCII diagram showing how stack overflow works step by step.
 

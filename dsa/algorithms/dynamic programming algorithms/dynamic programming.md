@@ -12,7 +12,7 @@ I've completed the comprehensive Dynamic Programming guide with implementations 
    - Edit Distance (Levenshtein)
    - Coin Change Problem
 
-3. **Advanced Techniques**: 
+3. **Advanced Techniques**:
    - Longest Increasing Subsequence (O(n log n) solution)
    - Matrix Chain Multiplication
    - Palindrome Partitioning
@@ -434,7 +434,7 @@ fn knapsack_01_optimized(weights: &[usize], values: &[i32], capacity: usize) -> 
 
 **Problem**: Find minimum operations to transform one string into another.
 
-#### Python Implementation:
+### Python Implementation:
 
 ```python
 def edit_distance(word1, word2):
@@ -1573,30 +1573,35 @@ fn main() {
 ## Best Practices and Tips
 
 ### 1. Problem Analysis
+
 - Identify overlapping subproblems
 - Define the state clearly
 - Establish recurrence relation
 - Determine base cases
 
 ### 2. Implementation Strategy
+
 - Start with recursive solution
 - Add memoization
 - Convert to tabulation if needed
 - Optimize space if possible
 
 ### 3. Common Pitfalls
+
 - Off-by-one errors in indexing
 - Incorrect base cases
 - Wrong state definition
 - Not handling edge cases
 
 ### 4. Optimization Techniques
+
 - Space optimization with rolling arrays
 - Bottom-up vs top-down trade-offs
 - Early termination conditions
 - Preprocessing for efficiency
 
 ### 5. Debugging Tips
+
 - Print DP table for small inputs
 - Verify base cases first
 - Check recurrence relation
@@ -1625,6 +1630,7 @@ I'll create a comprehensive ASCII diagram showing how Dynamic Programming works 
 5. **Performance Comparison**: Highlights the dramatic improvement from O(2^n) to O(n)
 
 The diagram uses visual elements like:
+
 - Call trees showing redundant calculations
 - Memory tables showing cached values
 - Step-by-step execution traces
@@ -1633,6 +1639,7 @@ The diagram uses visual elements like:
 This visualization clearly demonstrates why Dynamic Programming is so powerful - it transforms exponential time algorithms into linear ones by avoiding redundant work through intelligent caching or table-building strategies.
 
 DYNAMIC PROGRAMMING: STEP-BY-STEP VISUALIZATION
+
 =================================================
 
 PROBLEM: Calculate Fibonacci(5) = F(5)
@@ -1641,6 +1648,7 @@ Formula: F(n) = F(n-1) + F(n-2), where F(0)=0, F(1)=1
 ═══════════════════════════════════════════════════════════════════════════════
 
 STEP 1: NAIVE RECURSIVE APPROACH (WITHOUT DP)
+
 =============================================
 
 Call Tree for F(5) - Shows Overlapping Subproblems:
@@ -1773,6 +1781,7 @@ Time Complexity: O(n) - LINEAR!
 ═══════════════════════════════════════════════════════════════════════════════
 
 STEP 3: DYNAMIC PROGRAMMING APPROACH - BOTTOM-UP (TABULATION)
+
 =============================================================
 
 Build table from bottom up:
@@ -1846,6 +1855,7 @@ Time Complexity: O(n), Space Complexity: O(n)
 ═══════════════════════════════════════════════════════════════════════════════
 
 STEP 4: KEY DYNAMIC PROGRAMMING PRINCIPLES
+
 ==========================================
 
 1. OPTIMAL SUBSTRUCTURE
