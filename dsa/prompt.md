@@ -1,6 +1,6 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to Reading research papers that make elite software engineers. Complete implementations in Python and Rust.
+1. Create a comprehensive guide to Comprehensive Guide to basics to advanced Combinatorics that make elite software engineers . Complete implementations in Python and Rust.
 
 2. Create a detailed ASCII diagram showing how stack overflow works step by step.
 
