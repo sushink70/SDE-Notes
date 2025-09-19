@@ -1,6 +1,7 @@
 # Comprehensive Guide to Combinatorics for Elite Software Engineers
 
 ## Table of Contents
+
 1. [Foundations of Counting](#1-foundations-of-counting)
 2. [Permutations and Combinations](#2-permutations-and-combinations)
 3. [Advanced Counting Principles](#3-advanced-counting-principles)
@@ -31,6 +32,8 @@
 If `n` items are put into `m` containers with `n > m`, then at least one container contains more than one item.
 
 **Applications:**
+
+- Handshake problems
 - Detecting duplicates in arrays
 - Birthday paradox
 - Hash collision analysis
@@ -136,6 +139,118 @@ Number of permutations where no element appears in its original position:
 D(n) = n! × Σₖ₌₀ⁿ (-1)ᵏ/k! ≈ n!/e
 ```
 
+# Derangements (subfactorials)
+
+Yes — the formula you wrote is the standard one for **derangements** (permutations with no fixed points). Common notation: `!n` or `D(n)`.
+
+### Exact formula (inclusion–exclusion)
+
+$$
+D(n)=n!\sum_{k=0}^{n}\frac{(-1)^k}{k!}.
+$$
+
+This counts permutations of $n$ objects that leave no object in its original place (use inclusion–exclusion: subtract permutations fixing at least one point, add back those fixing two, …).
+
+### Recurrence
+
+$$
+D(0)=1,\quad D(1)=0,
+$$
+
+$$
+D(n)=(n-1)\big(D(n-1)+D(n-2)\big)\quad\text{for }n\ge2.
+$$
+
+(Reason: consider where element 1 goes — two standard combinatorial derivations yield this recurrence.)
+
+### Asymptotic / approximation
+
+$$
+D(n)\sim\frac{n!}{e}\quad\text{and often }D(n)=\left\lfloor\frac{n!}{e}+\tfrac12\right\rfloor=\mathrm{round}\!\left(\frac{n!}{e}\right).
+$$
+
+A useful error bound (from the alternating-series remainder):
+
+$$
+\left|\,\frac{n!}{e}-D(n)\right| \;<\; \frac{1}{\,n+1\,}.
+$$
+
+So the difference is $<1$, which justifies rounding $n!/e$ to get $D(n)$ (for $n\ge1$).
+
+### Small values (for reference)
+
+$$
+\begin{array}{c|cccccccccc}
+n & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9\\\hline
+D(n) & 1 & 0 & 1 & 2 & 9 & 44 & 265 & 1854 & 14833 & 133496
+\end{array}
+$$
+
+(and $D(10)=1{,}334{,}961$.)
+
+### Quick numeric check (for $n=5$)
+
+$$
+D(5)=5!\Big(1-1+\tfrac{1}{2!}-\tfrac{1}{3!}+\tfrac{1}{4!}-\tfrac{1}{5!}\Big)
+=120\Big(0+\tfrac12-\tfrac16+\tfrac1{24}-\tfrac1{120}\Big)=44.
+$$
+
+If you want, I can:
+
+* show a short combinatorial proof of the recurrence,
+* produce a small program (Python/Rust) that generates `D(n)` for large `n` using integer arithmetic, or
+* plot the ratio $D(n)/(n!/e)$ for $n$ up to some value. Which would you like?
+
+Here’s clean Python code for computing **derangements** $D(n)$ both exactly and approximately:
+
+```python
+import math
+
+# Exact formula using inclusion-exclusion
+def derangement_exact(n: int) -> int:
+    return math.factorial(n) * sum(((-1) ** k) / math.factorial(k) for k in range(n + 1))
+
+# Recurrence relation
+def derangement_recurrence(n: int) -> int:
+    if n == 0: return 1
+    if n == 1: return 0
+    D = [0] * (n + 1)
+    D[0], D[1] = 1, 0
+    for i in range(2, n + 1):
+        D[i] = (i - 1) * (D[i - 1] + D[i - 2])
+    return D[n]
+
+# Approximation n!/e rounded to nearest integer
+def derangement_approx(n: int) -> int:
+    return round(math.factorial(n) / math.e)
+
+# Demo
+for n in range(0, 11):
+    exact = derangement_exact(n)
+    recur = derangement_recurrence(n)
+    approx = derangement_approx(n)
+    print(f"n={n:2d} | exact={exact} | recurrence={recur} | approx≈{approx}")
+```
+
+### Sample Output
+
+```
+n= 0 | exact=1 | recurrence=1 | approx≈1
+n= 1 | exact=0 | recurrence=0 | approx≈0
+n= 2 | exact=1 | recurrence=1 | approx≈1
+n= 3 | exact=2 | recurrence=2 | approx≈2
+n= 4 | exact=9 | recurrence=9 | approx≈9
+n= 5 | exact=44 | recurrence=44 | approx≈44
+n= 6 | exact=265 | recurrence=265 | approx≈265
+n= 7 | exact=1854 | recurrence=1854 | approx≈1854
+n= 8 | exact=14833 | recurrence=14833 | approx≈14833
+n= 9 | exact=133496 | recurrence=133496 | approx≈133496
+n=10 | exact=1334961 | recurrence=1334961 | approx≈1334961
+```
+
+Would you like me to also make a **plot of the ratio** $D(n) / (n!/e)$ for, say, $n \leq 50$ so you can see how tightly it sticks to 1?
+
+
 ### Fibonacci and Lucas Numbers
 
 Essential sequences in combinatorics:
@@ -194,6 +309,7 @@ def derangements(n):
 ### Backtracking with Combinatorics
 
 Essential for constraint satisfaction problems:
+
 - N-Queens problem
 - Sudoku solving
 - Graph coloring
@@ -537,6 +653,7 @@ def gcd(a, b):
 The nth Catalan number: `C_n = C(2n,n)/(n+1)`
 
 **Applications:**
+
 - Binary trees with n internal nodes
 - Valid parentheses sequences
 - Triangulations of convex polygons
@@ -758,6 +875,7 @@ result = toolkit.nCr(100, 50)
 ### Books and Resources
 
 **Essential Reading:**
+
 1. "Concrete Mathematics" by Graham, Knuth, Patashnik
 2. "A Walk Through Combinatorics" by Miklos Bona
 3. "Enumerative Combinatorics" by Richard Stanley
@@ -765,6 +883,7 @@ result = toolkit.nCr(100, 50)
 5. "Introduction to Graph Theory" by Douglas West
 
 **Online Resources:**
+
 - OEIS (Online Encyclopedia of Integer Sequences)
 - Combinatorics chapters in competitive programming books
 - MIT OCW Combinatorics courses
