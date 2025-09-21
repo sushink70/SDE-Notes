@@ -379,8 +379,83 @@ def count_paths(m, n, obstacles=None):
     """Count paths in grid with obstacles"""
     if obstacles is None:
         obstacles = set()
+
+# ```python
+# if obstacles is None:
+#     obstacles = set()
+# ```
+
+# ---
+
+# ### 1. Why use a **set**?
+
+# * `obstacles` represents cells in the grid that are blocked.
+# * You need to check quickly if a cell `(i, j)` is blocked:
+
+# ```python
+# if (i, j) in obstacles:
+# ```
+
+# If `obstacles` is a **set**, this membership test runs in **O(1)** average time.
+
+# If you used a list or tuple, the check would be **O(k)** where `k` = number of obstacles (slower).
+
+# ---
+
+# ### 2. Why `set()` instead of `[]` or `{}`?
+
+# * `set()` creates an **empty set** (no obstacles by default).
+# * `{}` in Python creates an **empty dictionary**, not a set.
+#   So if you want an empty set, you must use `set()`.
+
+# Example:
+
+# ```python
+# obstacles = {(1, 2), (2, 3)}  # blocked cells
+# ```
+
+# Then checking:
+
+# ```python
+# if (i, j) in obstacles:
+#     dp[i][j] = 0
+# ```
+
+# is very fast.
+
+# ---
+
+# ### 3. Why the `if obstacles is None:` check?
+
+# Because if you wrote the function like:
+
+# ```python
+# def count_paths(m, n, obstacles=set()):
+# ```
+
+# the **default argument** would be a mutable set, which persists across function calls (Python quirk 🐍). That’s dangerous.
+
+# So the safe pattern is:
+
+# ```python
+# def count_paths(m, n, obstacles=None):
+#     if obstacles is None:
+#         obstacles = set()
+# ```
+
+# This way, every time you call `count_paths` without passing obstacles, you get a **fresh empty set**.
+
+# ---
+
+# ✅ So in summary:
+
+# * **set** = fast membership test (`(i, j) in obstacles`).
+# * **set() instead of {}** = correct way to create an empty set.
+# * **None default** = avoids mutable default argument trap.
+
     
     dp = [[0] * (n + 1) for _ in range(m + 1)]
+    # print(dp)
     dp[0][0] = 1
     
     for i in range(m + 1):
@@ -388,11 +463,12 @@ def count_paths(m, n, obstacles=None):
             if (i, j) in obstacles:
                 dp[i][j] = 0
             elif i > 0:
-                dp[i][j] += dp[i-1][j]
+                dp[i][j] += dp[i-1][j] #dp[i][j] = dp[i][j] + dp[i-1][j];
             elif j > 0:
                 dp[i][j] += dp[i][j-1]
     
     return dp[m][n]
+
 ```
 
 ### Partition Numbers
