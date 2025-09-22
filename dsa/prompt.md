@@ -1,6 +1,6 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to Coding Mastery → Clean Code, The Pragmatic Programmer, Code Complete. Complete implementations in Python and Rust.
+1. Create a comprehensive guide to runtimes in Rust Complete implementations in Python and Rust.
 
 2. Create a detailed ASCII diagram showing how macros works in Rust step by step.
 
