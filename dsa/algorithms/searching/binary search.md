@@ -1,35 +1,5 @@
 # Binary Search
 
-I'll create a comprehensive guide covering Binary Search implementations in both Python and Rust, including various patterns and real-world applications.I've created a comprehensive guide to Binary Search implementations in Python and Rust. The guide covers:
-
-**Core Topics:**
-
-- Basic binary search (iterative and recursive)
-- All major variants (lower bound, upper bound, count occurrences)
-- Advanced patterns (search on answer, rotated arrays, peak finding)
-- Real-world applications (library systems, capacity planning)
-- Performance analysis and benchmarking
-- Common pitfalls and how to avoid them
-
-**Key Features:**
-
-- Complete, working implementations in both languages
-- Detailed explanations of each variant
-- Time/space complexity analysis
-- Practical examples and use cases
-- Test suites and benchmarking code
-- Common mistakes and debugging tips
-
-The guide emphasizes the different templates needed for different types of binary search problems:
-
-- **Exact match**: Use inclusive bounds with `left <= right`
-- **Bounds finding**: Use exclusive right bound with `left < right`
-- **Search on answer**: Apply binary search to optimization problems
-
-Each implementation includes proper overflow prevention and follows language-specific best practices. The Rust implementations leverage the type system and pattern matching for more robust code, while the Python versions focus on readability and ease of understanding.
-
-Would you like me to expand on any particular section or add more specific examples for certain problem types?
-
 ## Complete Binary Search Guide - Python & Rust
 
 ## Table of Contents
@@ -1167,3 +1137,33 @@ Result: Found at index 4 in 2 steps
 ```
 
 This visualization shows how Binary Search efficiently narrows down the search space by half with each comparison, making it much more efficient than linear search for large datasets.
+
+I'll create a comprehensive guide covering Binary Search implementations in both Python and Rust, including various patterns and real-world applications.I've created a comprehensive guide to Binary Search implementations in Python and Rust. The guide covers:
+
+**Core Topics:**
+
+- Basic binary search (iterative and recursive)
+- All major variants (lower bound, upper bound, count occurrences)
+- Advanced patterns (search on answer, rotated arrays, peak finding)
+- Real-world applications (library systems, capacity planning)
+- Performance analysis and benchmarking
+- Common pitfalls and how to avoid them
+
+**Key Features:**
+
+- Complete, working implementations in both languages
+- Detailed explanations of each variant
+- Time/space complexity analysis
+- Practical examples and use cases
+- Test suites and benchmarking code
+- Common mistakes and debugging tips
+
+The guide emphasizes the different templates needed for different types of binary search problems:
+
+- **Exact match**: Use inclusive bounds with `left <= right`
+- **Bounds finding**: Use exclusive right bound with `left < right`
+- **Search on answer**: Apply binary search to optimization problems
+
+Each implementation includes proper overflow prevention and follows language-specific best practices. The Rust implementations leverage the type system and pattern matching for more robust code, while the Python versions focus on readability and ease of understanding.
+
+Would you like me to expand on any particular section or add more specific examples for certain problem types?
