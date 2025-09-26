@@ -1,6 +1,7 @@
 # Comprehensive Guide to Rust Runtimes
 
 ## Table of Contents
+
 1. [Understanding Runtimes](#understanding-runtimes)
 2. [Sync vs Async Programming](#sync-vs-async-programming)
 3. [Popular Rust Runtimes](#popular-rust-runtimes)
@@ -82,22 +83,26 @@ async fn asynchronous_example() {
 ## Popular Rust Runtimes
 
 ### 1. Tokio
+
 - **Most popular** async runtime for Rust
 - Multi-threaded work-stealing scheduler
 - Rich ecosystem of compatible libraries
 - Built-in I/O, timers, and synchronization primitives
 
-### 2. async-std
+### 2. async-std - deprecated
+
 - **std-like** API for async programming
 - Thread-per-core model
 - Familiar interface for std library users
 
 ### 3. smol
+
 - **Lightweight** async runtime
 - Simple and minimal design
 - Good for embedded systems or when you need fine control
 
 ### 4. warp/hyper runtimes
+
 - Specialized for web applications
 - Built on top of Tokio
 
@@ -824,23 +829,27 @@ I'll create a comprehensive guide to Rust runtimes with detailed explanations an
 **1. Conceptual Foundation**: Clear explanations of what runtimes are and why they're needed, with comparisons between sync and async programming.
 
 **2. Popular Runtimes Covered**:
+
 - Tokio (with detailed examples and custom configurations)
 - async-std (with practical implementations)
 - smol and other alternatives
 
 **3. Complete Implementations**:
+
 - Basic async applications with proper error handling
 - Advanced features like channels, shared state, and synchronization
 - Custom runtime implementation from scratch
 - Work-stealing executor example
 
 **4. Practical Examples**:
+
 - Real-world async patterns
 - Performance benchmarking
 - Resource management with semaphores
 - Producer-consumer patterns
 
 **5. Best Practices**:
+
 - Runtime selection criteria
 - Avoiding common pitfalls (like blocking operations)
 - Proper error handling strategies

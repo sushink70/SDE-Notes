@@ -1,14 +1,18 @@
+# Understanding Macros: A Comprehensive Guide
+
 A **macro** is a code generation tool that writes code for you at compile time. Think of it as a "code template" that expands into actual code before your program is compiled.
 
 ## Key Concepts:
 
 **What macros do:**
+
 - Take some input (code, tokens, or patterns)
 - Generate new code based on that input
 - This happens during compilation, not at runtime
 - The generated code is then compiled normally
 
 **Why use macros:**
+
 - Reduce code duplication
 - Generate repetitive code automatically
 - Create domain-specific languages (DSLs)
@@ -18,6 +22,7 @@ A **macro** is a code generation tool that writes code for you at compile time. 
 ## Types of Macros (using Rust examples):
 
 **1. Declarative Macros (macro_rules!):**
+
 ```rust
 // Define a macro
 macro_rules! say_hello {
@@ -35,6 +40,7 @@ say_hello!("Alice");    // Expands to: println!("Hello, Alice!");
 ```
 
 **2. Built-in Macros:**
+
 ```rust
 println!("Debug: {:?}", value);  // Generates formatted print code
 vec![1, 2, 3];                  // Generates vector creation code
@@ -44,6 +50,7 @@ format!("Value: {}", x);        // Generates string formatting code
 ## Real-World Example:
 
 Instead of writing:
+
 ```rust
 let mut v = Vec::new();
 v.push(1);
@@ -52,6 +59,7 @@ v.push(3);
 ```
 
 The `vec!` macro lets you write:
+
 ```rust
 let v = vec![1, 2, 3];
 ```
@@ -80,9 +88,10 @@ The macro expands this into the longer form automatically.
 
 Macros are particularly powerful in systems programming languages like Rust and C, where you want the flexibility of code generation without runtime overhead.
 
-# Comprehensive Guide to Rust Macros
+## Comprehensive Guide to Rust Macros
 
 ## Table of Contents
+
 1. [Introduction to Macros](#introduction-to-macros)
 2. [Types of Macros in Rust](#types-of-macros-in-rust)
 3. [Declarative Macros (macro_rules!)](#declarative-macros-macro_rules)

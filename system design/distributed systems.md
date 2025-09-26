@@ -1,6 +1,7 @@
 # Comprehensive Guide to Distributed Systems
 
 ## Table of Contents
+
 1. [Fundamentals and Definitions](#fundamentals-and-definitions)
 2. [Core Challenges](#core-challenges)
 3. [System Models and Assumptions](#system-models-and-assumptions)
@@ -21,7 +22,7 @@
 
 ---
 
-# Fundamentals and Definitions
+## Fundamentals and Definitions
 
 ## What is a Distributed System?
 
