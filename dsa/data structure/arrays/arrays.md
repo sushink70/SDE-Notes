@@ -9,6 +9,17 @@ I'll create a comprehensive guide to Arrays implementation with complete example
 3. **Dynamic Arrays** - Resizable implementations with growth/shrink strategies, insertion/deletion operations
 4. **Advanced Operations** - Sorting algorithms (bubble, quick, merge sort) and search algorithms (linear, binary)
 5. **Performance Analysis** - Time/space complexities and amortized analysis
+
+The term "amortized" in computer science refers to the practice of analyzing the time complexity of operations averaged over a sequence of operations, rather than focusing on the worst-case cost of a single operation.
+
+A classic example is the dynamic array (like ArrayList in Java or Vector in C++). When you add elements to a dynamic array, occasionally it needs to resize by creating a new, larger array and copying all elements over. While this specific resize operation is expensive - $O(n)$ time complexity - it happens so infrequently that when you average out the cost across all add operations, each add operation effectively costs $O(1)$ amortized time.
+
+The mathematical analysis uses the "accounting method" or "banker's method" where you can think of each cheap operation as saving up some credit that can be spent during the expensive operations. If we consider a dynamic array that doubles in size when full:
+
+$$ \text{Amortized Cost} = \frac{\text{Total Cost Over n Operations}}{\text{Number of Operations (n)}} $$
+
+This concept is crucial in data structure design and algorithm analysis, as it helps us understand the true efficiency of operations over time, rather than focusing solely on worst-case scenarios.
+
 6. **Best Practices** - Language-specific optimization tips and usage guidelines
 
 ## Implementation Highlights:
@@ -34,6 +45,35 @@ Both implementations include:
 - Clear documentation and comments
 - Comprehensive error handling
 - Memory-efficient resize strategies (doubling/halving)
+In the context of dynamic arrays, "halving" refers to a common resizing strategy used when removing elements from the array. When the number of elements falls below a certain threshold (typically 1/4 of the array's capacity), the array's size is reduced by half to conserve memory.
+
+This strategy works in conjunction with the doubling growth strategy:
+
+1. When adding elements, the array doubles in size when it becomes full
+2. When removing elements, the array halves in size when it becomes too empty
+
+For example, if you have an array with capacity 16 and remove elements until only 4 elements remain:
+- Current capacity: 16
+- Elements: 4 (25% full)
+- Since utilization dropped below threshold, halve the capacity to 8
+
+The halving strategy helps prevent wasted memory while maintaining amortized $O(1)$ time complexity for operations. The 1/4 threshold (rather than 1/2) helps prevent "thrashing" - a situation where adding and removing elements near the halfway point could cause frequent resizing operations.
+
+Here's a simple example in Python:
+
+````python
+def shrink_if_needed(self):
+    # Only shrink if array is 25% full or less
+    if len(self.elements) <= self.capacity // 4:
+        new_capacity = self.capacity // 2
+        new_array = [None] * new_capacity
+        # Copy existing elements
+        for i in range(len(self.elements)):
+            new_array[i] = self.elements[i]
+        self.array = new_array
+        self.capacity = new_capacity
+````
+
 - Complete CRUD operations
 - Search and utility functions
 - Example usage demonstrations
