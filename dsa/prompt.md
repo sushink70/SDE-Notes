@@ -1,13 +1,8 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to matrix operations. Complete implementations in Python and Rust.
+1. Create a comprehensive guide to attributes in Rust. Complete implementations in Python and Rust.
 
 2. Create a detailed ASCII diagram showing how matrix operations work in Rust and Python step by step. Call by reference and call by value concepts must be covered.
-
-
-
-
-
 
 ------------------------
 
