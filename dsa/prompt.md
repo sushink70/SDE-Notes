@@ -28,7 +28,7 @@
 
 13. Create a performance benchmarking guide to compare the efficiency of different path finding algorithms in various scenarios.
 
-14. Create a set of coding challenges that require the use of path finding algorithms to solve.
+14. Create a set of coding challenges that require the use of algorithms to solve.
 
 15. Create a list of best practices for optimizing path finding algorithms for large datasets or complex environments.
 
