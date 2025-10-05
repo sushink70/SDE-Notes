@@ -1,8 +1,8 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to attributes in Rust. Complete implementations in Python and Rust.
+1. Create a comprehensive guide to Non-Blocking Channel Operations in Go. Complete implementations in Go. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
 
-2. Create a detailed ASCII diagram showing how matrix operations work in Rust and Python step by step. Call by reference and call by value concepts must be covered.
+2. Create a detailed ASCII diagram showing how Non-Blocking Channel Operations work in Go step by step. Call by reference and call by value concepts must be covered. Stack memory and heap memory concepts must be covered.
 
 ------------------------
 
