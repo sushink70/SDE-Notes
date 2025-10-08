@@ -1,8 +1,8 @@
-# How to Save, Compile, and Run Go Code
+// # How to Save, Compile, and Run Go Code
 
-I'll walk you through the complete process of working with Go code from installation to execution.I've created a comprehensive guide that covers everything you need to know about saving, compiling, and running Go code. Here's a quick summary of the key points:
+// I'll walk you through the complete process of working with Go code from installation to execution.I've created a comprehensive guide that covers everything you need to know about saving, compiling, and running Go code. Here's a quick summary of the key points:
 
-## Quick Start Steps:
+// ## Quick Start Steps:
 
 1. **Install Go** from https://golang.org/dl/
 2. **Create a project directory** and initialize a module:
@@ -2088,15 +2088,15 @@ func Worker(jobs <-chan Job, results chan<- Result) {
 
 ## Best Practices Summary
 
-1. **Package Organization**: Use meaningful package names and organize code by domain
-2. **Error Handling**: Always handle errors explicitly, use wrapped errors for context
-3. **Concurrency**: Use channels for communication, avoid shared state when possible
-4. **Interfaces**: Keep interfaces small and focused, define them where they're used
-5. **Resource Management**: Always use defer for cleanup, handle resource leaks
-6. **Type Safety**: Use custom types for domain concepts, leverage the type system
-7. **Testing**: Write tests for all public functions, use table-driven tests
-8. **Performance**: Profile before optimizing, understand goroutine lifecycles
-9. **Documentation**: Document public APIs, use meaningful variable names
-10. **Code Organization**: Follow Go conventions, use gofmt and golint
+// 1. **Package Organization**: Use meaningful package names and organize code by domain
+// 2. **Error Handling**: Always handle errors explicitly, use wrapped errors for context
+// 3. **Concurrency**: Use channels for communication, avoid shared state when possible
+// 4. **Interfaces**: Keep interfaces small and focused, define them where they're used
+// 5. **Resource Management**: Always use defer for cleanup, handle resource leaks
+// 6. **Type Safety**: Use custom types for domain concepts, leverage the type system
+// 7. **Testing**: Write tests for all public functions, use table-driven tests
+// 8. **Performance**: Profile before optimizing, understand goroutine lifecycles
+// 9. **Documentation**: Document public APIs, use meaningful variable names
+// 10. **Code Organization**: Follow Go conventions, use gofmt and golint
 
-These examples demonstrate production-ready patterns that you'll encounter in real-world Go applications. Each keyword serves specific purposes in building robust, concurrent, and maintainable software systems.
+// These examples demonstrate production-ready patterns that you'll encounter in real-world Go applications. Each keyword serves specific purposes in building robust, concurrent, and maintainable software systems.

@@ -1,6 +1,7 @@
 # Comprehensive Guide to Bit Manipulation in DSA
 
 ## Table of Contents
+
 1. [Fundamentals](#fundamentals)
 2. [Basic Operations](#basic-operations)
 3. [Common Techniques](#common-techniques)

@@ -970,3 +970,7 @@ These build on foundational patterns; practice via challenges listed.
 In interviews, verbalize your thought process, starting from brute force; if stuck, don't rush—clarify with the interviewer. Prepare templates for common patterns (e.g., trie setups) to save time. For advanced prep, tackle optimization-heavy questions in competitive programming, focusing on trade-offs like time vs. space. Combine with projects: Aim for 4-5 solid ones alongside daily problems to demonstrate application.
 
 This expands your toolkit with fresh, actionable insights—integrate them into your routine for sustained improvement. If focusing on a sub-area like graphs, let me know for targeted depth!
+
+# Own Tricks
+
+1. manipulate the input if req any calculation or changes
