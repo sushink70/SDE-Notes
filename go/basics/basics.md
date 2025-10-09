@@ -43,6 +43,7 @@ For other platforms or source builds, refer to the official download page. After
 ## Getting Started: Hello World
 
 Create a file `hello.go`:
+
 ```go
 package main
 
@@ -52,6 +53,7 @@ func main() {
     fmt.Println("Hello, World!")
 }
 ```
+
 Run it: `go run hello.go`. This outputs "Hello, World!".
 
 To build an executable: `go build hello.go`, then run `./hello` (or `hello.exe` on Windows).
