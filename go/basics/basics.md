@@ -9,31 +9,40 @@ This guide covers Go from basics to advanced topics, drawing from official docum
 To get started, download and install Go from the official website. The process varies by operating system. Below are detailed steps based on official instructions.
 
 ### Prerequisites
+
 - A supported operating system: Linux, macOS, Windows, or others (check go.dev for details).
 - Administrative privileges for installation.
 - Remove any previous Go installation to avoid conflicts (e.g., delete the existing Go directory).
 
 ### Linux
+
 1. Download the latest archive from go.dev/dl (e.g., `go1.25.linux-amd64.tar.gz`).
 2. Extract the archive to `/usr/local`:
-   ```
+
+   ```bash
    rm -rf /usr/local/go && tar -C /usr/local -xzf go1.25.linux-amd64.tar.gz
    ```
+   
    Run with `sudo` if needed.
+
 3. Add Go to your PATH by editing `~/.profile` or `/etc/profile`:
-   ```
+
+   ```bash
    export PATH=$PATH:/usr/local/go/bin
    ```
+
    Apply changes: `source ~/.profile`.
 4. Verify: Run `go version` to see the installed version (e.g., `go version go1.25 linux/amd64`).
 
 ### macOS
+
 1. Download the macOS installer (.pkg) from go.dev/dl.
 2. Open the package and follow the installer prompts. It installs to `/usr/local/go`.
 3. Add to PATH if not automatic: Edit `~/.zshrc` or `~/.bash_profile` with `export PATH=$PATH:/usr/local/go/bin`.
 4. Verify: `go version`.
 
 ### Windows
+
 1. Download the MSI installer from go.dev/dl.
 2. Run the installer, which adds Go to your PATH automatically.
 3. Verify: Open Command Prompt and run `go version`.
@@ -63,6 +72,7 @@ To build an executable: `go build hello.go`, then run `./hello` (or `hello.exe` 
 Go programs are organized into packages. The `main` package is the entry point.
 
 ### Variables and Constants
+
 Declare variables with `var` or short assignment `:=`:
 ```go
 var x int = 5
