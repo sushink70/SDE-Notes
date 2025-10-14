@@ -1,4 +1,76 @@
-I'll create a comprehensive guide to Heap data structure implementation with complete code examples in both Python and Rust.I've created a comprehensive guide to Heap data structure implementation with complete, production-ready code in both Python and Rust. Here's what the guide covers:
+Here's an ASCII diagram illustrating the stack and heap concepts:
+
+```
+MEMORY LAYOUT
+================================================================================
+
+STACK (Fast, Fixed Size, LIFO)          HEAP (Slower, Dynamic Size, Unordered)
+────────────────────────────            ────────────────────────────────────
+│                        │              │                                    │
+│  ┌──────────────────┐ │ ← Top        │  ┌─────────┐                      │
+│  │ Local var: x = 5 │ │   (Push/Pop) │  │ Data A  │ ←──┐                 │
+│  ├──────────────────┤ │              │  │ (50 B)  │    │                 │
+│  │ Pointer to heap  │ │──────────────┼──│         │    │                 │
+│  │ (8 bytes)        │ │              │  └─────────┘    │ Pointer         │
+│  ├──────────────────┤ │              │                 │ (address)       │
+│  │ Function param   │ │              │  ┌─────────┐    │                 │
+│  │ (4 bytes)        │ │              │  │ Data B  │    │                 │
+│  ├──────────────────┤ │              │  │ (120 B) │    │                 │
+│  │ Return address   │ │              │  └─────────┘    │                 │
+│  └──────────────────┘ │              │                 │                 │
+│                        │              │  ┌─────────┐    │                 │
+│         ↓ Grows down   │              │  │  Free   │    │                 │
+│                        │              │  │  Space  │ ───┘                 │
+│                        │              │  └─────────┘                      │
+│                        │              │                                    │
+│                        │              │  Allocator searches for space     │
+└────────────────────────┘              └────────────────────────────────────┘
+
+FUNCTION CALL EXAMPLE:
+═══════════════════════════════════════════════════════════════════════════
+
+fn main() {                              fn process_data(n: i32) {
+    let x = 5;          ┌─────────┐         let y = n + 1;
+    let data = ...;     │  x = 5  │ ←Top    ...
+    process_data(x);    ├─────────┤     }
+}                       │ ptr→heap│
+                        ├─────────┤     After process_data() returns:
+                        │  n = 5  │     ┌─────────┐
+                        ├─────────┤     │  x = 5  │ ←Top
+                        │  y = 6  │ ←Top├─────────┤
+                        └─────────┘     │ ptr→heap│
+                         During call    └─────────┘
+                                        Values popped off!
+
+RESTAURANT ANALOGY:
+═══════════════════════════════════════════════════════════════════════════
+
+STACK = Kitchen Order Tickets          HEAP = Dining Room Tables
+(Always on top, quick access)          (Host finds empty table, gives you #)
+
+  ┌─────────┐                            Table 1: ┌─────┐
+  │ Order 3 │ ← Next                     (Party   │ ◉ ◉ │
+  ├─────────┤                            of 4)    │ ◉ ◉ │
+  │ Order 2 │                                     └─────┘
+  ├─────────┤                            Table 5: ┌───┐
+  │ Order 1 │                            (Party   │ ◉ │
+  └─────────┘                            of 1)    └───┘
+
+  Kitchen pointer → "Table 5"            [Empty tables in between]
+  (Fast reference)                       (Fragmented, needs search)
+
+KEY DIFFERENCES:
+═══════════════════════════════════════════════════════════════════════════
+STACK                          │  HEAP
+───────────────────────────────┼───────────────────────────────────────────
+✓ Fast (no search needed)      │  ✗ Slower (must search for space)
+✓ Automatic cleanup (pop)      │  ✗ Manual management needed
+✓ Fixed size known at compile  │  ✓ Dynamic size at runtime
+✓ Organized (LIFO order)       │  ✗ Fragmented, unordered
+✗ Limited size                 │  ✓ Large capacity
+```
+
+This diagram shows how the stack operates with its LIFO structure, how heap allocation works with pointers connecting the two, and illustrates the restaurant analogy to help visualize the performance differences!
 
 ## Key Features of the Implementation:
 
@@ -1156,3 +1228,37 @@ For any index i:
 - Left child: 2i+1
 - Right child: 2i+2
 ```
+
+```
+Stack (LIFO - Last In, First Out)
+Fixed size, fast access, no search needed.
+
++-------------------+   <-- Top of Stack (latest push)
+| Function Local Var|   (popped first)
++-------------------+
+| Argument Pointer  |   (points to heap data)
++-------------------+
+| Previous Frame    |
++-------------------+
+| ... Older Data    |
++-------------------+   <-- Bottom of Stack
+
+Heap (Dynamic Allocation)
+Unorganized, variable size, slower access via pointers.
+
+[Scattered Memory Blocks]
+Address 0x123: +-------------------+
+               | Heap Data Block 1 |
+               +-------------------+
+
+Address 0xABC: +-------------------+
+               | Heap Data Block 2 |
+               +-------------------+
+
+Pointer from Stack: ----> 0x123 (follow to access data)
+
+Analogy:
+- Stack: Stack of plates - add/remove from top only.
+- Heap: Restaurant seating - request space, get assigned a spot (pointer leads you there).
+```
+

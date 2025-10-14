@@ -1,10 +1,11 @@
 # Prompt Engg
 
-1. Create a comprehensive guide to WaitGroups in Go. Complete implementations in Go. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
+1. Create a comprehensive guide to Microservices in Go, python, rust. Complete implementations in Go, python, rust. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
 
 2. Create a detailed ASCII diagram showing how Matrix work in Python, Rust step by step. Call by reference and call by value concepts must be covered. Stack memory and heap memory concepts must be covered.
 
 
+graph theory, and statistics, algebra, set theory, combinatorics, statistics, calculus, probability, number theory, discrete mathematics, and mathematical logic, Trigonometry
 ------------------------
 
 3. Create a detailed comparison table of different path finding algorithms, including their time and space complexities, use cases, and advantages/disadvantages.
