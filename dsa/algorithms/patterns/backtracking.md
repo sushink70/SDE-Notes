@@ -1,6 +1,7 @@
 # Comprehensive Backtracking Problem Patterns Guide
 
 ## Table of Contents
+
 1. [Introduction to Backtracking](#introduction)
 2. [Core Template](#core-template)
 3. [Pattern 1: Subset Generation](#pattern-1-subset-generation)
@@ -19,12 +20,14 @@
 Backtracking is a systematic method for solving constraint satisfaction problems by incrementally building candidates to solutions and abandoning candidates ("backtracking") when they cannot lead to a valid solution.
 
 ### Key Characteristics:
+
 - **Incremental Construction**: Build solution step by step
 - **Constraint Checking**: Validate partial solutions early
 - **Backtrack**: Undo choices that lead to invalid states
 - **Exhaustive Search**: Explore all possibilities systematically
 
 ### When to Use Backtracking:
+
 - Finding all solutions to a constraint problem
 - Optimization problems where you need to explore all possibilities
 - Problems involving permutations, combinations, or subsets
@@ -34,6 +37,7 @@ Backtracking is a systematic method for solving constraint satisfaction problems
 ## Core Template {#core-template}
 
 ### Python Template
+
 ```python
 def backtrack(state, candidates, target):
     # Base case - found valid solution
