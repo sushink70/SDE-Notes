@@ -1,4 +1,4 @@
-I'll create a comprehensive guide to Hash Tables with complete implementations in both Python and Rust. This will be a substantial technical reference document.I've created a comprehensive guide to Hash Tables implementation with complete working code in both Python and Rust. The guide covers:
+# Complete Hash Tables Implementation Guide
 
 ## Key Features of This Guide:
 
@@ -35,9 +35,10 @@ Both implementations include extensive examples, test cases, and performance ana
 
 The guide also covers when to use custom implementations versus built-in hash maps (`dict` in Python, `HashMap` in Rust) and provides practical advice for choosing the right approach for different use cases.
 
-# Complete Hash Tables Implementation Guide
+
 
 ## Table of Contents
+
 1. [Introduction to Hash Tables](#introduction)
 2. [Core Concepts](#core-concepts)
 3. [Hash Functions](#hash-functions)

@@ -75,6 +75,7 @@ def process_solution(state):
 ```
 
 ### Rust Template
+
 ```rust
 fn backtrack(state: &mut Vec<i32>, candidates: &[i32], target: i32, result: &mut Vec<Vec<i32>>) {
     // Base case - found valid solution
@@ -124,6 +125,7 @@ fn process_solution(state: &[i32], result: &mut Vec<Vec<i32>>) {
 **Problem**: Generate all possible subsets of a given set.
 
 ### Python Implementation
+
 ```python
 def subsets(nums):
     """Generate all subsets of nums array."""
@@ -953,3 +955,935 @@ I've created a comprehensive guide to backtracking problem patterns with complet
 - Iterative alternatives for deep recursions
 
 This guide serves as both a learning resource and a practical reference for coding interviews and competitive programming. Each pattern includes the core template, optimizations, and real-world applications with complete working code.
+
+```go
+package main
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
+// ============================================================================
+// PATTERN 1: SUBSETS / POWERSET
+// Problem: Generate all possible subsets of a set
+// Time: O(2^n), Space: O(n)
+// ============================================================================
+
+func subsets(nums []int) [][]int {
+	result := [][]int{}
+	path := []int{}
+	
+	var backtrack func(start int)
+	backtrack = func(start int) {
+		// Add current subset to result
+		temp := make([]int, len(path))
+		copy(temp, path)
+		result = append(result, temp)
+		
+		// Explore further elements
+		for i := start; i < len(nums); i++ {
+			path = append(path, nums[i])  // Choose
+			backtrack(i + 1)               // Explore
+			path = path[:len(path)-1]      // Unchoose
+		}
+	}
+	
+	backtrack(0)
+	return result
+}
+
+// Variation: Subsets with duplicates
+func subsetsWithDup(nums []int) [][]int {
+	sort.Ints(nums)
+	result := [][]int{}
+	path := []int{}
+	
+	var backtrack func(start int)
+	backtrack = func(start int) {
+		temp := make([]int, len(path))
+		copy(temp, path)
+		result = append(result, temp)
+		
+		for i := start; i < len(nums); i++ {
+			// Skip duplicates at same level
+			if i > start && nums[i] == nums[i-1] {
+				continue
+			}
+			path = append(path, nums[i])
+			backtrack(i + 1)
+			path = path[:len(path)-1]
+		}
+	}
+	
+	backtrack(0)
+	return result
+}
+
+// ============================================================================
+// PATTERN 2: COMBINATIONS
+// Problem: Find all k-length combinations from n elements
+// Time: O(C(n,k)), Space: O(k)
+// ============================================================================
+
+func combine(n int, k int) [][]int {
+	result := [][]int{}
+	path := []int{}
+	
+	var backtrack func(start int)
+	backtrack = func(start int) {
+		// Base case: combination complete
+		if len(path) == k {
+			temp := make([]int, k)
+			copy(temp, path)
+			result = append(result, temp)
+			return
+		}
+		
+		// Pruning: not enough elements left
+		for i := start; i <= n; i++ {
+			if n-i+1 < k-len(path) {
+				break
+			}
+			path = append(path, i)
+			backtrack(i + 1)
+			path = path[:len(path)-1]
+		}
+	}
+	
+	backtrack(1)
+	return result
+}
+
+// Variation: Combination Sum (can reuse elements)
+func combinationSum(candidates []int, target int) [][]int {
+	result := [][]int{}
+	path := []int{}
+	
+	var backtrack func(start, sum int)
+	backtrack = func(start, sum int) {
+		if sum == target {
+			temp := make([]int, len(path))
+			copy(temp, path)
+			result = append(result, temp)
+			return
+		}
+		if sum > target {
+			return
+		}
+		
+		for i := start; i < len(candidates); i++ {
+			path = append(path, candidates[i])
+			backtrack(i, sum+candidates[i]) // i not i+1: can reuse
+			path = path[:len(path)-1]
+		}
+	}
+	
+	backtrack(0, 0)
+	return result
+}
+
+// ============================================================================
+// PATTERN 3: PERMUTATIONS
+// Problem: Generate all permutations of elements
+// Time: O(n!), Space: O(n)
+// ============================================================================
+
+func permute(nums []int) [][]int {
+	result := [][]int{}
+	path := []int{}
+	used := make([]bool, len(nums))
+	
+	var backtrack func()
+	backtrack = func() {
+		if len(path) == len(nums) {
+			temp := make([]int, len(path))
+			copy(temp, path)
+			result = append(result, temp)
+			return
+		}
+		
+		for i := 0; i < len(nums); i++ {
+			if used[i] {
+				continue
+			}
+			
+			path = append(path, nums[i])
+			used[i] = true
+			backtrack()
+			used[i] = false
+			path = path[:len(path)-1]
+		}
+	}
+	
+	backtrack()
+	return result
+}
+
+// Variation: Permutations with duplicates
+func permuteUnique(nums []int) [][]int {
+	sort.Ints(nums)
+	result := [][]int{}
+	path := []int{}
+	used := make([]bool, len(nums))
+	
+	var backtrack func()
+	backtrack = func() {
+		if len(path) == len(nums) {
+			temp := make([]int, len(path))
+			copy(temp, path)
+			result = append(result, temp)
+			return
+		}
+		
+		for i := 0; i < len(nums); i++ {
+			if used[i] {
+				continue
+			}
+			// Skip duplicates: if current equals previous and previous not used
+			if i > 0 && nums[i] == nums[i-1] && !used[i-1] {
+				continue
+			}
+			
+			path = append(path, nums[i])
+			used[i] = true
+			backtrack()
+			used[i] = false
+			path = path[:len(path)-1]
+		}
+	}
+	
+	backtrack()
+	return result
+}
+
+// ============================================================================
+// PATTERN 4: N-QUEENS
+// Problem: Place N queens on NxN board without attacking each other
+// Time: O(N!), Space: O(N)
+// ============================================================================
+
+func solveNQueens(n int) [][]string {
+	result := [][]string{}
+	board := make([][]byte, n)
+	for i := range board {
+		board[i] = make([]byte, n)
+		for j := range board[i] {
+			board[i][j] = '.'
+		}
+	}
+	
+	cols := make(map[int]bool)
+	diag1 := make(map[int]bool) // row - col
+	diag2 := make(map[int]bool) // row + col
+	
+	var backtrack func(row int)
+	backtrack = func(row int) {
+		if row == n {
+			solution := make([]string, n)
+			for i := range board {
+				solution[i] = string(board[i])
+			}
+			result = append(result, solution)
+			return
+		}
+		
+		for col := 0; col < n; col++ {
+			if cols[col] || diag1[row-col] || diag2[row+col] {
+				continue
+			}
+			
+			// Place queen
+			board[row][col] = 'Q'
+			cols[col] = true
+			diag1[row-col] = true
+			diag2[row+col] = true
+			
+			backtrack(row + 1)
+			
+			// Remove queen
+			board[row][col] = '.'
+			delete(cols, col)
+			delete(diag1, row-col)
+			delete(diag2, row+col)
+		}
+	}
+	
+	backtrack(0)
+	return result
+}
+
+// ============================================================================
+// PATTERN 5: SUDOKU SOLVER
+// Problem: Fill 9x9 grid following Sudoku rules
+// Time: O(9^m) where m is empty cells, Space: O(1)
+// ============================================================================
+
+func solveSudoku(board [][]byte) {
+	var backtrack func() bool
+	backtrack = func() bool {
+		for i := 0; i < 9; i++ {
+			for j := 0; j < 9; j++ {
+				if board[i][j] != '.' {
+					continue
+				}
+				
+				for c := byte('1'); c <= '9'; c++ {
+					if !isValidSudoku(board, i, j, c) {
+						continue
+					}
+					
+					board[i][j] = c
+					if backtrack() {
+						return true
+					}
+					board[i][j] = '.'
+				}
+				return false
+			}
+		}
+		return true
+	}
+	
+	backtrack()
+}
+
+func isValidSudoku(board [][]byte, row, col int, c byte) bool {
+	for i := 0; i < 9; i++ {
+		if board[row][i] == c || board[i][col] == c {
+			return false
+		}
+		boxRow := 3*(row/3) + i/3
+		boxCol := 3*(col/3) + i%3
+		if board[boxRow][boxCol] == c {
+			return false
+		}
+	}
+	return true
+}
+
+// ============================================================================
+// PATTERN 6: WORD SEARCH
+// Problem: Find if word exists in 2D grid
+// Time: O(m*n*4^L) where L is word length, Space: O(L)
+// ============================================================================
+
+func exist(board [][]byte, word string) bool {
+	m, n := len(board), len(board[0])
+	
+	var backtrack func(i, j, idx int) bool
+	backtrack = func(i, j, idx int) bool {
+		if idx == len(word) {
+			return true
+		}
+		if i < 0 || i >= m || j < 0 || j >= n || board[i][j] != word[idx] {
+			return false
+		}
+		
+		temp := board[i][j]
+		board[i][j] = '#' // Mark visited
+		
+		found := backtrack(i+1, j, idx+1) ||
+			backtrack(i-1, j, idx+1) ||
+			backtrack(i, j+1, idx+1) ||
+			backtrack(i, j-1, idx+1)
+		
+		board[i][j] = temp // Restore
+		return found
+	}
+	
+	for i := 0; i < m; i++ {
+		for j := 0; j < n; j++ {
+			if backtrack(i, j, 0) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ============================================================================
+// PATTERN 7: PALINDROME PARTITIONING
+// Problem: Partition string into all palindrome substrings
+// Time: O(n*2^n), Space: O(n)
+// ============================================================================
+
+func partition(s string) [][]string {
+	result := [][]string{}
+	path := []string{}
+	
+	var backtrack func(start int)
+	backtrack = func(start int) {
+		if start == len(s) {
+			temp := make([]string, len(path))
+			copy(temp, path)
+			result = append(result, temp)
+			return
+		}
+		
+		for end := start; end < len(s); end++ {
+			if isPalindrome(s, start, end) {
+				path = append(path, s[start:end+1])
+				backtrack(end + 1)
+				path = path[:len(path)-1]
+			}
+		}
+	}
+	
+	backtrack(0)
+	return result
+}
+
+func isPalindrome(s string, left, right int) bool {
+	for left < right {
+		if s[left] != s[right] {
+			return false
+		}
+		left++
+		right--
+	}
+	return true
+}
+
+// ============================================================================
+// PATTERN 8: GENERATE PARENTHESES
+// Problem: Generate all valid parentheses combinations
+// Time: O(4^n/sqrt(n)), Space: O(n)
+// ============================================================================
+
+func generateParenthesis(n int) []string {
+	result := []string{}
+	
+	var backtrack func(path string, open, close int)
+	backtrack = func(path string, open, close int) {
+		if len(path) == 2*n {
+			result = append(result, path)
+			return
+		}
+		
+		if open < n {
+			backtrack(path+"(", open+1, close)
+		}
+		if close < open {
+			backtrack(path+")", open, close+1)
+		}
+	}
+	
+	backtrack("", 0, 0)
+	return result
+}
+
+// ============================================================================
+// PATTERN 9: LETTER COMBINATIONS
+// Problem: Generate all letter combinations from phone number
+// Time: O(4^n), Space: O(n)
+// ============================================================================
+
+func letterCombinations(digits string) []string {
+	if len(digits) == 0 {
+		return []string{}
+	}
+	
+	mapping := map[byte]string{
+		'2': "abc", '3': "def", '4': "ghi", '5': "jkl",
+		'6': "mno", '7': "pqrs", '8': "tuv", '9': "wxyz",
+	}
+	
+	result := []string{}
+	var path strings.Builder
+	
+	var backtrack func(idx int)
+	backtrack = func(idx int) {
+		if idx == len(digits) {
+			result = append(result, path.String())
+			return
+		}
+		
+		letters := mapping[digits[idx]]
+		for i := 0; i < len(letters); i++ {
+			path.WriteByte(letters[i])
+			backtrack(idx + 1)
+			path.Truncate(path.Len() - 1)
+		}
+	}
+	
+	backtrack(0)
+	return result
+}
+
+// ============================================================================
+// PATTERN 10: RESTORE IP ADDRESSES
+// Problem: Generate all valid IP addresses from string
+// Time: O(3^4), Space: O(1)
+// ============================================================================
+
+func restoreIpAddresses(s string) []string {
+	result := []string{}
+	path := []string{}
+	
+	var backtrack func(start int)
+	backtrack = func(start int) {
+		if len(path) == 4 {
+			if start == len(s) {
+				result = append(result, strings.Join(path, "."))
+			}
+			return
+		}
+		
+		for length := 1; length <= 3 && start+length <= len(s); length++ {
+			segment := s[start : start+length]
+			
+			// Check validity
+			if len(segment) > 1 && segment[0] == '0' {
+				break
+			}
+			num := 0
+			for _, ch := range segment {
+				num = num*10 + int(ch-'0')
+			}
+			if num > 255 {
+				break
+			}
+			
+			path = append(path, segment)
+			backtrack(start + length)
+			path = path[:len(path)-1]
+		}
+	}
+	
+	backtrack(0)
+	return result
+}
+
+// ============================================================================
+// MAIN: DEMONSTRATION
+// ============================================================================
+
+func main() {
+	fmt.Println("=== BACKTRACKING PATTERNS IN GO ===\n")
+	
+	// Pattern 1: Subsets
+	fmt.Println("1. Subsets of [1,2,3]:")
+	fmt.Println(subsets([]int{1, 2, 3}))
+	
+	// Pattern 2: Combinations
+	fmt.Println("\n2. Combinations C(4,2):")
+	fmt.Println(combine(4, 2))
+	
+	// Pattern 3: Permutations
+	fmt.Println("\n3. Permutations of [1,2,3]:")
+	fmt.Println(permute([]int{1, 2, 3}))
+	
+	// Pattern 4: N-Queens
+	fmt.Println("\n4. N-Queens (n=4):")
+	solutions := solveNQueens(4)
+	fmt.Printf("Found %d solutions\n", len(solutions))
+	if len(solutions) > 0 {
+		fmt.Println("First solution:")
+		for _, row := range solutions[0] {
+			fmt.Println(row)
+		}
+	}
+	
+	// Pattern 5: Combination Sum
+	fmt.Println("\n5. Combination Sum [2,3,6,7], target=7:")
+	fmt.Println(combinationSum([]int{2, 3, 6, 7}, 7))
+	
+	// Pattern 6: Palindrome Partitioning
+	fmt.Println("\n6. Palindrome Partitions of 'aab':")
+	fmt.Println(partition("aab"))
+	
+	// Pattern 7: Generate Parentheses
+	fmt.Println("\n7. Valid Parentheses (n=3):")
+	fmt.Println(generateParenthesis(3))
+	
+	// Pattern 8: Letter Combinations
+	fmt.Println("\n8. Letter Combinations of '23':")
+	fmt.Println(letterCombinations("23"))
+	
+	// Pattern 9: Restore IP Addresses
+	fmt.Println("\n9. Valid IP Addresses from '25525511135':")
+	fmt.Println(restoreIpAddresses("25525511135"))
+}
+```
+
+I'll create a comprehensive ASCII diagram showing how backtracking works across Python, Rust, and Go, covering call semantics and memory concepts.I've created a comprehensive ASCII diagram that covers:
+
+**Key Features:**
+
+1. **Memory Layout**: Shows stack vs heap organization for each language
+2. **Call Semantics**: Detailed comparison of call-by-value vs call-by-reference
+3. **Step-by-Step Execution**: Traces through backtracking with actual memory states at each step
+4. **Language-Specific Details**:
+   - **Python**: Reference semantics for lists, heap allocation, reference counting
+   - **Rust**: Explicit borrowing (&mut), borrow checker, ownership system
+   - **Go**: Slice mechanics (ptr/len/cap), backing array sharing, GC
+
+5. **Visual Elements**:
+   - Stack frames showing local variables
+   - Heap objects with arrows showing references
+   - Detailed slice/Vec internal structure
+   - State changes through recursive calls
+
+6. **Comparison Summary**: Table comparing key differences
+7. **Backtracking Insights**: How state restoration and result collection work differently
+
+The diagram shows how the same backtracking algorithm uses different memory strategies: Python shares heap objects via references, Rust uses exclusive mutable borrows with compile-time safety, and Go passes slice headers by value while sharing backing arrays.
+
+================================================================================
+        BACKTRACKING ALGORITHM: MEMORY & CALL SEMANTICS COMPARISON
+                    Python | Rust | Go
+================================================================================
+
+PROBLEM: Find all subsets of [1, 2, 3]
+
+================================================================================
+                          MEMORY LAYOUT OVERVIEW
+================================================================================
+
+STACK MEMORY (grows downward)          HEAP MEMORY (dynamic allocation)
+┌─────────────────────────┐            ┌──────────────────────────┐
+│  Function Call Frames   │            │  Dynamic Data Structures │
+│  Local Variables        │            │  Referenced Objects      │
+│  Parameters             │            │  Mutable Collections     │
+│  Return Addresses       │            │  Large Allocations       │
+└─────────────────────────┘            └──────────────────────────┘
+     Fast, Limited Size                  Slower, Flexible Size
+
+================================================================================
+                    CALL BY VALUE vs CALL BY REFERENCE
+================================================================================
+
+CALL BY VALUE                          CALL BY REFERENCE
+┌─────────────────┐                    ┌─────────────────┐
+│  Original: 5    │                    │  Original: 5    │
+└────────┬────────┘                    └────────┬────────┘
+         │ Copy                                 │ Address
+         ▼                                      ▼
+┌─────────────────┐                    ┌─────────────────┐
+│  Function: 5    │                    │  Function: &5   │──┐
+│  (independent)  │                    │  (same memory)  │  │
+└─────────────────┘                    └─────────────────┘  │
+Changes don't affect original          Changes affect original ◄┘
+
+================================================================================
+                      PYTHON: BACKTRACKING EXAMPLE
+================================================================================
+
+CODE:
+    def backtrack(nums, path, result):
+        result.append(path[:])  # Shallow copy
+        for i in range(len(nums)):
+            path.append(nums[i])
+            backtrack(nums[i+1:], path, result)
+            path.pop()
+
+CALL SEMANTICS:
+- Immutable types (int, str, tuple): Pass by value (conceptually)
+- Mutable types (list, dict): Pass by reference (pointer to object)
+
+MEMORY MODEL:
+
+Step 1: Initial Call
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #1             │  │ nums = [1, 2, 3]  ◄─────────────┼─┐
+│ ┌──────────────────────────────┐ │  │ (PyListObject)                  │ │
+│ │ nums      ──────────────────────┼──┤ - size: 3                       │ │
+│ │ path      ──────────────────────┼──┤ - items: [ptr1, ptr2, ptr3]    │ │
+│ │ result    ──────────────────────┼──┤                                 │ │
+│ └──────────────────────────────┘ │  │ path = []         ◄─────────────┼─┤
+└──────────────────────────────────┘  │ (PyListObject)                  │ ││
+                                      │ - size: 0                       │ ││
+                                      │                                 │ ││
+                                      │ result = []       ◄─────────────┼─┤│
+                                      │ (PyListObject)                  │ │││
+                                      └─────────────────────────────────┘ │││
+                                              All frames share these! ──────┘││
+                                                                          ││││
+
+Step 2: First Recursive Call (choosing 1)
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #2             │  │ nums = [2, 3] (new slice)       │
+│ ┌──────────────────────────────┐ │  │                                 │
+│ │ nums      ──────────────────────┼──┤ path = [1]      ◄─────────┐    │
+│ │ path      ──────────────────────┼──┤ (modified)                 │    │
+│ │ result    ──────────────────────┼──┤                            │    │
+│ └──────────────────────────────┘ │  │ result = [[]]   ◄─────────┐│    │
+├──────────────────────────────────┤  │ (path[:] copied)           ││    │
+│ backtrack() Frame #1             │  └─────────────────────────────┘│    │
+│ ┌──────────────────────────────┐ │            ▲                   ││    │
+│ │ nums, path, result (same)   ─┼──────────────┴───────────────────┴┘    │
+│ └──────────────────────────────┘ │                                      │
+└──────────────────────────────────┘                                      │
+
+Step 3: Backtrack (remove 1)
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #1             │  │ path = []       (1 removed)     │
+│ ┌──────────────────────────────┐ │  │                                 │
+│ │ After path.pop()             │ │  │ result = [[], [1]]              │
+│ └──────────────────────────────┘ │  │                                 │
+└──────────────────────────────────┘  └─────────────────────────────────┘
+
+KEY POINTS:
+✓ Lists are heap-allocated, stack holds references
+✓ path is shared across calls (modified in-place)
+✓ path[:] creates shallow copy for result
+✓ Reference counting manages heap memory
+
+================================================================================
+                       RUST: BACKTRACKING EXAMPLE
+================================================================================
+
+CODE:
+    fn backtrack(nums: &[i32], path: &mut Vec<i32>, result: &mut Vec<Vec<i32>>) {
+        result.push(path.clone());
+        for i in 0..nums.len() {
+            path.push(nums[i]);
+            backtrack(&nums[i+1..], path, result);
+            path.pop();
+        }
+    }
+
+CALL SEMANTICS:
+- Primitives (i32, f64): Pass by value (copy)
+- Complex types: Explicit borrowing (&T immutable, &mut T mutable)
+- Ownership system prevents dangling pointers
+
+MEMORY MODEL:
+
+Step 1: Initial Call
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #1             │  │ Vec<i32> capacity: 4            │
+│ ┌──────────────────────────────┐ │  │ [1, 2, 3] ◄─────────────────────┼─┐
+│ │ nums: &[i32]  ───────────────────┼─┤   (owned by caller)             │ │
+│ │   ptr     ─────────────────────┼─┤                                  │ │
+│ │   len: 3                     │ │  │                                 │ │
+│ │                              │ │  │ Vec<i32> (path)                 │ │
+│ │ path: &mut Vec<i32> ──────────┼──┤ [] ◄────────────────────────────┼─┤
+│ │   ptr     ─────────────────────┼─┤   capacity: 0                    │ ││
+│ │   len: 0                     │ │  │                                 │ ││
+│ │   cap: 0                     │ │  │ Vec<Vec<i32>> (result)          │ ││
+│ │                              │ │  │ [] ◄────────────────────────────┼─┤│
+│ │ result: &mut Vec<Vec<i32>>  ──┼──┤   capacity: 0                    │ │││
+│ └──────────────────────────────┘ │  └─────────────────────────────────┘ │││
+└──────────────────────────────────┘                                      │││
+                                          Borrowing rules enforced! ───────┘││
+                                                                           │││
+
+Step 2: First Recursive Call (choosing 1)
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #2             │  │ [1, 2, 3]       (unchanged)     │
+│ ┌──────────────────────────────┐ │  │                                 │
+│ │ nums: &[i32]                 │ │  │ path = [1]      (modified)      │
+│ │   ptr     ─────────────────────┼─┤   len: 1, cap: 4                 │
+│ │   len: 2  (slice [2,3])      │ │  │                                 │
+│ │                              │ │  │ result = [[]]   (cloned empty)  │
+│ │ path: &mut Vec<i32> ──────────┼──┤                                  │
+│ │   (borrowed from Frame #1)   │ │  │                                 │
+│ │                              │ │  │ BORROW CHECKER:                 │
+│ │ result: &mut Vec<Vec<i32>>  ──┼──┤ ✓ Only one &mut to path         │
+│ └──────────────────────────────┘ │  │ ✓ Slice doesn't outlive array   │
+├──────────────────────────────────┤  └─────────────────────────────────┘
+│ backtrack() Frame #1             │
+│ ┌──────────────────────────────┐ │
+│ │ (variables exist but         │ │
+│ │  path borrowed mutably)      │ │
+│ └──────────────────────────────┘ │
+└──────────────────────────────────┘
+
+Step 3: After path.pop()
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #1             │  │ [1, 2, 3]                       │
+│ ┌──────────────────────────────┐ │  │                                 │
+│ │ path: &mut Vec<i32>          │ │  │ path = []       (1 removed)     │
+│ │   len: 0                     │ │  │   len: 0, cap: 4                │
+│ └──────────────────────────────┘ │  │                                 │
+└──────────────────────────────────┘  │ result = [[], [1]]              │
+                                      └─────────────────────────────────┘
+
+KEY POINTS:
+✓ Explicit borrowing: &T (read-only), &mut T (exclusive write)
+✓ Borrow checker prevents data races at compile time
+✓ Slices (&[T]) are fat pointers (ptr + len)
+✓ No garbage collection, ownership tracks lifetime
+✓ Stack stores references, heap stores Vec data
+
+================================================================================
+                         GO: BACKTRACKING EXAMPLE
+================================================================================
+
+CODE:
+    func backtrack(nums []int, path []int, result *[][]int) {
+        pathCopy := make([]int, len(path))
+        copy(pathCopy, path)
+        *result = append(*result, pathCopy)
+        
+        for i := range nums {
+            path = append(path, nums[i])
+            backtrack(nums[i+1:], path, result)
+            path = path[:len(path)-1]
+        }
+    }
+
+CALL SEMANTICS:
+- Basic types (int, float64): Pass by value (copy)
+- Slices, maps, channels: Pass by value BUT contain pointers (reference semantics)
+- Pointers (*T): Explicit pass by reference
+
+MEMORY MODEL:
+
+Step 1: Initial Call
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #1             │  │ Array: [1, 2, 3]                │
+│ ┌──────────────────────────────┐ │  │   (backing array) ◄─────────────┼─┐
+│ │ nums (slice header)          │ │  │                                 │ │
+│ │   ptr     ─────────────────────┼─┤                                  │ │
+│ │   len: 3                     │ │  │ Array: []                       │ │
+│ │   cap: 3                     │ │  │   (path backing) ◄──────────────┼─┤
+│ │                              │ │  │   cap: 0                        │ ││
+│ │ path (slice header)          │ │  │                                 │ ││
+│ │   ptr     ─────────────────────┼─┤                                  │ ││
+│ │   len: 0                     │ │  │ [][]int (result) ◄──────────────┼─┤│
+│ │   cap: 0                     │ │  │   backing array                 │ │││
+│ │                              │ │  └─────────────────────────────────┘ │││
+│ │ result *[][]int              │ │                                      │││
+│ │   ptr     ─────────────────────┼────────────────────────────────────────┘││
+│ └──────────────────────────────┘ │                                      │││
+└──────────────────────────────────┘                                      │││
+                                        Slice headers copied, data shared ─┘││
+                                                                           │││
+
+Step 2: First Recursive Call (choosing 1)
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #2             │  │ [1, 2, 3]       (original)      │
+│ ┌──────────────────────────────┐ │  │  ▲                              │
+│ │ nums (NEW slice header)      │ │  │  │                              │
+│ │   ptr     ─────────────────────┼──┤  │ points to offset [1]         │
+│ │   len: 2  (sliced [2,3])     │ │  │  └─(nums[1:])                   │
+│ │   cap: 2                     │ │  │                                 │
+│ │                              │ │  │ [1]             (new alloc)     │
+│ │ path (NEW slice header)      │ │  │   after append, may reallocate  │
+│ │   ptr     ─────────────────────┼─┤                                  │
+│ │   len: 1                     │ │  │                                 │
+│ │   cap: 2  (grew)             │ │  │ result points to same [][]int   │
+│ │                              │ │  │   (pointer dereferenced)        │
+│ │ result *[][]int (SAME PTR)   │ │  │                                 │
+│ │   ptr     ─────────────────────┼──┤ [[]]            (pathCopy added)│
+│ └──────────────────────────────┘ │  └─────────────────────────────────┘
+├──────────────────────────────────┤
+│ backtrack() Frame #1             │  SLICE MECHANICS:
+│ ┌──────────────────────────────┐ │  - Slice = (ptr, len, cap)
+│ │ path still points to []      │ │  - Slicing shares backing array
+│ │ (different slice header)     │ │  - append() may reallocate
+│ └──────────────────────────────┘ │  - Modifications visible if shared
+└──────────────────────────────────┘
+
+Step 3: After path = path[:len(path)-1]
+═══════════════════════════════════════════════════════════════════════════
+STACK                                  HEAP
+┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│ backtrack() Frame #2             │  │ [1, 2, 3]                       │
+│ ┌──────────────────────────────┐ │  │                                 │
+│ │ path (modified slice header) │ │  │ [1]             (data intact,   │
+│ │   ptr     ─────────────────────┼─┤   but len reduced)               │
+│ │   len: 0  (shrunk)           │ │  │                                 │
+│ │   cap: 2  (unchanged)        │ │  │ result = [[], [1]]              │
+│ └──────────────────────────────┘ │  └─────────────────────────────────┘
+└──────────────────────────────────┘
+
+KEY POINTS:
+✓ Slices are "fat pointers" (ptr, len, cap) passed by value
+✓ Slice header copied, but points to same backing array
+✓ append() may allocate new array if capacity exceeded
+✓ Garbage collector manages heap automatically
+✓ Pointer (*T) gives explicit reference semantics
+
+================================================================================
+                         COMPARISON SUMMARY
+================================================================================
+
+┌─────────────────┬──────────────────────┬──────────────────────┬─────────────────────┐
+│   Feature       │       Python         │        Rust          │         Go          │
+├─────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
+│ Default Call    │ Pass reference to    │ Pass by value        │ Pass by value       │
+│ Semantics       │ mutable objects      │ (explicit borrow)    │ (slice = ref-like)  │
+├─────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
+│ List/Array      │ Always heap          │ Vec heap, array      │ Backing array heap, │
+│ Storage         │ (reference counted)  │ stack/heap by owner  │ slice header stack  │
+├─────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
+│ Memory Safety   │ Runtime (GC)         │ Compile-time         │ Runtime (GC)        │
+│                 │                      │ (borrow checker)     │                      │
+├─────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
+│ Mutation        │ Direct (shared ref)  │ Explicit &mut        │ Direct (if shared   │
+│ Control         │                      │ (exclusive)          │ backing array)      │
+├─────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
+│ Copy Overhead   │ path[:] shallow copy │ path.clone() deep    │ make() + copy()     │
+│                 │                      │ copy                 │                      │
+├─────────────────┼──────────────────────┼──────────────────────┼─────────────────────┤
+│ Backtracking    │ Modify shared path   │ Modify borrowed path │ Modify copied slice │
+│ Pattern         │ (reference passed)   │ (&mut parameter)     │ header (new slice)  │
+└─────────────────┴──────────────────────┴──────────────────────┴─────────────────────┘
+
+CALL STACK VISUALIZATION (Choosing [1] then [1,2]):
+═══════════════════════════════════════════════════════════════════════════
+
+    PYTHON              RUST                GO
+    
+    ┌────────────┐      ┌────────────┐      ┌────────────┐
+    │ [1,2] call │      │ [1,2] call │      │ [1,2] call │
+    │ path->heap │      │ &mut path  │      │ path copy  │
+    └────────────┘      └────────────┘      └────────────┘
+    ┌────────────┐      ┌────────────┐      ┌────────────┐
+    │ [1] call   │      │ [1] call   │      │ [1] call   │
+    │ path->heap │      │ &mut path  │      │ path copy  │
+    └────────────┘      └────────────┘      └────────────┘
+    ┌────────────┐      ┌────────────┐      ┌────────────┐
+    │ [] call    │      │ [] call    │      │ [] call    │
+    │ path->heap │      │ &mut path  │      │ path copy  │
+    └────────────┘      └────────────┘      └────────────┘
+         │                   │                   │
+         └───────► SAME HEAP OBJECT ◄────────────┘
+         (Python)    (Rust borrows)    (Go shares backing)
+
+================================================================================
+                        BACKTRACKING KEY INSIGHTS
+================================================================================
+
+1. STATE RESTORATION:
+   Python:  path.pop() modifies shared heap object
+   Rust:    path.pop() modifies through &mut borrow
+   Go:      path[:len-1] creates new slice header, same backing
+
+2. RESULT COLLECTION:
+   Python:  path[:] creates shallow copy (new list, same integers)
+   Rust:    path.clone() creates deep copy (new Vec)
+   Go:      make() + copy() creates independent array
+
+3. MEMORY EFFICIENCY:
+   Python:  Reference counting, indirect access
+   Rust:    Zero-cost abstractions, no runtime overhead
+   Go:      Garbage collection, slice optimization
+
+4. SAFETY GUARANTEES:
+   Python:  Runtime errors possible (mutation races)
+   Rust:    Compile-time guaranteed (no data races)
+   Go:      Runtime GC, potential slice aliasing bugs
+
+================================================================================

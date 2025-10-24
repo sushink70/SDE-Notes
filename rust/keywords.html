@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust Keywords Reference</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', 'Monaco', monospace;
+            background: #0d1117;
+            min-height: 100vh;
+            padding: 20px;
+            color: #58d68d;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease-out;
+            border-bottom: 2px solid #1e4d2b;
+            padding-bottom: 30px;
+        }
+
+        h1 {
+            color: #58d68d;
+            font-size: 3.5em;
+            text-shadow: 0 0 10px rgba(88, 214, 141, 0.5);
+            margin-bottom: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            color: #73c990;
+            font-size: 1.2em;
+            font-weight: 400;
+        }
+
+        .keyword-count {
+            display: inline-block;
+            background: #162d1f;
+            color: #58d68d;
+            padding: 8px 20px;
+            border-radius: 5px;
+            margin-top: 15px;
+            border: 1px solid #1e4d2b;
+        }
+
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            animation: fadeIn 1s ease-out;
+        }
+
+        .category-card {
+            background: #161b22;
+            border-radius: 8px;
+            padding: 25px;
+            border: 1px solid #1e4d2b;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .category-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(88, 214, 141, 0.3);
+            border-color: #58d68d;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #1e4d2b;
+        }
+
+        .category-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 15px;
+            background: #162d1f;
+            border: 1px solid #1e4d2b;
+        }
+
+        .category-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #58d68d;
+            text-shadow: 0 0 5px rgba(88, 214, 141, 0.3);
+        }
+
+        .keyword-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .keyword-tag {
+            background: #0d1f15;
+            color: #58d68d;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 0.95em;
+            transition: all 0.2s ease;
+            border: 1px solid #1e4d2b;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .keyword-tag:hover {
+            transform: scale(1.05);
+            background: #162d1f;
+            border-color: #58d68d;
+            box-shadow: 0 0 10px rgba(88, 214, 141, 0.4);
+            text-shadow: 0 0 5px rgba(88, 214, 141, 0.5);
+        }
+
+        /* Category-specific darker greens */
+        .control-flow .category-icon {
+            background: #0d1f15;
+        }
+
+        .control-flow .keyword-tag {
+            color: #52c97f;
+        }
+
+        .declarations .category-icon {
+            background: #0d1f15;
+        }
+
+        .declarations .keyword-tag {
+            color: #5dd892;
+        }
+
+        .types .category-icon {
+            background: #0d1f15;
+        }
+
+        .types .keyword-tag {
+            color: #6ae09d;
+        }
+
+        .concurrency .category-icon {
+            background: #0d1f15;
+        }
+
+        .concurrency .keyword-tag {
+            color: #45b870;
+        }
+
+        .special .category-icon {
+            background: #0d1f15;
+        }
+
+        .special .keyword-tag {
+            color: #7de8a8;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Terminal cursor effect */
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        h1::after {
+            content: '_';
+            animation: blink 1s infinite;
+            margin-left: 5px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2.5em;
+            }
+
+            .categories-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Subtle scan line effect for terminal feel */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                transparent 50%,
+                rgba(88, 214, 141, 0.02) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>$ rust keywords</h1>
+            <p class="subtitle">// Complete Reference Guide</p>
+            <div class="keyword-count">[ 43 Total Keywords ]</div>
+        </header>
+
+        <div class="categories-grid">
+            <div class="category-card control-flow">
+                <div class="category-header">
+                    <div class="category-icon">→</div>
+                    <h2 class="category-title">Control Flow</h2>
+                </div>
+                <div class="keyword-list">
+                    <span class="keyword-tag">break</span>
+                    <span class="keyword-tag">continue</span>
+                    <span class="keyword-tag">else</span>
+                    <span class="keyword-tag">for</span>
+                    <span class="keyword-tag">if</span>
+                    <span class="keyword-tag">loop</span>
+                    <span class="keyword-tag">match</span>
+                    <span class="keyword-tag">return</span>
+                    <span class="keyword-tag">while</span>
+                </div>
+            </div>
+
+            <div class="category-card declarations">
+                <div class="category-header">
+                    <div class="category-icon">≡</div>
+                    <h2 class="category-title">Declarations</h2>
+                </div>
+                <div class="keyword-list">
+                    <span class="keyword-tag">const</span>
+                    <span class="keyword-tag">crate</span>
+                    <span class="keyword-tag">extern</span>
+                    <span class="keyword-tag">fn</span>
+                    <span class="keyword-tag">let</span>
+                    <span class="keyword-tag">mod</span>
+                    <span class="keyword-tag">pub</span>
+                    <span class="keyword-tag">use</span>
+                </div>
+            </div>
+
+            <div class="category-card types">
+                <div class="category-header">
+                    <div class="category-icon">{ }</div>
+                    <h2 class="category-title">Types</h2>
+                </div>
+                <div class="keyword-list">
+                    <span class="keyword-tag">dyn</span>
+                    <span class="keyword-tag">enum</span>
+                    <span class="keyword-tag">impl</span>
+                    <span class="keyword-tag">Self</span>
+                    <span class="keyword-tag">self</span>
+                    <span class="keyword-tag">struct</span>
+                    <span class="keyword-tag">super</span>
+                    <span class="keyword-tag">trait</span>
+                    <span class="keyword-tag">type</span>
+                    <span class="keyword-tag">union</span>
+                </div>
+            </div>
+
+            <div class="category-card concurrency">
+                <div class="category-header">
+                    <div class="category-icon">⇄</div>
+                    <h2 class="category-title">Concurrency</h2>
+                </div>
+                <div class="keyword-list">
+                    <span class="keyword-tag">async</span>
+                    <span class="keyword-tag">await</span>
+                </div>
+            </div>
+
+            <div class="category-card special">
+                <div class="category-header">
+                    <div class="category-icon">*</div>
+                    <h2 class="category-title">Special Operations</h2>
+                </div>
+                <div class="keyword-list">
+                    <span class="keyword-tag">as</span>
+                    <span class="keyword-tag">false</span>
+                    <span class="keyword-tag">in</span>
+                    <span class="keyword-tag">macro_rules</span>
+                    <span class="keyword-tag">move</span>
+                    <span class="keyword-tag">mut</span>
+                    <span class="keyword-tag">raw</span>
+                    <span class="keyword-tag">ref</span>
+                    <span class="keyword-tag">safe</span>
+                    <span class="keyword-tag">static</span>
+                    <span class="keyword-tag">true</span>
+                    <span class="keyword-tag">unsafe</span>
+                    <span class="keyword-tag">where</span>
+                    <span class="keyword-tag">'static</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

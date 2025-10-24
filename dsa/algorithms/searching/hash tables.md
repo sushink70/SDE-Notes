@@ -1,4 +1,4 @@
-I'll create a comprehensive guide covering search algorithms and hash tables with complete implementations in both Python and Rust. This will be a substantial technical reference document.I've created a comprehensive guide to search algorithms and hash tables with complete implementations in both Python and Rust. The guide covers:
+# Complete Guide to Search Algorithms and Hash Tables
 
 ## Key Features
 
@@ -10,7 +10,7 @@ I'll create a comprehensive guide covering search algorithms and hash tables wit
 2. **Hash Tables**:
    - Full implementation with dynamic resizing
    - Separate chaining collision resolution
-   - Load factor management
+   - Load factor management and resizing strategies, including doubling and rehashing
    - Advanced concepts like Robin Hood hashing and linear probing
 
 3. **Production-Ready Code**:
@@ -27,8 +27,6 @@ I'll create a comprehensive guide covering search algorithms and hash tables wit
 The implementations are complete, well-documented, and ready to use in real applications. Each algorithm includes examples and explanations of when to use them. The Rust implementations leverage the language's type system and memory safety features, while the Python versions focus on clarity and ease of understanding.
 
 Would you like me to expand on any particular section or add additional algorithms like interpolation search or more advanced hash table variants?
-
-# Complete Guide to Search Algorithms and Hash Tables
 
 ## Table of Contents
 
