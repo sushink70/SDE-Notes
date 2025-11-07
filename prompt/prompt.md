@@ -1,15 +1,28 @@
 # Prompt Engg
 
+Development Methodologies (e.g., Agile, Scrum)
+Software Development Life Cycle (SDLC)
+Design Patterns and Best Practices
+Performance Optimization Techniques
+Object-Oriented Programming (OOP)
+Functional Programming Concepts
+Error Handling and Exceptions
+Modular Programming
+
 1. Create a comprehensive guide to RPC (Remote Procedure Call) operations in Go, python, rust. Complete implementations in Go, python, rust. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
 
 2. Create a detailed ASCII diagram showing how Matrix work in Python, Rust step by step. Call by reference and call by value concepts must be covered. Stack memory and heap memory concepts must be covered.
 
-provide simple code and explain how backtracking works? cover code with python, rust, go. provide ascii diagram of how this works? what is the advantage of using this in real world cases. how to identify a problem can solve using backtracking? what is the pattern over here? 
+provide simple code and explain how trie works? cover code with python, rust, go. provide ascii diagram of how this works? what is the advantage of using this in real world cases. how to identify a problem can solve using trie? what is the pattern over here? 
 
 
 graph theory, and statistics, algebra, set theory, combinatorics, statistics, calculus, probability, number theory, discrete mathematics, and mathematical logic, Trigonometry
 
 Nice — I’ll give you a *copy-pasteable, battle-tested set of AI prompts + a study/action playbook* so you can ask any model (including me) for the same deep, source-level mapping you wanted for PostgreSQL — but for clouds, VMs, sandboxes, runtimes, kernels, networking stacks, security subsystems, etc.
+
+Hi Claude! Could you design learning journals? If you need more information from me, ask me 1-2 key questions right away. If you think I should upload any documents that would help you do a better job, let me know. You can use the tools you have access to — like Google Drive, web search, etc. — if they’ll help you better accomplish this task. Do not use analysis tool. Please keep your responses friendly, brief and conversational. 
+
+Please execute the task as soon as you can - an artifact would be great if it makes sense. If using an artifact, consider what kind of artifact (interactive, visual, checklist, etc.) might be most helpful for this specific task. Thanks for your help!
 
 You’ll get:
 
