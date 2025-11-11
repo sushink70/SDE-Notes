@@ -1,4 +1,7 @@
-**1. Keywords:**
+# TypeScript Keywords
+
+1. Keywords:
+
 - `break`
 - `case`
 - `catch`
