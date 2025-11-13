@@ -1,44 +1,7 @@
-# Overlapping Subproblems in Dynamic Programming: A Complete Guide with Python and Rust Implementations
-
-## Key Features:
-
-1. **Theoretical Foundation**: Clear explanation of what overlapping subproblems are and how to identify them
-2. **Identification Strategies**: Multiple approaches including recursion tree analysis, mathematical analysis, and memoization testing
-3. **Classic Examples**: Four fundamental DP problems with detailed analysis
-4. **Complete Implementations**: Both Python and Rust code for:
-   - Fibonacci numbers
-   - Longest Common Subsequence (LCS)
-   - 0/1 Knapsack problem
-   - Coin Change problem
-
-5. **Multiple Approaches**: For each problem, I've provided:
-   - Naive recursive solution (showing the overlap problem)
-   - Top-down with memoization
-   - Bottom-up tabulation
-   - Space-optimized versions where applicable
-
-6. **Performance Analysis**: Time and space complexity comparisons, plus benchmarking examples
-
-7. **Advanced Techniques**: State compression, parallel DP, and memory-efficient approaches
-
-## Language-Specific Benefits:
-
-**Python**: 
-- Uses `functools.lru_cache` for easy memoization
-- Clean, readable syntax
-- Great for prototyping and learning
-
-**Rust**:
-- Memory-safe implementations
-- Better performance for large-scale problems
-- Explicit memory management
-- Pattern matching for cleaner code
-
-The guide provides both educational value for understanding the concepts and practical implementations you can use directly in your projects. Each code example is complete and runnable, with careful attention to edge cases and optimization opportunities.
-
 # Complete Guide to Overlapping Subproblems in Dynamic Programming
 
 ## Table of Contents
+
 1. [Understanding Overlapping Subproblems](#understanding-overlapping-subproblems)
 2. [Identification Strategies](#identification-strategies)
 3. [Classic Examples with Analysis](#classic-examples-with-analysis)
@@ -53,6 +16,7 @@ The guide provides both educational value for understanding the concepts and pra
 Overlapping subproblems is one of the two key properties of dynamic programming (along with optimal substructure). A problem has overlapping subproblems if the same subproblems are solved multiple times during the computation.
 
 ### Key Characteristics:
+
 - **Recursive Structure**: The problem can be broken down into smaller subproblems
 - **Repetition**: The same subproblems appear multiple times in the recursion tree
 - **Optimization Opportunity**: We can store solutions to avoid recomputation
@@ -1027,3 +991,42 @@ COMMON PATTERNS:
 - Grid problems: paths[i][j] depends on paths[i-1][j] + paths[i][j-1]
 - String matching: LCS(i,j) depends on LCS(i-1,j-1), LCS(i-1,j), LCS(i,j-1)
 - Optimization: knapsack[i][w] depends on previous items and weights
+
+
+# Overlapping Subproblems in Dynamic Programming: A Complete Guide with Python and Rust Implementations
+
+## Key Features:
+
+1. **Theoretical Foundation**: Clear explanation of what overlapping subproblems are and how to identify them
+2. **Identification Strategies**: Multiple approaches including recursion tree analysis, mathematical analysis, and memoization testing
+3. **Classic Examples**: Four fundamental DP problems with detailed analysis
+4. **Complete Implementations**: Both Python and Rust code for:
+   - Fibonacci numbers
+   - Longest Common Subsequence (LCS)
+   - 0/1 Knapsack problem
+   - Coin Change problem
+
+5. **Multiple Approaches**: For each problem, I've provided:
+   - Naive recursive solution (showing the overlap problem)
+   - Top-down with memoization
+   - Bottom-up tabulation
+   - Space-optimized versions where applicable
+
+6. **Performance Analysis**: Time and space complexity comparisons, plus benchmarking examples
+
+7. **Advanced Techniques**: State compression, parallel DP, and memory-efficient approaches
+
+## Language-Specific Benefits:
+
+**Python**: 
+- Uses `functools.lru_cache` for easy memoization
+- Clean, readable syntax
+- Great for prototyping and learning
+
+**Rust**:
+- Memory-safe implementations
+- Better performance for large-scale problems
+- Explicit memory management
+- Pattern matching for cleaner code
+
+The guide provides both educational value for understanding the concepts and practical implementations you can use directly in your projects. Each code example is complete and runnable, with careful attention to edge cases and optimization opportunities.

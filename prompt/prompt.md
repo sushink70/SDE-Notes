@@ -1,6 +1,6 @@
 # Prompt Engg
 
-Development Methodologies (e.g., Agile, Scrum)
+
 Software Development Life Cycle (SDLC)
 Design Patterns and Best Practices
 Performance Optimization Techniques
@@ -9,7 +9,7 @@ Functional Programming Concepts
 Error Handling and Exceptions
 Modular Programming
 
-1. Create a comprehensive guide to RPC (Remote Procedure Call) operations in Go, python, rust. Complete implementations in Go, python, rust. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
+1. Create a comprehensive guide to Development Methodologies (e.g., Agile, Scrum, etc...) in Go, python, rust. Complete implementations in Go, python, rust. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
 
 2. Create a detailed ASCII diagram showing how Matrix work in Python, Rust step by step. Call by reference and call by value concepts must be covered. Stack memory and heap memory concepts must be covered.
 
