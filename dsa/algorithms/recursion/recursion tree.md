@@ -290,7 +290,7 @@ Initial:        Try Q at (0,0)      Try Q at (0,1)      Try Q at (0,2) ...
 │ │ │ │ │      │Q│X│X│X│          │X│Q│X│X│          │X│X│Q│X│
 ├─┼─┼─┼─┤      ├─┼─┼─┼─┤          ├─┼─┼─┼─┤          ├─┼─┼─┼─┤
 │ │ │ │ │      │X│ │ │ │          │X│X│ │ │          │X│X│X│ │
-├─┼─┼─┼─┤  ──► ├─┼─┼─┼─┤  ──►    ├─┼─┼─┼─┤  ──►    ├─┼─┼─┼─┤
+├─┼─┼─┼─┤  ──► ├─┼─┼─┼─┤  ──►     ├─┼─┼─┼─┤  ──►     ├─┼─┼─┼─┤
 │ │ │ │ │      │X│ │ │ │          │ │X│ │ │          │ │X│X│ │
 ├─┼─┼─┼─┤      ├─┼─┼─┼─┤          ├─┼─┼─┼─┤          ├─┼─┼─┼─┤
 │ │ │ │ │      │X│ │ │ │          │ │X│ │ │          │ │ │X│ │
@@ -2089,5 +2089,685 @@ Filling the table:
 
 Final answer: dp[5][3] = 3
 
+```python
+"""
 OPERATIONS VISUALIZATION:
-──────────────────────────────────────────────────────────────────────────────────────────────
+───────────────────────────────────────────────────────────────────────────────
+
+Transform "horse" → "ros" (optimal path with 3 operations):
+
+Step 1: horse → rorse  (replace 'h' with 'r')
+        ↑
+        
+Step 2: rorse → rose   (delete 'r')
+         ↑
+         
+Step 3: rose → ros     (delete 'e')
+              ↑
+
+Alternative paths also have cost 3:
+  Path 2: horse → orse → ose → os → ros (delete h, delete r, delete e, insert r)
+  But minimum is still 3 operations.
+
+RECURRENCE RELATION:
+───────────────────────────────────────────────────────────────────────────────
+
+If word1[i-1] == word2[j-1]:
+    dp[i][j] = dp[i-1][j-1]  (characters match, no operation needed)
+Else:
+    dp[i][j] = 1 + min(
+        dp[i-1][j],      // DELETE from word1
+        dp[i][j-1],      // INSERT into word1
+        dp[i-1][j-1]     // REPLACE in word1
+    )
+
+Visual representation at cell (i,j):
+
+                    dp[i-1][j-1]
+                    (replace)
+                         ↓
+    dp[i][j-1] ───→ dp[i][j] ←─── dp[i-1][j]
+    (insert)                       (delete)
+
+OPERATION TRACKING (Path Reconstruction):
+───────────────────────────────────────────────────────────────────────────────
+
+To reconstruct actual operations, track which decision was made at each cell:
+
+        ""  r   o   s
+    ""   -   I   I   I      Legend: - = start
+    h    D   R   I   I              D = delete
+    o    D   R   M   I              I = insert
+    r    D   M   R   I              R = replace
+    s    D   D   R   M              M = match (no op)
+    e    D   D   D   R
+
+Backtrack from dp[5][3] to dp[0][0] following arrows:
+  (5,3)→R→(4,2)→M→(3,1)→M→(2,0)→D→(1,0)→D→(0,0)
+  
+  Operations: Delete 'h', Delete 'e', Match 'r', Match 'o', Replace 'e'→'s'
+"""
+
+
+def edit_distance(word1, word2, memo=None):
+    """String transformation: minimum operations to convert word1 to word2"""
+    if memo is None:
+        memo = {}
+    
+    m, n = len(word1), len(word2)
+    
+    def dp(i, j):
+        # BASE CASES
+        if i == 0:  # Must insert all remaining chars from word2
+            return j
+        if j == 0:  # Must delete all remaining chars from word1
+            return i
+        
+        if (i, j) in memo:
+            return memo[(i, j)]
+        
+        if word1[i-1] == word2[j-1]:  # Characters match
+            result = dp(i-1, j-1)
+        else:
+            result = 1 + min(
+                dp(i-1, j),      # DELETE
+                dp(i, j-1),      # INSERT
+                dp(i-1, j-1)     # REPLACE
+            )
+        
+        memo[(i, j)] = result
+        return result
+    
+    return dp(m, n)
+
+
+"""
+═══════════════════════════════════════════════════════════════════════════════
+        TYPE 22: RECURSION WITH INTERVAL PARTITIONING
+                    (Optimal Binary Search Tree / Matrix Chain)
+═══════════════════════════════════════════════════════════════════════════════
+
+Example: Matrix Chain Multiplication Order
+Matrices: A(10×30) × B(30×5) × C(5×60)
+Find optimal parenthesization to minimize scalar multiplications
+
+DIFFERENT ORDERS, DIFFERENT COSTS:
+───────────────────────────────────────────────────────────────────────────────
+
+Order 1: ((A × B) × C)
+  Step 1: A × B = (10×30) × (30×5) = 10×30×5 = 1,500 operations → Result: 10×5
+  Step 2: (A×B) × C = (10×5) × (5×60) = 10×5×60 = 3,000 operations → Result: 10×60
+  Total: 1,500 + 3,000 = 4,500 operations
+
+Order 2: (A × (B × C))
+  Step 1: B × C = (30×5) × (5×60) = 30×5×60 = 9,000 operations → Result: 30×60
+  Step 2: A × (B×C) = (10×30) × (30×60) = 10×30×60 = 18,000 operations → Result: 10×60
+  Total: 9,000 + 18,000 = 27,000 operations
+
+Optimal is Order 1: 6× fewer operations! (4,500 vs 27,000)
+
+RECURSION TREE: Try all possible split points
+───────────────────────────────────────────────────────────────────────────────
+
+Dimensions array: [10, 30, 5, 60] (represents 3 matrices)
+Matrix i has dimensions dims[i-1] × dims[i]
+
+                    mcm(1, 3)  "Multiply matrices 1 to 3"
+                    ┌─────┴─────┐
+              Split at 1    Split at 2
+                    │             │
+        mcm(1,1) × mcm(2,3)   mcm(1,2) × mcm(2,2)
+            0    +   ↓           ↓    +     0
+                   ┌─┴─┐       ┌─┴─┐
+             Split at 2    Split at 1
+                   │   │         │   │
+              mcm(2,2) mcm(3,3) mcm(1,1) mcm(2,2)
+                0    +    0       0    +    0
+
+DETAILED COMPUTATION for mcm(1,3):
+───────────────────────────────────────────────────────────────────────────────
+
+Split k=1: (M1) × (M2 × M3)
+  Cost = mcm(1,1) + mcm(2,3) + dims[0]*dims[1]*dims[3]
+       = 0 + mcm(2,3) + 10*30*60
+       
+  mcm(2,3) split at k=2:
+    Cost = mcm(2,2) + mcm(3,3) + dims[1]*dims[2]*dims[3]
+         = 0 + 0 + 30*5*60
+         = 9,000
+  
+  Total = 0 + 9,000 + 18,000 = 27,000
+
+Split k=2: (M1 × M2) × (M3)
+  Cost = mcm(1,2) + mcm(3,3) + dims[0]*dims[2]*dims[3]
+       
+  mcm(1,2) split at k=1:
+    Cost = mcm(1,1) + mcm(2,2) + dims[0]*dims[1]*dims[2]
+         = 0 + 0 + 10*30*5
+         = 1,500
+  
+  Total = 1,500 + 0 + 10*5*60 = 1,500 + 3,000 = 4,500 ✓ (minimum!)
+
+DP TABLE (Bottom-Up View):
+───────────────────────────────────────────────────────────────────────────────
+
+Length = distance between i and j
+
+      1     2     3      ← Matrix index
+  ┌─────┬─────┬─────┐
+1 │  0  │1500 │4500 │   Length 1: Single matrix (cost = 0)
+  ├─────┼─────┼─────┤   Length 2: Two matrices (direct multiply)
+2 │  -  │  0  │9000 │   Length 3: Three matrices (try all splits)
+  ├─────┼─────┼─────┤
+3 │  -  │  -  │  0  │
+  └─────┴─────┴─────┘
+
+Filling order: Diagonal → upper diagonals (increasing lengths)
+
+Cell [1][2]: min cost to multiply M1 × M2
+  Only one split (k=1): 0 + 0 + 10*30*5 = 1,500
+
+Cell [2][3]: min cost to multiply M2 × M3  
+  Only one split (k=2): 0 + 0 + 30*5*60 = 9,000
+
+Cell [1][3]: min cost to multiply M1 × M2 × M3
+  Split k=1: 0 + 9,000 + 10*30*60 = 27,000
+  Split k=2: 1,500 + 0 + 10*5*60 = 4,500 ✓
+  Take minimum: 4,500
+
+RECURSION STRUCTURE:
+───────────────────────────────────────────────────────────────────────────────
+
+For range [i, j], try all split points k where i ≤ k < j:
+
+    [i ... k] × [k+1 ... j]
+    └────┬────┘   └─────┬─────┘
+      Left subproblem  Right subproblem
+         +                +           Merge cost
+    
+    Cost = mcm(i,k) + mcm(k+1,j) + dims[i-1]*dims[k]*dims[j]
+                                    └──────────┬──────────┘
+                                    Cost to multiply resulting matrices
+
+OVERLAPPING SUBPROBLEMS:
+───────────────────────────────────────────────────────────────────────────────
+
+mcm(2,3) computed when:
+  - Computing mcm(1,3) with split k=1
+  - Computing mcm(2,4) with split k=3 (if 4 matrices exist)
+  - Computing mcm(1,4) with split k=1
+
+Without memoization: O(2^n) recomputations
+With memoization: O(n^3) time (n^2 states, O(n) per state to try splits)
+"""
+
+
+def matrix_chain_order(dims):
+    """Interval DP: find optimal split points to minimize cost"""
+    n = len(dims) - 1  # Number of matrices
+    memo = {}
+    
+    def mcm(i, j):
+        """Minimum cost to multiply matrices from i to j"""
+        if i == j:  # BASE: single matrix, no multiplication needed
+            return 0
+        
+        if (i, j) in memo:
+            return memo[(i, j)]
+        
+        min_cost = float('inf')
+        
+        # Try all possible split points
+        for k in range(i, j):
+            # Cost = left subproblem + right subproblem + merge cost
+            cost = (mcm(i, k) + 
+                   mcm(k + 1, j) + 
+                   dims[i-1] * dims[k] * dims[j])
+            
+            min_cost = min(min_cost, cost)
+        
+        memo[(i, j)] = min_cost
+        return min_cost
+    
+    return mcm(1, n)
+
+
+"""
+═══════════════════════════════════════════════════════════════════════════════
+        TYPE 23: RECURSION WITH PROBABILITY/EXPECTATION
+                    (Expected Value Problems)
+═══════════════════════════════════════════════════════════════════════════════
+
+Example: Egg Drop Problem (Probabilistic Variant)
+Given k eggs and n floors, find expected minimum drops to find critical floor
+
+DECISION TREE WITH EXPECTED VALUES:
+───────────────────────────────────────────────────────────────────────────────
+
+State: (eggs=2, floors=10) - Drop from floor 5
+
+                    Drop from floor 5
+                    ┌──────┴──────┐
+            Egg breaks          Egg doesn't break
+            (below floor 5)     (above floor 5)
+                │                    │
+        State: (1 egg, 4 floors)  State: (2 eggs, 5 floors)
+                │                    │
+        Must use linear search   Can continue binary search
+        Expected: 4 more drops   Expected: recurse...
+
+EXPECTED VALUE CALCULATION:
+───────────────────────────────────────────────────────────────────────────────
+
+If we drop from floor x (1 ≤ x ≤ n):
+
+Expected drops = 1 + max(
+    E(eggs-1, x-1),      // Egg breaks: lose 1 egg, search floors 1 to x-1
+    E(eggs, n-x)         // Egg survives: keep eggs, search floors x+1 to n
+)
+
+Why max? Worst-case scenario (we want to minimize worst case)
+
+For eggs=2, floors=10:
+  Try dropping from floor 1: 1 + max(E(1,0), E(2,9)) = 1 + max(0, ...) = ...
+  Try dropping from floor 2: 1 + max(E(1,1), E(2,8)) = 1 + max(1, ...) = ...
+  Try dropping from floor 3: 1 + max(E(1,2), E(2,7)) = 1 + max(2, ...) = ...
+  ...
+  Try dropping from floor 10: 1 + max(E(1,9), E(2,0)) = 1 + max(9, 0) = 10
+  
+  Take MINIMUM over all choices: optimal floor to drop from
+
+RECURSION TREE (partial):
+───────────────────────────────────────────────────────────────────────────────
+
+                        eggDrop(2, 10)
+        ┌───────┬───────┬─── ... ───┬───────┬───────┐
+      Drop 1  Drop 2  Drop 3       Drop 9  Drop 10
+        │       │       │             │       │
+    1+max(...) 1+max(...) ...       ...    1+max(...)
+
+Each node evaluates: 1 + max(break case, survive case)
+
+BASE CASES:
+───────────────────────────────────────────────────────────────────────────────
+1. eggs = 1: Must use linear search → return floors
+2. floors = 0: No floors to check → return 0
+3. floors = 1: Only one floor → return 1
+
+DP TABLE STRUCTURE:
+───────────────────────────────────────────────────────────────────────────────
+
+Rows = eggs (0 to k)
+Cols = floors (0 to n)
+
+        0   1   2   3   4   5   6   7   8   9   10  ← floors
+      ┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+    0 │ 0 │ 0 │ 0 │ 0 │ 0 │ 0 │ 0 │ 0 │ 0 │ 0 │ 0 │ (0 eggs: impossible)
+      ├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┤
+    1 │ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │ 10│ (1 egg: linear search)
+      ├───┼───┼───┼───┼───┼───┼───┼───┼───┼───┼───┤
+    2 │ 0 │ 1 │ 2 │ 2 │ 3 │ 3 │ 3 │ 4 │ 4 │ 4 │ 4 │ (2 eggs: optimal)
+      └───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+eggs ↑
+
+Example: dp[2][10] = 4
+  With 2 eggs and 10 floors, minimum drops in worst case = 4
+
+OPTIMAL STRATEGY RECONSTRUCTION:
+───────────────────────────────────────────────────────────────────────────────
+
+For 2 eggs, 10 floors:
+  Optimal first drop: Floor 4
+  
+  If breaks: Search floors 1-3 linearly (3 drops)
+  If survives: 
+    Second drop: Floor 7 (from remaining 5-10)
+    If breaks: Search 5-6 linearly (2 drops)
+    If survives:
+      Third drop: Floor 9 (from remaining 8-10)
+      ... and so on
+
+Total worst-case drops: 4
+"""
+
+
+def egg_drop(eggs, floors):
+    """Minimax DP: minimize worst-case drops"""
+    memo = {}
+    
+    def dp(k, n):
+        # BASE CASES
+        if n == 0 or n == 1:
+            return n
+        if k == 1:  # Only 1 egg: must use linear search
+            return n
+        
+        if (k, n) in memo:
+            return memo[(k, n)]
+        
+        min_drops = float('inf')
+        
+        # Try dropping from each floor
+        for x in range(1, n + 1):
+            # Worst case: max of breaks or survives
+            worst = 1 + max(
+                dp(k - 1, x - 1),  # Egg breaks: lose egg, search below
+                dp(k, n - x)       # Egg survives: keep egg, search above
+            )
+            
+            # Find minimum over all floors
+            min_drops = min(min_drops, worst)
+        
+        memo[(k, n)] = min_drops
+        return min_drops
+    
+    return dp(eggs, floors)
+
+
+"""
+═══════════════════════════════════════════════════════════════════════════════
+        TYPE 24: RECURSION WITH BIT MANIPULATION
+                    (Subset Sum with Bitmask DP)
+═══════════════════════════════════════════════════════════════════════════════
+
+Example: Traveling Salesman Problem (TSP)
+Given n cities and distances, find shortest tour visiting all cities once
+
+STATE REPRESENTATION:
+───────────────────────────────────────────────────────────────────────────────
+
+State = (current_city, visited_set)
+
+visited_set encoded as BITMASK:
+  Cities: {0, 1, 2, 3}
+  Visited {0, 2}: bitmask = 0101₂ = 5₁₀
+  Visited {1, 3}: bitmask = 1010₂ = 10₁₀
+
+Check if city i visited: mask & (1 << i) != 0
+Mark city i as visited: mask | (1 << i)
+
+RECURSION TREE (4 cities, start at 0):
+───────────────────────────────────────────────────────────────────────────────
+
+                    tsp(city=0, mask=0001)  "At city 0, only 0 visited"
+                    ┌──────────┼──────────┐
+              Go to 1      Go to 2      Go to 3
+                    │            │            │
+        tsp(1, 0011)     tsp(2, 0101)    tsp(3, 1001)
+        "At 1,          "At 2,          "At 3,
+         visited {0,1}"  visited {0,2}"  visited {0,3}"
+            │                │                │
+    ┌───────┼───────┐   ┌────┼────┐   ┌──────┼──────┐
+  To 2     To 3      To 1     To 3    To 1        To 2
+    │        │         │        │       │            │
+tsp(2,0111) tsp(3,1011) ...   ...     ...          ...
+"At 2,      "At 3,
+ {0,1,2}"    {0,1,3}"
+    │          │
+  To 3       To 2
+    │          │
+tsp(3,1111) tsp(2,1111)  "All cities visited!"
+    │          │
+Return to 0  Return to 0
+    │          │
+ BASE CASE   BASE CASE
+
+BITMASK OPERATIONS VISUALIZATION:
+───────────────────────────────────────────────────────────────────────────────
+
+Current mask: 0101 (cities 0 and 2 visited)
+                ↑ ↑
+                │ │
+                │ └─ bit 2 set (city 2 visited)
+                └─── bit 0 set (city 0 visited)
+
+Visit city 1: mask | (1 << 1) = 0101 | 0010 = 0111
+Visit city 3: mask | (1 << 3) = 0101 | 1000 = 1101
+
+Check if city 1 visited: mask & (1 << 1)
+  0101 & 0010 = 0000 → NOT visited
+  
+Check if city 2 visited: mask & (1 << 2)
+  0101 & 0100 = 0100 → VISITED
+
+All cities visited? mask == (1 << n) - 1
+  For n=4: (1 << 4) - 1 = 10000 - 1 = 1111
+  
+MEMOIZATION TABLE:
+───────────────────────────────────────────────────────────────────────────────
+
+memo[(city, mask)] = minimum cost from this state
+
+Example entries:
+  (0, 0001): Cost from city 0 with only 0 visited
+  (1, 0011): Cost from city 1 with {0,1} visited
+  (2, 1111): Cost from city 2 with all visited (return to start)
+
+Total states: n × 2^n (n cities × all possible subsets)
+Time complexity: O(n² × 2^n) - try n cities from each state
+
+RECURRENCE RELATION:
+───────────────────────────────────────────────────────────────────────────────
+
+tsp(i, mask) = minimum cost starting from city i, having visited cities in mask
+
+If all cities visited (mask has all bits set):
+    return dist[i][0]  // Return to starting city
+Else:
+    return min over all unvisited cities j:
+        dist[i][j] + tsp(j, mask | (1 << j))
+        └────┬────┘   └──────────┬──────────┘
+        Cost to go    Optimal cost from j
+        from i to j   after visiting j
+
+COMPARISON WITH NAIVE APPROACH:
+───────────────────────────────────────────────────────────────────────────────
+
+Naive (try all permutations): O(n!)
+  For n=10: 10! = 3,628,800 permutations
+
+Bitmask DP: O(n² × 2^n)
+  For n=10: 10² × 2^10 = 100 × 1,024 = 102,400 operations
+
+Improvement: 35× faster for n=10!
+             Grows exponentially better as n increases
+"""
+
+
+def tsp(dist):
+    """Bitmask DP: find minimum cost Hamiltonian cycle"""
+    n = len(dist)
+    ALL_VISITED = (1 << n) - 1
+    memo = {}
+    
+    def dp(city, mask):
+        # BASE: All cities visited, return to start
+        if mask == ALL_VISITED:
+            return dist[city][0]
+        
+        if (city, mask) in memo:
+            return memo[(city, mask)]
+        
+        min_cost = float('inf')
+        
+        # Try visiting each unvisited city
+        for next_city in range(n):
+            if not (mask & (1 << next_city)):  # If not visited
+                new_mask = mask | (1 << next_city)  # Mark as visited
+                cost = dist[city][next_city] + dp(next_city, new_mask)
+                min_cost = min(min_cost, cost)
+        
+        memo[(city, mask)] = min_cost
+        return min_cost
+    
+    # Start from city 0, with only city 0 visited
+    return dp(0, 1)
+
+
+"""
+═══════════════════════════════════════════════════════════════════════════════
+                TYPE 25: RECURSION WITH MEMORY OPTIMIZATION
+                        (Space-Optimized DP Patterns)
+═══════════════════════════════════════════════════════════════════════════════
+
+PATTERN 1: Rolling Array (When only previous row/column needed)
+───────────────────────────────────────────────────────────────────────────────
+
+Example: Fibonacci - Only need previous 2 values
+
+Full memo table:          Space-optimized:
+memo[0] = 0               prev2 = 0
+memo[1] = 1               prev1 = 1
+memo[2] = 1               
+memo[3] = 2               For i in 2..n:
+memo[4] = 3                 curr = prev1 + prev2
+...                         prev2 = prev1
+memo[n] = ?                 prev1 = curr
+
+Space: O(n) → O(1)
+
+PATTERN 2: Two-Row DP (Grid problems)
+───────────────────────────────────────────────────────────────────────────────
+
+Full DP table (m×n):      Space-optimized (2×n):
+
+dp[0][0] dp[0][1] ...     prev[0] prev[1] ...
+dp[1][0] dp[1][1] ...     curr[0] curr[1] ...
+dp[2][0] dp[2][1] ...     
+...                       After each row:
+dp[m][0] dp[m][n] ...       prev = curr
+                             curr = new array
+
+Space: O(m×n) → O(n)
+
+Example: Minimum Path Sum grid
+
+Standard recursion:
+dp[i][j] depends on dp[i-1][j] and dp[i][j-1]
+          (above)           (left)
+
+Only need PREVIOUS ROW and CURRENT ROW simultaneously!
+
+       prev: [1, 4, 5]
+       curr: [2, ?, ?]  ← Computing current row using prev
+
+       dp[1][1] = grid[1][1] + min(prev[1], curr[0])
+                               └──────┬──────┘
+                            Above    Left
+
+PATTERN 3: Single Array DP (When order allows in-place updates)
+───────────────────────────────────────────────────────────────────────────────
+
+Knapsack Problem:
+
+Standard 2D DP:
+  For each item:
+    For each weight:
+      dp[item][weight] = max(include, exclude)
+
+Space-optimized 1D DP (iterate weights BACKWARDS):
+  For each item:
+    For weight from W down to item_weight:
+      dp[weight] = max(dp[weight], dp[weight - item_weight] + value)
+                        └──────┬──────┘  └────────────┬───────────┘
+                        Exclude item      Include item (uses old value)
+
+WHY BACKWARDS? Prevents using updated values from same iteration!
+
+Forward (WRONG):                Backward (CORRECT):
+dp = [0, 0, 0, 0, 0]           dp = [0, 0, 0, 0, 0]
+Item: weight=2, value=3        Item: weight=2, value=3
+
+i=2: dp[2]=max(0,dp[0]+3)=3    i=5: dp[5]=max(0,dp[3]+3)=3
+i=3: dp[3]=max(0,dp[1]+3)=3    i=4: dp[4]=max(0,dp[2]+3)=3
+i=4: dp[4]=max(0,dp[2]+3)=6 ✗  i=3: dp[3]=max(0,dp[1]+3)=3
+     (used updated dp[2]!)     i=2: dp[2]=max(0,dp[0]+3)=3 ✓
+                                     (uses old values)
+
+VISUALIZATION OF DEPENDENCY:
+───────────────────────────────────────────────────────────────────────────────
+
+2D table:                      1D array (iterate backwards):
+     0  1  2  3  4  5               0  1  2  3  4  5
+  0 [0  0  0  0  0  0]           [0  0  0  0  0  0]
+  1 [0  0  3  3  3  3]           [0  0  3  3  6  6]  ← After item 1
+    ↑     ↑                                  ↑
+    └─────┘ depends on             Backward ensures old value used
+    
+When computing dp[1][4], we need dp[0][4] (above) and dp[1][2] (same row, left)
+In 1D version, going backwards ensures dp[2] hasn't been updated yet this iteration!
+"""
+
+
+def fibonacci_space_opt(n):
+    """Space optimized: O(1) instead of O(n)"""
+    if n <= 1:
+        return n
+    
+    prev2, prev1 = 0, 1
+    for _ in range(2, n + 1):
+        curr = prev1 + prev2
+        prev2 = prev1
+        prev1 = curr
+    
+    return prev1
+
+
+def knapsack_1d(weights, values, W):
+    """Space optimized knapsack: O(W) instead of O(n×W)"""
+    dp = [0] * (W + 1)
+    
+    for i in range(len(weights)):
+        # CRITICAL: Iterate backwards to avoid using updated values
+        for w in range(W, weights[i] - 1, -1):
+            dp[w] = max(
+                dp[w],                          # Exclude item i
+                dp[w - weights[i]] + values[i]  # Include item i
+            )
+    
+    return dp[W]
+
+
+"""
+═══════════════════════════════════════════════════════════════════════════════
+                        ADVANCED RECURSION PATTERNS SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+COGNITIVE FRAMEWORK FOR MASTERY:
+───────────────────────────────────────────────────────────────────────────────
+
+When facing a new problem, ask:
+
+1. STATE DEFINITION:
+   - What information uniquely identifies a subproblem?
+   - Example: (index, capacity) for knapsack, (city, visited_set) for TSP
+
+2. STATE SPACE SIZE:
+   - How many unique states exist?
+   - Affects memoization table size and time complexity
+
+3. TRANSITION STRUCTURE:
+   - How do I move from one state to another?
+   - Linear (1 choice), Binary (2 choices), Multi-way (k choices)?
+
+4. COMBINATION LOGIC:
+   - How do I combine subproblem results?
+   - Addition, Maximum, Minimum, Concatenation, Logical AND/OR?
+
+5. OVERLAPPING SUBPROBLEMS:
+   - Will I compute the same state multiple times?
+   - If yes → Memoization essential
+   - If no → Consider greedy or divide-and-conquer
+
+6. OPTIMAL SUBSTRUCTURE:
+   - Does optimal solution to problem contain optimal solutions to subproblems?
+   - If yes → DP applicable
+   - If no → Might need greedy or other approach
+
+
+RECURSION → ITERATION CONVERSION:
+───────────────────────────────────────────────────────────────────────────────
+
+Every recursion can be converted to iteration:
+
+1. Use explicit stack to simulate call stack

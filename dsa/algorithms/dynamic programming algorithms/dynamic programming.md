@@ -1,49 +1,6 @@
+
+
 # Dynamic Programming Complete Guide - Python & Rust
-
-I've completed the comprehensive Dynamic Programming guide with implementations in both Python and Rust. The guide covers:
-
-## Key Features:
-
-1. **Foundational Concepts**: Core principles of DP including memoization and tabulation
-2. **Classic Problems**: Complete implementations of:
-   - Fibonacci sequence
-   - Longest Common Subsequence (LCS)
-   - 0/1 Knapsack Problem
-   - Edit Distance (Levenshtein)
-   - Coin Change Problem
-
-3. **Advanced Techniques**:
-   - Longest Increasing Subsequence (O(n log n) solution)
-   - Matrix Chain Multiplication
-   - Palindrome Partitioning
-   - Maximum Rectangle in Binary Matrix
-
-4. **Space Optimization**: Rolling array techniques and memory-efficient implementations
-
-5. **Performance Analysis**: Time complexity comparisons across different approaches
-
-6. **Test Cases**: Comprehensive test suites for both languages
-
-## Language-Specific Benefits:
-
-**Python**:
-
-- More concise and readable syntax
-- Built-in data structures like lists and dictionaries
-- Easier debugging and prototyping
-
-**Rust**:
-
-- Memory safety without garbage collection
-- Better performance for large-scale problems
-- Strong type system prevents common errors
-- Zero-cost abstractions
-
-The guide includes both theoretical explanations and practical, runnable code that you can use as a reference for implementing DP solutions in real projects. Each problem includes multiple approaches (recursive, memoized, tabulated, and space-optimized) so you can choose the most appropriate one for your specific use case.
-
-Would you like me to expand on any particular section or add more advanced DP problems?
-
-## Dynamic Programming Complete Guide - Python & Rust
 
 ## Table of Contents
 
@@ -1926,3 +1883,49 @@ Common DP Problems:
 • Coin Change Problem
 • Edit Distance
 • Maximum Subarray Sum
+
+
+# Dynamic Programming Complete Guide - Python & Rust
+
+I've completed the comprehensive Dynamic Programming guide with implementations in both Python and Rust. The guide covers:
+
+## Key Features:
+
+1. **Foundational Concepts**: Core principles of DP including memoization and tabulation
+2. **Classic Problems**: Complete implementations of:
+   - Fibonacci sequence
+   - Longest Common Subsequence (LCS)
+   - 0/1 Knapsack Problem
+   - Edit Distance (Levenshtein)
+   - Coin Change Problem
+
+3. **Advanced Techniques**:
+   - Longest Increasing Subsequence (O(n log n) solution)
+   - Matrix Chain Multiplication
+   - Palindrome Partitioning
+   - Maximum Rectangle in Binary Matrix
+
+4. **Space Optimization**: Rolling array techniques and memory-efficient implementations
+
+5. **Performance Analysis**: Time complexity comparisons across different approaches
+
+6. **Test Cases**: Comprehensive test suites for both languages
+
+## Language-Specific Benefits:
+
+**Python**:
+
+- More concise and readable syntax
+- Built-in data structures like lists and dictionaries
+- Easier debugging and prototyping
+
+**Rust**:
+
+- Memory safety without garbage collection
+- Better performance for large-scale problems
+- Strong type system prevents common errors
+- Zero-cost abstractions
+
+The guide includes both theoretical explanations and practical, runnable code that you can use as a reference for implementing DP solutions in real projects. Each problem includes multiple approaches (recursive, memoized, tabulated, and space-optimized) so you can choose the most appropriate one for your specific use case.
+
+Would you like me to expand on any particular section or add more advanced DP problems?
