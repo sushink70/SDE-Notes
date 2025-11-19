@@ -3,9 +3,11 @@
 ## 1. **len()**
 
 ### What it does
+
 Returns the number of items in a container.
 
 ### How to use
+
 ```python
 arr = [1, 2, 3, 4, 5]
 size = len(arr)  # 5
@@ -18,14 +20,17 @@ count = len(d)  # 2
 ```
 
 ### Applicable to
+
 - Lists, tuples, strings, sets, dictionaries, arrays
 - Any object implementing `__len__()`
 
 ### Not applicable to
+
 - Integers, floats, None
 - Generators (use conversion to list first)
 
 ### Common usage patterns
+
 ```python
 # Loop boundaries
 for i in range(len(arr)):
