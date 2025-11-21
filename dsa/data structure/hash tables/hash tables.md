@@ -53,6 +53,156 @@ The guide also covers when to use custom implementations versus built-in hash ma
 
 Hash tables (also known as hash maps) are one of the most important and widely used data structures in computer science. They provide average-case O(1) time complexity for insertion, deletion, and lookup operations by using a hash function to map keys to array indices.
 
+HASH MAP STRUCTURE
+==================
+
+Keys to Hash:        Hash Function         Hash Table (Array)
+                                          
+"apple"   ──────>   hash("apple")   ──>  Index 0:  
+"banana"  ──────>   hash("banana")  ──>  Index 1:  
+"cherry"  ──────>   hash("cherry")  ──>  Index 2: → ["banana", 42]
+"date"    ──────>   hash("date")    ──>  Index 3: → ["apple", 15]
+                                         Index 4: → ["date", 99]
+                                         Index 5:  
+                                         Index 6: → ["cherry", 7]
+                                         Index 7:  
+
+
+WITH COLLISION HANDLING (Chaining):
+====================================
+
+Hash Table with Linked Lists for collisions:
+
+Index 0: → NULL
+
+Index 1: → NULL
+
+Index 2: → ["banana", 42] → ["orange", 23] → NULL
+         (collision: both hash to 2)
+
+Index 3: → ["apple", 15] → NULL
+
+Index 4: → ["date", 99] → ["grape", 31] → ["kiwi", 8] → NULL
+         (multiple collisions at index 4)
+
+Index 5: → NULL
+
+Index 6: → ["cherry", 7] → NULL
+
+Index 7: → NULL
+
+Here's a detailed explanation of collision handling with linked lists (chaining):
+
+## What is a Collision?
+
+A **collision** occurs when two different keys produce the same hash value (same array index).
+
+```
+Example:
+hash("banana") = 2
+hash("orange") = 2  ← Collision! Both want index 2
+```
+
+## Why Collisions Happen
+
+Even with a good hash function, collisions are inevitable because:
+- Hash table has limited size (e.g., 8 slots)
+- Number of possible keys is usually much larger
+- By the **pigeonhole principle**: if you have more items than slots, some slots must hold multiple items
+
+## Solution: Chaining with Linked Lists
+
+Instead of storing just ONE key-value pair at each index, store a **linked list** of all pairs that hash to that index.
+
+```
+DETAILED VIEW OF INDEX 2:
+========================
+
+Array Index 2: Points to head of linked list
+               ↓
+         ┌─────────────┐     ┌─────────────┐
+         │ key: "banana"│ →  │ key: "orange"│ → NULL
+         │ value: 42   │     │ value: 23   │
+         └─────────────┘     └─────────────┘
+         First Node          Second Node
+```
+
+## How Operations Work
+
+### **INSERT("orange", 23)**
+```
+1. hash("orange") = 2
+2. Go to array[2]
+3. Traverse linked list to check if "orange" exists
+4. Not found, so add new node at the beginning (or end)
+
+Before:
+Index 2: → ["banana", 42] → NULL
+
+After:
+Index 2: → ["banana", 42] → ["orange", 23] → NULL
+```
+
+### **LOOKUP("orange")**
+```
+1. hash("orange") = 2
+2. Go to array[2]
+3. Traverse the linked list:
+   - Check node 1: "banana" ≠ "orange", continue
+   - Check node 2: "orange" = "orange" ✓ Found!
+4. Return value: 23
+
+Time: O(k) where k = chain length
+```
+
+### **DELETE("banana")**
+```
+1. hash("banana") = 2
+2. Go to array[2]
+3. Traverse list, find "banana"
+4. Remove node from linked list
+
+Before:
+Index 2: → ["banana", 42] → ["orange", 23] → NULL
+
+After:
+Index 2: → ["orange", 23] → NULL
+```
+
+## Visual: Multiple Collisions
+
+```
+Index 4 with many collisions:
+
+array[4] → ["date", 99] → ["grape", 31] → ["kiwi", 8] → NULL
+           ↑              ↑               ↑
+           |              |               |
+       All three keys hashed to index 4
+```
+
+## Performance
+
+- **Best case**: No collisions, O(1) lookup
+- **Average case**: Few collisions per slot, O(1 + α) where α = load factor
+- **Worst case**: All keys hash to same index, O(n) lookup (degenerates to linked list)
+
+**Load factor (α)** = number of elements / table size
+
+To maintain good performance, hash tables typically resize when α > 0.75.
+
+
+STEP-BY-STEP LOOKUP:
+====================
+
+Looking up key "banana":
+
+1. hash("banana") = 2
+2. Go to array[2]
+3. Check first node: key="banana" ✓ Found!
+4. Return value: 42
+
+   Time: O(1) average case
+
 ### Key Advantages
 - **Fast Operations**: Average O(1) time for basic operations
 - **Flexible Keys**: Can use various data types as keys
@@ -1143,3 +1293,176 @@ Where:
 
 This diagram shows the complete lifecycle of hash table operations from initial insertion through collision handling, searching, and resizing!
 
+---
+
+Great question! Let me explain why hash tables have a limited size and how they manage it.
+
+## Why Limited Size?
+
+### 1. **Memory Allocation**
+```
+Hash tables are built on ARRAYS, which require contiguous memory:
+
+Memory:  [slot][slot][slot][slot][slot][slot][slot][slot]
+Indices:   0     1     2     3     4     5     6     7
+
+You must allocate a specific size upfront!
+```
+
+You can't have an "infinite" array because:
+- Memory is finite
+- Array needs continuous block of memory
+- Must decide size when creating the table
+
+### 2. **Hash Function Design**
+
+The hash function must map keys to valid array indices:
+
+```
+hash(key) = some_calculation(key) % TABLE_SIZE
+                                   ↑
+                        This ensures result fits in array!
+
+Example with TABLE_SIZE = 8:
+- hash("apple") = 12345 % 8 = 1  ✓ Valid index
+- hash("banana") = 98765 % 8 = 5 ✓ Valid index
+```
+
+Without a fixed size, we couldn't use the modulo operation to constrain indices.
+
+## How Size is Chosen
+
+### **Initial Size Selection**
+
+```python
+# Common approach: Start with a reasonable size
+
+table_size = 16  # Power of 2 (efficient for bitwise operations)
+# or
+table_size = 11  # Prime number (better distribution)
+
+hash_table = [None] * table_size
+```
+
+Factors considered:
+- **Expected number of items**: If you expect 100 items, start with ~128 slots
+- **Load factor target**: Keep α = items/size around 0.5-0.75
+- **Memory constraints**: Balance speed vs memory usage
+
+### **Example Initialization**
+
+```
+Starting Hash Table (size = 8):
+
+Index 0: → NULL
+Index 1: → NULL
+Index 2: → NULL
+Index 3: → NULL
+Index 4: → NULL
+Index 5: → NULL
+Index 6: → NULL
+Index 7: → NULL
+
+Capacity: 8
+Count: 0
+Load Factor: 0/8 = 0.0
+```
+
+## Dynamic Resizing (How Size Changes)
+
+Hash tables **resize** when they get too full:
+
+```
+RESIZING PROCESS:
+=================
+
+Old Table (size = 8, count = 6, load factor = 0.75):
+
+Index 0: → ["dog", 10]
+Index 1: → NULL
+Index 2: → ["cat", 20] → ["bat", 25]
+Index 3: → ["rat", 30]
+Index 4: → NULL
+Index 5: → ["fox", 40]
+Index 6: → ["owl", 50]
+Index 7: → NULL
+
+↓ TRIGGER: Load factor ≥ 0.75, time to resize!
+
+New Table (size = 16):  ← Usually doubles
+
+1. Create new larger array
+2. Rehash ALL existing keys (because % 16 ≠ % 8)
+3. Insert into new positions
+
+Index 0:  → ["dog", 10]
+Index 1:  → NULL
+Index 2:  → ["cat", 20]
+Index 3:  → ["rat", 30]
+Index 4:  → NULL
+Index 5:  → ["fox", 40]
+Index 6:  → ["owl", 50]
+Index 7:  → NULL
+Index 8:  → NULL
+Index 9:  → ["bat", 25]  ← New position after rehashing
+...
+Index 15: → NULL
+
+Capacity: 16
+Count: 6
+Load Factor: 6/16 = 0.375 ✓ Better!
+```
+
+## Why Not Just Make It Huge Initially?
+
+```
+TRADEOFFS:
+==========
+
+Option 1: Small initial size (8 slots)
+✓ Uses less memory initially
+✗ Needs resizing as it grows
+✗ Resizing is expensive (O(n) operation)
+
+Option 2: Huge initial size (1,000,000 slots)
+✓ No resizing needed for a while
+✗ Wastes memory if you only store 10 items
+✗ Poor cache performance (sparse array)
+
+OPTIMAL: Start reasonable, resize when needed
+```
+
+## Real-World Example
+
+```python
+# Python's dict (hash table) behavior:
+
+my_dict = {}  # Initial size: ~8 slots
+
+# Add items
+for i in range(100):
+    my_dict[i] = i * 2
+
+# Behind the scenes:
+# - Started with 8 slots
+# - Resized to 16 when load factor hit ~0.67
+# - Resized to 32
+# - Resized to 64
+# - Resized to 128
+# Final: 128 slots for 100 items (load factor ~0.78)
+```
+
+## Summary
+
+**Why limited size?**
+- Arrays need fixed size at creation
+- Hash function needs bounds (modulo operation)
+- Memory is finite
+
+**How is size managed?**
+- Start with reasonable initial size
+- Monitor load factor
+- Double size when too full (resize/rehash)
+- Balance memory usage vs performance
+
+The "limited size" is actually dynamic in practice, but at any given moment, the underlying array has a specific, finite size!
