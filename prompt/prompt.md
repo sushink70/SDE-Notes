@@ -1,5 +1,15 @@
 # Prompt Engg
 
+my bottleneck
+- how to structure the data and destructure and manipulate it depending on the use case - like when to use loops, recursion, iterators, generators, comprehensions, conditionals, functions, classes, modules, packages, libraries, frameworks etc
+
+- how to break down a complex problem into smaller sub-problems and solve them step by step
+
+- list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams. 
+
+- how to write clean, efficient, and maintainable code that follows best practices and design patterns
+
+
 novel content like explanations, diagrams, 
 
 Software Development Life Cycle (SDLC)
