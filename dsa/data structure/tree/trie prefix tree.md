@@ -1100,3 +1100,614 @@ Node Structure:
 - IP routing tables
 - Phone directories
 - Dictionary implementations
+
+Nice — tries are fun and super useful. Below I’ll explain what a **trie** (prefix tree) is, how it works (insert/search/prefix/delete), give complexity, show clear ASCII diagrams illustrating insert/search, and provide a clean, runnable **Python implementation** with examples and tests.
+
+# What is a trie?
+
+A **trie** (pronounced “try”) — also called a prefix tree — is a tree-like data structure for storing a set of strings where each node represents a character (or a chunk). Paths from the root to nodes spell prefixes; nodes are often marked when a path corresponds to a full word in the set. Tries are ideal for prefix searches (autocomplete, dictionary lookup), efficient membership checks, and can support operations in time proportional to the length of the string (not the number of stored words).
+
+# Key properties
+
+* Each edge corresponds to a character.
+* Root represents the empty prefix.
+* Each node has at most `alphabet_size` children (commonly 26 for lowercase English).
+* We mark nodes that represent ends of stored words (a boolean `is_word`).
+* Typical operations: `insert(word)`, `search(word)` (exact match), `starts_with(prefix)` (prefix search), `delete(word)`.
+
+# Time & space complexity
+
+* Let `m = len(word)` (length of the string).
+
+  * `insert`, `search`, `starts_with`: **O(m)** time.
+  * `delete`: **O(m)** time (amortized, with cleanup).
+* Space: O(total characters stored) — in the worst case storing `n` words of average length `m` uses O(n*m) nodes. There are space-efficient variants: *compressed trie (radix tree)* and *ternary search trie*.
+
+---
+
+# ASCII diagrams — simple example
+
+We'll insert the words: `to`, `tea`, `ted`, `ten`, `in`, `inn`.
+
+Notation:
+
+* Each node shown with the character it represents and `(W)` if it's end-of-word.
+* Root is `.` (dot).
+
+Start (empty root):
+
+```
+.
+```
+
+Insert `to`:
+
+```
+. - t - o (W)
+```
+
+Insert `tea`:
+
+```
+. - t - o (W)
+        \
+         e - a (W)
+```
+
+(But tries normally branch at `t` node — let's expand `t` node's children.)
+
+Better full view after inserting `to`, `tea`:
+
+```
+.          (root)
+└─ t
+   ├─ o  (W)      # path "to"
+   └─ e
+      └─ a (W)    # path "tea"
+```
+
+Insert `ted` and `ten` (both share `te`):
+
+```
+. 
+└─ t
+   ├─ o (W)
+   └─ e
+      ├─ a (W)
+      ├─ d (W)    # "ted"
+      └─ n (W)    # "ten"
+```
+
+Insert `in`, `inn` (a separate branch under root `i`):
+
+```
+.
+├─ t
+│  ├─ o (W)
+│  └─ e
+│     ├─ a (W)
+│     ├─ d (W)
+│     └─ n (W)
+└─ i
+   └─ n (W)    # "in"
+      └─ n (W) # "inn" (child node also marked W)
+```
+
+Search example: searching `"ten"` goes: root -> `t` -> `e` -> `n` and check `is_word` — yes.
+
+Prefix example: `"te"` -> root -> `t` -> `e` — returns True because we reached that node (even if it's not `is_word`; it exists).
+
+Delete example (deleting `"to"`):
+
+* Remove `o` node if it's a leaf and not used by other words. If `o` had children then we would only unmark `is_word`.
+
+---
+
+# Clean Python implementation
+
+The code below is straightforward, well-documented, and includes `insert`, `search`, `starts_with`, and `delete` (with proper cleanup of nodes no longer needed).
+
+```python
+from typing import Dict
+
+class TrieNode:
+    __slots__ = ("children", "is_word")
+    def __init__(self):
+        # children: mapping char -> TrieNode
+        self.children: Dict[str, TrieNode] = {}
+        # is_word: True if node represents end of a stored word
+        self.is_word: bool = False
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self, word: str) -> None:
+        """Insert word into trie. Time O(len(word))."""
+        node = self.root
+        for ch in word:
+            if ch not in node.children:
+                node.children[ch] = TrieNode()
+            node = node.children[ch]
+        node.is_word = True
+
+    def search(self, word: str) -> bool:
+        """Return True if word is in trie (exact match)."""
+        node = self.root
+        for ch in word:
+            if ch not in node.children:
+                return False
+            node = node.children[ch]
+        return node.is_word
+
+    def starts_with(self, prefix: str) -> bool:
+        """Return True if any word in trie starts with prefix."""
+        node = self.root
+        for ch in prefix:
+            if ch not in node.children:
+                return False
+            node = node.children[ch]
+        return True
+
+    def delete(self, word: str) -> bool:
+        """
+        Delete word from trie.
+        Returns True if deletion succeeded (word existed), False otherwise.
+        Uses recursion to remove unnecessary nodes.
+        """
+        def _delete(node: TrieNode, idx: int) -> bool:
+            # If we reached the end of the word
+            if idx == len(word):
+                if not node.is_word:
+                    return False  # word not present
+                node.is_word = False
+                # If node has no children, tell caller to delete this node
+                return len(node.children) == 0
+            ch = word[idx]
+            child = node.children.get(ch)
+            if not child:
+                return False  # word not present
+            should_delete_child = _delete(child, idx + 1)
+            if should_delete_child:
+                # remove reference to child
+                del node.children[ch]
+                # delete this node too if it's not end-of-word and has no other children
+                return (not node.is_word) and (len(node.children) == 0)
+            return False
+
+        return _delete(self.root, 0)
+
+    def collect_words(self, limit: int = 1000):
+        """
+        Utility: returns up to `limit` words stored in trie (lexicographic).
+        Helpful for testing / debugging / autocomplete.
+        """
+        results = []
+        sb = []
+
+        def dfs(node: TrieNode):
+            if len(results) >= limit:
+                return
+            if node.is_word:
+                results.append("".join(sb))
+            for ch in sorted(node.children.keys()):
+                sb.append(ch)
+                dfs(node.children[ch])
+                sb.pop()
+
+        dfs(self.root)
+        return results
+
+# Quick demonstration
+if __name__ == "__main__":
+    t = Trie()
+    words = ["to", "tea", "ted", "ten", "in", "inn"]
+    for w in words:
+        t.insert(w)
+
+    print("All words:", t.collect_words())
+    print("search('tea') ->", t.search("tea"))
+    print("search('te') ->", t.search("te"))         # False (prefix only)
+    print("starts_with('te') ->", t.starts_with("te"))
+    print("delete('to') ->", t.delete("to"))
+    print("search('to') ->", t.search("to"))
+    print("All words after delete:", t.collect_words())
+```
+
+### Notes on the code
+
+* `TrieNode.children` is a `dict[str, TrieNode]` so the implementation can handle arbitrary characters (not limited to a-z).
+* `delete` is implemented recursively and removes nodes that become unnecessary (no children and not `is_word`).
+* `collect_words` is a helper for testing; it does a DFS to list stored words in lexicographic order.
+
+---
+
+# Example run (expected output)
+
+If you run the demo `__main__`, you should see something like:
+
+```
+All words: ['in', 'inn', 'tea', 'ted', 'ten', 'to']
+search('tea') -> True
+search('te') -> False
+starts_with('te') -> True
+delete('to') -> True
+search('to') -> False
+All words after delete: ['in', 'inn', 'tea', 'ted', 'ten']
+```
+
+---
+
+# Variants & practical tips
+
+* **Compressed Trie (Radix Tree)**: merges chains of single-child nodes to save memory and speed some lookups.
+* **Ternary Search Trie**: more memory-efficient for large alphabets; mixing trie and binary-search-tree ideas.
+* **Storing extra info**: nodes can store counts (how many words share this prefix), frequencies for autocomplete ranking, or pointers to original data.
+* **Character set**: for small fixed alphabets, use fixed-size arrays (`children = [None]*26`) for faster lookups and less overhead. For sparse characters (Unicode), use dict/hashmap.
+* **Use-cases**: autocomplete, spell-checker, IP routing (prefix matching), dictionary implementations, word games.
+
+---
+
+# Quick tips for interviews
+
+* Explain complexity clearly (O(m) per op).
+* Mention space tradeoffs and compressed trie as an optimization.
+* Be ready to implement `delete` (often the trickiest part).
+* Use recursion or iterative traversal — both fine. Show testcases like empty string, duplicate inserts, deletion of prefix of another word.
+
+---
+
+If you want, I can:
+
+* Provide a version optimized for fixed lowercase alphabet (array-based children).
+* Show a *radix trie* (compressed trie) implementation and explain how it reduces nodes.
+* Visualize step-by-step insertion of a particular word as ASCII frames.
+
+Which follow-up would you like?
+
+Great question — understanding **why a trie uses a dictionary (`dict`)** for its children is the key to understanding how tries work internally.
+Let’s break it down step-by-step with clear intuition and small ASCII diagrams.
+
+---
+
+# ✅ 1. What is `children` in a Trie Node?
+
+In the code:
+
+```python
+self.children: Dict[str, TrieNode] = {}
+```
+
+`children` is a **dictionary** where:
+
+* **key** → a character (`str`)
+* **value** → the next `TrieNode` reachable via that character
+
+So each node stores all possible “next characters” that continue from the current prefix.
+
+---
+
+# ✅ 2. Why a **dict**?
+
+Because tries branch based on characters — each character leads to different subtrees.
+
+### A dictionary allows:
+
+* **Fast lookup**: `O(1)` average for checking if a character child exists
+  (`if ch in node.children:`)
+* **Dynamic branching**: you can add any character as a key
+  (no need to pre-allocate space for all 26 letters)
+* **Sparse storage**: only characters that appear are stored
+
+This makes it efficient for variable alphabets (a–z, A–Z, digits, Unicode, etc.).
+
+---
+
+# 🧠 3. How key/value pairs work in a trie
+
+Consider inserting `"cat"`.
+
+### Start with empty root:
+
+```
+(root)
+children = {}
+```
+
+### Insert `'c'`
+
+We check `children['c']`.
+It doesn’t exist ⇒ create new node and store it:
+
+```
+children = {
+   'c': Node_for_c
+}
+```
+
+### Insert `'a'`
+
+Now go to the `c` node and do the same:
+
+```
+Node_for_c.children = {
+   'a': Node_for_a
+}
+```
+
+### Insert `'t'`
+
+```
+Node_for_a.children = {
+   't': Node_for_t
+}
+```
+
+Final trie structure (ASCII):
+
+```
+(root)
+  └── 'c' → Node
+        └── 'a' → Node
+              └── 't' → Node (word end)
+```
+
+### In dict form:
+
+```
+root.children = { 'c': <node_c> }
+node_c.children = { 'a': <node_a> }
+node_a.children = { 't': <node_t> }
+```
+
+This is simply a chain of dict lookups.
+
+---
+
+# 🔍 4. Searching uses the dict
+
+To search `"cat"`:
+
+```python
+node = root
+for ch in "cat":
+    if ch not in node.children: return False
+    node = node.children[ch]
+return node.is_word
+```
+
+At each step:
+
+* `"c"` → move to node_c
+* `"a"` → move to node_a
+* `"t"` → move to node_t
+
+Dictionary lookup makes this fast.
+
+---
+
+# 💡 5. Why not use a list/array?
+
+For alphabets like lowercase English (26 letters), some implementations use:
+
+```python
+children = [None] * 26
+```
+
+But using a list means:
+
+* You must map `'a' → 0`, `'b' → 1`, etc.
+* Memory is wasted (most nodes won’t use all 26 slots)
+* Cannot store arbitrary characters easily
+
+**dict is flexible + memory efficient** for general-purpose tries.
+
+---
+
+# 📌 6. Perfect analogy
+
+Think of each node as a **junction** in a city:
+
+* The *keys* are the **road names** (characters)
+* The *values* are the **next junctions** (child nodes)
+
+A dictionary at each node tells you:
+
+> “If the next character is **x**, follow this road to that node.”
+
+---
+
+# ✔ Summary
+
+| Concept                  | Why it’s useful                                     |
+| ------------------------ | --------------------------------------------------- |
+| `dict[char] → node`      | natural mapping for branching by character          |
+| Key = character          | determines edge from current node                   |
+| Value = next TrieNode    | represents the subtree starting with that character |
+| O(1) lookup              | makes insert/search fast                            |
+| Sparse, flexible storage | saves memory; works for any alphabet                |
+
+A trie **is basically a chain of dictionary lookups**.
+
+---
+
+If you want, I can also show:
+
+* A visualization of how `children` dict evolves during insert
+* A version of trie with **array-based children**
+* A compressed trie (radix tree) showing why dict still works well
+
+Just tell me!
+
+Great questions — you're thinking *exactly* the right way to deeply understand tries.
+Let's answer both parts clearly:
+
+---
+
+# ✅ 1. When `insert()` creates a node, **where is the node stored?**
+
+Does it disappear after the function ends?
+**No — the node stays alive.**
+Because the node is stored inside the trie object itself.
+
+### Here’s how it works step-by-step:
+
+When you create a new node:
+
+```python
+node.children[ch] = TrieNode()
+```
+
+You are **assigning** that newly created node as a *value in a dictionary* that is part of the trie.
+
+### Meaning:
+
+* The dictionary entry (key = character, value = TrieNode object) **holds a reference** to that node.
+* That reference is stored inside the `Trie` object.
+* So even when the `insert()` function returns, **the Trie still has references to all nodes it created**.
+
+### So the node stays in memory because:
+
+✔ It is referenced by the trie structure (root → children → sub-children → …)
+✘ Not by the function stack frame
+
+Because at least one reference remains, Python’s garbage collector does **not** delete it.
+
+---
+
+# 📌 Memory Explanation (Important!)
+
+### Python memory principle:
+
+> An object lives as long as *something* references it.
+
+Inside a trie:
+
+* `root.children['c']` points to the node for `'c'`
+* `root.children['c'].children['a']` points to `'a'`
+* `root.children['c'].children['a'].children['t']` points to `'t'`
+
+As long as the `Trie` object exists, these nodes are reachable → **not deleted**.
+
+Even though `insert()` ends, the nodes persist.
+
+---
+
+# ✨ ASCII Visualization of Memory References
+
+When inserting `"cat"`:
+
+```
+Trie object
+   |
+   v
+ root (TrieNode)
+   |
+   +-- children = { 'c': Node_C }
+                       |
+                       +-- children = { 'a': Node_A }
+                                            |
+                                            +-- children = { 't': Node_T }
+```
+
+So the nodes are saved **inside the trie**, not in the function's stack.
+
+---
+
+# ✅ 2. For the word `"cat"`, is `"at"` also in the trie?
+
+You asked:
+
+> in this cat "at" also possible right? because I can check "a" by calling key and value to next node "t"?
+
+### Short answer:
+
+❌ No, `"at"` is **not considered a word** unless you explicitly inserted `"at"`.
+
+### But:
+
+✔ The *path* `"a" -> "t"` exists **inside the subtree of `'c'`**,
+❌ but `"a"` under the `'c'` branch does **not exist at the root level**.
+
+Let’s visualize clearly.
+
+---
+
+# 🔍 Visualizing the trie for `"cat"` only
+
+```
+(root)
+  |
+  └── 'c'
+        |
+        └── 'a'
+              |
+              └── 't' (is_word = True)
+```
+
+Now check where `"a"` is:
+
+* `"a"` is under `"c"` → path: `'c' → 'a'`
+* But `"a"` as a **root-level child** does NOT exist.
+
+### So searching `"at"` means:
+
+```
+root → 'a' → 't'
+```
+
+But `root.children` has only:
+
+```
+{ 'c': Node_C }
+```
+
+So `"a"` is not there.
+
+✔ `"cat"` exists
+✔ `"c"` prefix exists
+✔ `"ca"` prefix exists
+❌ `"at"` does NOT exist
+❌ `"a"` does NOT exist
+
+---
+
+# 🎯 Final Explanation
+
+### Why `"at"` is not possible from `"cat"`:
+
+Because a trie organizes words by prefix **starting from the root**.
+
+Even though the `"a"` node exists, it lives under `"c"`.
+It is *not* a child of the root.
+Therefore `"at"` is not a valid path starting at the root.
+
+### You can reach `"a"` and `"t"` nodes only **after going through `"c"`**.
+
+This is why tries preserve **prefix structure**, not substring structure.
+
+---
+
+# ⚡ If you want substrings like `"at"`, `"ca"`, `"a"`, `"t"` to be searchable:
+
+You need a different data structure:
+
+### ✔ Suffix Tree
+
+✔ Suffix Trie
+✔ Suffix Array
+
+These structures treat **all suffixes** as valid paths.
+
+---
+
+# Want more visual examples?
+
+I can show:
+
+✅ How a trie grows for multiple words
+✅ Step-by-step insert animation
+✅ How Ruby/Go/Rust handles memory for tries
+✅ Trie vs HashMap vs Suffix Tree comparison
+
+Tell me what you want!

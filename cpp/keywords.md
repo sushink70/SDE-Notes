@@ -1,0 +1,24 @@
+# Keywords in the C++ Programming Language (Up to C++23 Standard)
+
+C++ extends C with object-oriented, generic, and modern concurrency features, resulting in a larger set of reserved **keywords**—tokens that cannot be used as identifiers. These drive polymorphism, templates, modules, and coroutines, essential for secure, high-performance systems like kernel modules, eBPF extensions, or cloud-native runtimes (e.g., in CNCF's Envoy proxy or Rust-interop layers).
+
+As of the C++23 standard (ISO/IEC 14882:2024, the latest finalized as of November 2025), there are **95 unique keywords**. This excludes C++26 proposals (e.g., `contract_assert` for contract programming) and non-keyword contextual identifiers like `final`/`override`. C++26 remains in draft (N4950+), with finalization expected in 2026—monitor WG21 for secure contract enforcement in distributed systems.
+
+The table below enumerates all keywords, grouped by **introduction standard**. Counts are cumulative new additions; alternatives (e.g., `and` for `&&`) are included as they are reserved. For systems engineering, compile with `-std=c++23` (GCC/Clang) to activate newer keywords, ensuring memory safety via `noexcept` in concurrent code.
+
+| Standard | Keywords | Count (New) | Notes |
+|----------|----------|-------------|-------|
+| **Pre-C++11** (C++98/03 Base) | `and`, `and_eq`, `asm`, `bitand`, `bitor`, `bool`, `break`, `case`, `catch`, `char`, `char16_t` (partial), `char32_t` (partial), `class`, `compl`, `const`, `const_cast`, `continue`, `default`, `delete`, `do`, `double`, `dynamic_cast`, `else`, `enum`, `explicit`, `export` (partial), `extern`, `false`, `float`, `for`, `friend`, `goto`, `if`, `inline`, `int`, `long`, `mutable`, `namespace`, `new`, `not`, `not_eq`, `operator`, `or`, `or_eq`, `private`, `protected`, `public`, `register`, `reinterpret_cast`, `return`, `short`, `signed`, `sizeof`, `static`, `static_cast`, `struct`, `switch`, `template`, `this`, `throw`, `true`, `try`, `typedef`, `typeid`, `typename`, `union`, `unsigned`, `using`, `virtual`, `void`, `volatile`, `wchar_t`, `while`, `xor`, `xor_eq` | 72 | Core set from C++98, including C compatibles (e.g., `int`, `static`) and OO additions (e.g., `class`, `virtual`). `register` gained new meaning in C++17 for optimization hints. Critical for legacy interop in Linux drivers. |
+| **C++11** | `alignas`, `alignof`, `auto`, `char16_t`, `char32_t`, `constexpr`, `decltype`, `noexcept`, `nullptr`, `static_assert`, `thread_local` | 11 | Enables RAII, lambdas, and concurrency: `noexcept` for exception-safe allocators (key in secure allocators like jemalloc); `thread_local` for TLS in eBPF/multi-threaded sandboxes. `auto` simplifies generic code, akin to Rust's type inference. |
+| **C++14** | (None) | 0 | Minor updates; no keyword additions. Focused on generic lambdas and relaxed constexpr. |
+| **C++17** | (None) | 0 | Inline variables and structured bindings; keywords unchanged. `register` refined but not new. |
+| **C++20** | `char8_t`, `concept`, `consteval`, `constinit`, `co_await`, `co_return`, `co_yield`, `requires`, `module` (in module context) | 9 | Coroutines (`co_*`) for async I/O in networking (e.g., secure QUIC impls); `concept` for constrained templates, enhancing compile-time safety like Rust traits. `module` reduces header pollution in large-scale systems (e.g., kernel builds). |
+| **C++23** | `elifdef`, `elifndef`, `warning` | 3 | Preprocessor enhancements: `elifdef`/`elifndef` for conditional compilation in cross-platform secure configs; `warning` for diagnostic hygiene in compiler intrinsics. |
+
+#### Key Observations for Systems Engineers
+- **Evolution and Compatibility**: C++ inherits ~32 C keywords but reserves more for extensibility. Pre-C++11 set ensures C interop (e.g., via `extern "C"`), vital for FFI in Go/Rust hybrids. Newer ones like `alignas` prevent alignment faults in SIMD-accelerated data center crypto (e.g., AES-NI).
+- **Security-First Design**: Keywords like `noexcept`, `requires`, and `constinit` enforce memory/thread safety at compile-time—aligning with zero-trust principles in distributed systems. Avoid `goto` in favor of `co_return` for auditable async flows; misuse risks TOCTOU in eBPF filters.
+- **Real-World Application**: In CNCF ecosystems, `module` streamlines secure module loading (e.g., WebAssembly runtimes); `constexpr` aids DSA for lock-free queues. For kernel work, pair with Rust's `unsafe` blocks via `extern "C++"`.
+- **Verification Tip**: Use `std::is_keyword` (hypothetical; implement via SFINAE) or Clang's `-Wreserved-identifier` in build pipelines for static analysis. Total: 95 (C++23-compliant).
+
+This list is exhaustive per ISO standards; for semantics (e.g., `concept` in metaprogramming for type-safe networking primitives), reference WG21 papers or tools like Godbolt for disassembly insights.
