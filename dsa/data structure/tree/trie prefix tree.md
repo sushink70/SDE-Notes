@@ -1,4 +1,4 @@
-I'll create a comprehensive guide to Trie (Prefix Tree) data structure implementation with complete code examples in both Python and Rust.I've created a comprehensive guide to Trie data structure implementation with complete, production-ready code in both Python and Rust. The guide covers:
+# Trie Data Structure Implementations in Python and Rust
 
 ## Key Highlights:
 
@@ -62,7 +62,7 @@ A Trie (pronounced "try") is a tree-like data structure used to store a collecti
 ```
 Example Trie storing words: ["cat", "car", "card", "care", "careful"]
 
-        root
+        root // "" - The root node represents an empty string
          |
          c
          |
@@ -964,7 +964,7 @@ Note: "CA" prefix is shared between "CAT" and "CAR"
     C   D
     │   │
     A   O*
-   ╱ ╲ ╱ ╲
+   ╱ ╲   ╲
   T* R*   G*
      ╱ ╲
     D*  E*
@@ -989,7 +989,7 @@ Words stored: CAT, CAR, CARD, CARE, CAREFUL, DOG, DO
             A        O*────────── "DO"
            ╱ ╲      ╱
           T*  R*   G*──────────── "DOG"
-         │   ╱ ╲   │
+        |    ╱ ╲   │
         │   D*  E* │
         │   │   │  │
         │   │   F  │

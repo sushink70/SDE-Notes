@@ -1,5 +1,6 @@
 # Prompt Engg
 
+novel content like explanations, diagrams, 
 
 Software Development Life Cycle (SDLC)
 Design Patterns and Best Practices
@@ -8,6 +9,10 @@ Object-Oriented Programming (OOP)
 Functional Programming Concepts
 Error Handling and Exceptions
 Modular Programming
+
+arrays, lists, dictionaries, sets, tuples, strings
+what and all the way we can use loops until finish the [string]. the loop must run until the [string] ends. provide a comprehensive guide. cover rust, go, python, c/c++ implementations.
+
 
 1. Create a comprehensive guide to Development Methodologies (e.g., Agile, Scrum, etc...) in Go, python, rust. Complete implementations in Go, python, rust. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
 
