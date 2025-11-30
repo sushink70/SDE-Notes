@@ -17,6 +17,7 @@
 A **Linked List** is a fundamental linear data structure where elements (nodes) are stored in sequence, but unlike arrays, elements are not stored in contiguous memory locations. Instead, each node contains data and a reference (or pointer) to the next node in the sequence.
 
 ### Key Characteristics
+
 - **Dynamic size**: Can grow or shrink during runtime
 - **Sequential access**: Must traverse from head to reach a specific element
 - **Non-contiguous memory**: Nodes can be scattered throughout memory
@@ -25,11 +26,14 @@ A **Linked List** is a fundamental linear data structure where elements (nodes) 
 ## Theory and Concepts
 
 ### Node Structure
+
 Each node in a linked list typically contains:
+
 - **Data**: The actual value stored
 - **Next**: Reference/pointer to the next node
 
 ### Memory Layout
+
 ```
 Array:     [A][B][C][D]  (contiguous memory)
            ↑  ↑  ↑  ↑

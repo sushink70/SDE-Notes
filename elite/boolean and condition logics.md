@@ -5718,3 +5718,1123 @@ I'll give you:
 - 📊 Mastery score tracking
 
 **WHAT'S YOUR FIRST MOVE?**
+
+---
+
+# Only right child
+            return node.val + tree_pattern(right)
+        case (left, right):
+            # Both children
+            return node.val + tree_pattern(left) + tree_pattern(right)
+```
+
+---
+
+## **MODULE 2.3: TERNARY OPERATORS**
+
+### **Python:**
+```python
+# Basic ternary
+result = value_if_true if condition else value_if_false
+
+# DSA usage
+max_val = a if a > b else b
+
+# Nested (avoid!)
+result = "a" if x > 10 else "b" if x > 5 else "c"  # ❌ Hard to read
+
+# Better alternative
+if x > 10:
+    result = "a"
+elif x > 5:
+    result = "b"
+else:
+    result = "c"
+```
+
+**Rust (ternary is just `if` expression):**
+```rust
+let result = if condition { value_if_true } else { value_if_false };
+
+// Even in function returns
+fn max(a: i32, b: i32) -> i32 {
+    if a > b { a } else { b }
+}
+```
+
+**Go (no ternary, use if):**
+```go
+var result string
+if condition {
+    result = valueIfTrue
+} else {
+    result = valueIfFalse
+}
+```
+
+---
+
+### **🧠 When to Use Ternary**
+
+**✅ GOOD:**
+```python
+# Simple value assignment
+status = "active" if user.is_online() else "offline"
+
+# Return statements
+return left if left.val < right.val else right
+
+# List comprehension conditions
+values = [x if x > 0 else 0 for x in numbers]
+```
+
+**❌ BAD:**
+```python
+# Complex logic
+result = (expensive_func() if complex_condition() else 
+          another_func() if other_condition() else default)
+
+# Side effects
+print("yes") if condition else print("no")  # Use regular if!
+```
+
+---
+
+# 🎯 PHASE 3: LOOP MASTERY
+
+## **MODULE 3.1: FOR LOOPS (Iterator Patterns)**
+
+### **Python Iterator Patterns**
+
+```python
+# ❌ C-STYLE (anti-pattern in Python)
+for i in range(len(arr)):
+    print(arr[i])
+
+# ✅ PYTHONIC
+for item in arr:
+    print(item)
+
+# ✅ WITH INDEX
+for i, item in enumerate(arr):
+    print(f"{i}: {item}")
+
+# ✅ ENUMERATE WITH START
+for i, item in enumerate(arr, start=1):
+    print(f"#{i}: {item}")
+
+# ✅ TWO LISTS
+for a, b in zip(list1, list2):
+    print(a, b)
+
+# ✅ DICTIONARY
+for key, value in dict.items():
+    print(f"{key} = {value}")
+
+# 🔥 REVERSE ITERATION
+for item in reversed(arr):
+    print(item)
+
+# 🔥 SORTED ITERATION
+for item in sorted(arr):
+    print(item)
+```
+
+**Rust (iterators are zero-cost abstractions):**
+```rust
+// Basic iteration
+for item in arr.iter() {
+    println!("{}", item);
+}
+
+// With index
+for (i, item) in arr.iter().enumerate() {
+    println!("{}: {}", i, item);
+}
+
+// Zip
+for (a, b) in list1.iter().zip(list2.iter()) {
+    println!("{} {}", a, b);
+}
+
+// Reverse
+for item in arr.iter().rev() {
+    println!("{}", item);
+}
+
+// POWER: Chaining
+let sum: i32 = arr.iter()
+    .filter(|&x| x > 0)
+    .map(|x| x * 2)
+    .sum();
+```
+
+**Go:**
+```go
+// Basic (range returns index, value)
+for i, item := range arr {
+    fmt.Printf("%d: %d\n", i, item)
+}
+
+// Ignore index
+for _, item := range arr {
+    fmt.Println(item)
+}
+
+// Only index
+for i := range arr {
+    fmt.Println(i)
+}
+
+// Map
+for key, value := range myMap {
+    fmt.Printf("%s = %v\n", key, value)
+}
+```
+
+---
+
+### **🔥 LOOP OPTIMIZATION PATTERNS**
+
+#### **Pattern 1: Loop Hoisting**
+```python
+# ❌ INEFFICIENT
+for i in range(n):
+    length = len(arr)  # Recomputed n times!
+    if i < length:
+        print(arr[i])
+
+# ✅ HOIST INVARIANTS
+length = len(arr)
+for i in range(n):
+    if i < length:
+        print(arr[i])
+```
+
+---
+
+#### **Pattern 2: Early Break**
+```python
+# ❌ CONTINUES AFTER FINDING
+found = False
+for item in arr:
+    if item == target:
+        found = True
+    # Keeps looping!
+
+# ✅ EARLY EXIT
+for item in arr:
+    if item == target:
+        found = True
+        break
+```
+
+---
+
+## **MODULE 3.2: WHILE LOOPS & LOOP INVARIANTS**
+
+### **Mental Model: Pre-condition + Post-condition**
+
+```
+LOOP INVARIANT:
+━━━━━━━━━━━━━━━
+A property that is:
+1. True before the loop
+2. Maintained by each iteration
+3. True after the loop
+4. Combined with termination → proves correctness
+```
+
+---
+
+### **🧠 CLASSIC EXAMPLE: BINARY SEARCH**
+
+```python
+def binary_search(arr, target):
+    left, right = 0, len(arr) - 1
+    
+    # INVARIANT: if target exists, it's in arr[left:right+1]
+    while left <= right:
+        mid = left + (right - left) // 2  # Avoid overflow
+        
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            left = mid + 1  # Maintains invariant
+        else:
+            right = mid - 1  # Maintains invariant
+    
+    # Termination: left > right
+    # Invariant + Termination → target not in array
+    return -1
+```
+
+**Loop Invariant Proof:**
+1. **Initialization:** Before first iteration, target (if exists) is in `arr[0:len-1]` ✓
+2. **Maintenance:** Each iteration shrinks range but maintains "target is in range or doesn't exist"
+3. **Termination:** When `left > right`, range is empty → target not found
+
+---
+
+### **🎯 WHILE LOOP PATTERNS**
+
+#### **Pattern 1: Two Pointers**
+```python
+def remove_duplicates(arr):
+    if not arr:
+        return 0
+    
+    write = 1  # INVARIANT: arr[0:write] has no duplicates
+    
+    for read in range(1, len(arr)):
+        if arr[read] != arr[read - 1]:
+            arr[write] = arr[read]
+            write += 1
+    
+    return write
+```
+
+---
+
+#### **Pattern 2: Sliding Window**
+```python
+def max_sum_subarray(arr, k):
+    # INVARIANT: window_sum = sum of current window
+    window_sum = sum(arr[:k])
+    max_sum = window_sum
+    
+    for i in range(k, len(arr)):
+        window_sum += arr[i] - arr[i - k]  # Slide window
+        max_sum = max(max_sum, window_sum)
+    
+    return max_sum
+```
+
+---
+
+## **MODULE 3.3: BREAK, CONTINUE, ELSE CLAUSES**
+
+### **🔥 THE MYSTICAL `for...else` (Python)**
+
+```python
+# ELSE EXECUTES IF LOOP COMPLETES WITHOUT BREAK!
+
+# Finding a prime
+for n in range(2, 10):
+    for x in range(2, n):
+        if n % x == 0:
+            print(f"{n} = {x} * {n//x}")
+            break
+    else:
+        # This runs if inner loop didn't break
+        print(f"{n} is prime")
+
+# DSA: Check if value exists
+for item in arr:
+    if item == target:
+        print("Found!")
+        break
+else:
+    print("Not found!")  # Only if not found
+
+# Better alternative (more explicit):
+found = any(item == target for item in arr)
+```
+
+**Mental trap:** People think `else` pairs with `if` → actually pairs with `for`!
+
+---
+
+### **CONTINUE PATTERNS**
+
+```python
+# ❌ NESTED IFS
+for i in range(10):
+    if i % 2 == 0:
+        if i != 0:
+            if i < 8:
+                print(i)
+
+# ✅ GUARD CLAUSES
+for i in range(10):
+    if i % 2 != 0:
+        continue
+    if i == 0:
+        continue
+    if i >= 8:
+        continue
+    print(i)
+```
+
+---
+
+# 🎯 PHASE 4: ADVANCED CONSTRUCTS
+
+## **MODULE 4.1: WALRUS OPERATOR (:=) - Python 3.8+**
+
+### **Mental Model: Assignment + Usage in One**
+
+```python
+# ❌ VERBOSE
+match = pattern.search(data)
+if match:
+    print(match.group(1))
+
+# ✅ WALRUS
+if match := pattern.search(data):
+    print(match.group(1))
+```
+
+---
+
+### **🔥 DSA USAGE PATTERNS**
+
+#### **Pattern 1: While Loops**
+```python
+# ❌ OLD WAY
+line = input()
+while line != "":
+    process(line)
+    line = input()
+
+# ✅ WALRUS
+while (line := input()) != "":
+    process(line)
+```
+
+---
+
+#### **Pattern 2: List Comprehensions**
+```python
+# ❌ COMPUTES TWICE
+results = [expensive_func(x) for x in data if expensive_func(x) > 10]
+
+# ✅ WALRUS (compute once)
+results = [y for x in data if (y := expensive_func(x)) > 10]
+```
+
+---
+
+#### **Pattern 3: Tree Traversal**
+```python
+# ✅ ELEGANT
+def search(node, target):
+    if node is None:
+        return False
+    if node.val == target:
+        return True
+    if (left_result := search(node.left, target)):
+        return left_result
+    return search(node.right, target)
+```
+
+---
+
+## **MODULE 4.2: EXCEPTION HANDLING AS CONTROL FLOW**
+
+### **EAFP vs LBYL**
+
+```python
+# LBYL (Look Before You Leap)
+if key in dictionary:
+    value = dictionary[key]
+else:
+    value = default
+
+# EAFP (Easier to Ask for Forgiveness than Permission) - PYTHONIC
+try:
+    value = dictionary[key]
+except KeyError:
+    value = default
+
+# Or just:
+value = dictionary.get(key, default)
+```
+
+---
+
+### **🔥 DSA EXCEPTION PATTERNS**
+
+#### **Pattern 1: Stack Operations**
+```python
+# ❌ CHECK EVERY TIME
+if len(stack) > 0:
+    item = stack.pop()
+
+# ✅ EAFP (Python lists allow this)
+try:
+    item = stack.pop()
+except IndexError:
+    # Handle empty stack
+    pass
+```
+
+**Rust (Result type - no exceptions):**
+```rust
+match stack.pop() {
+    Some(item) => {
+        // Process item
+    }
+    None => {
+        // Handle empty
+    }
+}
+```
+
+---
+
+#### **Pattern 2: Dictionary Access**
+```python
+# DSA: Frequency counting
+freq = {}
+for char in string:
+    try:
+        freq[char] += 1
+    except KeyError:
+        freq[char] = 1
+
+# Or use defaultdict (better)
+from collections import defaultdict
+freq = defaultdict(int)
+for char in string:
+    freq[char] += 1
+```
+
+---
+
+## **MODULE 4.3: ASSERTIONS & INVARIANT CHECKING**
+
+```python
+def binary_search(arr, target):
+    assert len(arr) == 0 or arr == sorted(arr), "Array must be sorted"
+    
+    left, right = 0, len(arr) - 1
+    
+    while left <= right:
+        mid = left + (right - left) // 2
+        
+        # Check invariant
+        assert 0 <= left <= right < len(arr), "Pointers out of bounds"
+        
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    
+    return -1
+```
+
+**Rust (compile-time + runtime):**
+```rust
+fn binary_search(arr: &[i32], target: i32) -> Option<usize> {
+    assert!(arr.windows(2).all(|w| w[0] <= w[1]), "Array must be sorted");
+    
+    let mut left = 0;
+    let mut right = arr.len() - 1;
+    
+    while left <= right {
+        let mid = left + (right - left) / 2;
+        
+        debug_assert!(left <= right);  // Removed in release builds
+        
+        // ...
+    }
+    None
+}
+```
+
+---
+
+# 🎯 PHASE 5: FUNCTIONAL PATTERNS
+
+## **MODULE 5.1: MAP, FILTER, REDUCE**
+
+### **Python:**
+```python
+# MAP (transform)
+squares = list(map(lambda x: x**2, numbers))
+# Better: [x**2 for x in numbers]
+
+# FILTER (select)
+evens = list(filter(lambda x: x % 2 == 0, numbers))
+# Better: [x for x in numbers if x % 2 == 0]
+
+# REDUCE (accumulate)
+from functools import reduce
+product = reduce(lambda x, y: x * y, numbers, 1)
+
+# DSA: Flattening nested lists
+nested = [[1, 2], [3, 4], [5]]
+flat = reduce(lambda acc, lst: acc + lst, nested, [])
+# Better: [item for sublist in nested for item in sublist]
+```
+
+**Rust (iterator methods):**
+```rust
+let numbers = vec![1, 2, 3, 4, 5];
+
+// Map
+let squares: Vec<i32> = numbers.iter().map(|x| x * x).collect();
+
+// Filter
+let evens: Vec<i32> = numbers.iter().filter(|&&x| x % 2 == 0).cloned().collect();
+
+// Reduce (fold)
+let sum: i32 = numbers.iter().fold(0, |acc, x| acc + x);
+```
+
+---
+
+## **MODULE 5.2: COMPREHENSIONS (Python's Superpower)**
+
+```python
+# LIST COMPREHENSION
+squares = [x**2 for x in range(10) if x % 2 == 0]
+
+# NESTED
+matrix = [[i * j for j in range(5)] for i in range(5)]
+
+# DICT COMPREHENSION
+freq = {char: string.count(char) for char in set(string)}
+
+# SET COMPREHENSION
+unique_lengths = {len(word) for word in words}
+
+# GENERATOR EXPRESSION (lazy)
+sum_squares = sum(x**2 for x in range(1000000))  # No list created!
+```
+
+---
+
+### **🎯 DSA COMPREHENSION PATTERNS**
+
+```python
+# Flatten 2D array
+flat = [cell for row in matrix for cell in row]
+
+# Get diagonals
+diag = [matrix[i][i] for i in range(len(matrix))]
+
+# Create adjacency list from edges
+graph = {node: [] for node in nodes}
+for u, v in edges:
+    graph[u].append(v)
+
+# Or with defaultdict
+from collections import defaultdict
+graph = defaultdict(list)
+for u, v in edges:
+    graph[u].append(v)
+```
+
+---
+
+# 🎯 PHASE 6: DSA-SPECIFIC PATTERNS
+
+## **MODULE 6.1: TWO POINTERS - CONDITION MASTERY**
+
+```python
+# Template
+left, right = 0, len(arr) - 1
+
+while left < right:  # or <=, depends on problem
+    if condition(arr[left], arr[right]):
+        # Found answer or process
+        pass
+    elif arr[left] + arr[right] < target:
+        left += 1  # Need larger sum
+    else:
+        right -= 1  # Need smaller sum
+```
+
+### **🧠 Boundary Conditions**
+
+```python
+# TWO SUM (sorted array)
+def two_sum(arr, target):
+    left, right = 0, len(arr) - 1
+    
+    while left < right:  # NOT <=, same element twice invalid
+        current = arr[left] + arr[right]
+        if current == target:
+            return [left, right]
+        elif current < target:
+            left += 1
+        else:
+            right -= 1
+    
+    return []
+
+# CONTAINER WITH MOST WATER
+def max_area(heights):
+    left, right = 0, len(heights) - 1
+    max_water = 0
+    
+    while left < right:  # Must have width >= 1
+        width = right - left
+        height = min(heights[left], heights[right])
+        max_water = max(max_water, width * height)
+        
+        # Move pointer with smaller height
+        if heights[left] < heights[right]:
+            left += 1
+        else:
+            right -= 1
+    
+    return max_water
+```
+
+---
+
+## **MODULE 6.2: SLIDING WINDOW - WHEN TO EXPAND/SHRINK**
+
+```python
+# FIXED SIZE WINDOW
+def max_sum_k(arr, k):
+    window_sum = sum(arr[:k])
+    max_sum = window_sum
+    
+    for i in range(k, len(arr)):
+        window_sum += arr[i] - arr[i-k]  # Slide
+        max_sum = max(max_sum, window_sum)
+    
+    return max_sum
+
+# VARIABLE SIZE (longest substring without repeat)
+def longest_unique(s):
+    char_set = set()
+    left = 0
+    max_len = 0
+    
+    for right in range(len(s)):
+        # Shrink window while invalid
+        while s[right] in char_set:
+            char_set.remove(s[left])
+            left += 1
+        
+        char_set.add(s[right])
+        max_len = max(max_len, right - left + 1)
+    
+    return max_len
+```
+
+**Mental model:**
+- **Expand:** Always move `right` pointer
+- **Shrink:** Move `left` when window becomes invalid
+- **Update:** Track answer at valid windows
+
+---
+
+## **MODULE 6.3: BINARY SEARCH BOUNDARY CONDITIONS**
+
+### **The Four Variants:**
+
+```python
+# 1. EXACT MATCH
+def binary_search(arr, target):
+    left, right = 0, len(arr) - 1
+    while left <= right:  # <= allows single element
+        mid = left + (right - left) // 2
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    return -1
+
+# 2. LEFTMOST INSERTION POINT
+def bisect_left(arr, target):
+    left, right = 0, len(arr)  # right = len (not len-1)!
+    while left < right:  # < not <=
+        mid = left + (right - left) // 2
+        if arr[mid] < target:
+            left = mid + 1
+        else:
+            right = mid  # NOT mid - 1
+    return left
+
+# 3. RIGHTMOST INSERTION POINT
+def bisect_right(arr, target):
+    left, right = 0, len(arr)
+    while left < right:
+        mid = left + (right - left) // 2
+        if arr[mid] <= target:  # Only difference: <=
+            left = mid + 1
+        else:
+            right = mid
+    return left
+
+# 4. FIRST OCCURRENCE
+def first_occurrence(arr, target):
+    left, right = 0, len(arr) - 1
+    result = -1
+    while left <= right:
+        mid = left + (right - left) // 2
+        if arr[mid] == target:
+            result = mid
+            right = mid - 1  # Continue searching left
+        elif arr[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    return result
+```
+
+---
+
+## **MODULE 6.4: RECURSION BASE CASES**
+
+### **🧠 Mental Checklist:**
+1. **Null/Empty:** What if input is null/empty?
+2. **Single Element:** Base case or recursive?
+3. **Two Elements:** Edge case behavior
+4. **Negative/Zero:** For numeric problems
+
+```python
+# FIBONACCI (multiple base cases)
+def fib(n):
+    if n < 0:
+        raise ValueError("n must be non-negative")
+    if n == 0:
+        return 0
+    if n == 1:
+        return 1
+    return fib(n-1) + fib(n-2)
+
+# TREE TRAVERSAL
+def inorder(node):
+    if node is None:  # CRITICAL BASE CASE
+        return []
+    return inorder(node.left) + [node.val] + inorder(node.right)
+
+# LINKED LIST REVERSAL
+def reverse(head):
+    if head is None or head.next is None:  # Empty or single node
+        return head
+    new_head = reverse(head.next)
+    head.next.next = head
+    head.next = None
+    return new_head
+```
+
+---
+
+# 🎯 PHASE 7: STATE MACHINES
+
+## **MODULE 7.1: STATE TRANSITION LOGIC**
+
+### **Stock Trading (State Machine)**
+
+```python
+def max_profit_with_cooldown(prices):
+    # States: HOLD, SOLD, REST
+    if not prices:
+        return 0
+    
+    hold = float('-inf')  # Max profit if holding stock
+    sold = float('-inf')  # Max profit if just sold
+    rest = 0              # Max profit if resting
+    
+    for price in prices:
+        prev_hold = hold
+        prev_sold = sold
+        prev_rest = rest
+        
+        # Transitions
+        hold = max(prev_hold, prev_rest - price)  # Keep holding or buy
+        sold = prev_hold + price                   # Sell
+        rest = max(prev_rest, prev_sold)          # Rest or after cooldown
+    
+    return max(sold, rest)
+```
+
+**Mental model:** Each state tracks "best outcome if in this state after this day"
+
+---
+
+## **MODULE 7.2: DFA FOR STRING MATCHING**
+
+```python
+def is_valid_number(s):
+    # States: START, SIGN, INTEGER, POINT, DECIMAL, EXP, EXP_SIGN, EXP_NUM
+    
+    state = "START"
+    
+    for char in s:
+        if state == "START":
+            if char in "+-":
+                state = "SIGN"
+            elif char.isdigit():
+                state = "INTEGER"
+            elif char == ".":
+                state = "POINT"
+            else:
+                return False
+        
+        elif state == "INTEGER":
+            if char.isdigit():
+                state = "INTEGER"
+            elif char == ".":
+                state = "DECIMAL"
+            elif char in "eE":
+                state = "EXP"
+            else:
+                return False
+        
+        # ... more transitions
+    
+    # Accept states
+    return state in {"INTEGER", "DECIMAL", "EXP_NUM"}
+```
+
+---
+
+# 🎯 PHASE 8: CONCURRENCY LOGIC (Brief Overview)
+
+## **Race Condition Example:**
+
+```python
+# ❌ NOT THREAD-SAFE
+counter = 0
+
+def increment():
+    global counter
+    counter += 1  # Read-Modify-Write (race!)
+
+# ✅ THREAD-SAFE (with lock)
+import threading
+
+counter = 0
+lock = threading.Lock()
+
+def increment():
+    global counter
+    with lock:
+        counter += 1
+```
+
+**Rust (ownership prevents races at compile time):**
+```rust
+use std::sync::{Arc, Mutex};
+use std::thread;
+
+let counter = Arc::new(Mutex::new(0));
+
+let handles: Vec<_> = (0..10).map(|_| {
+    let counter = Arc::clone(&counter);
+    thread::spawn(move || {
+        let mut num = counter.lock().unwrap();
+        *num += 1;
+    })
+}).collect();
+
+for handle in handles {
+    handle.join().unwrap();
+}
+```
+
+---
+
+# 🏆 FINAL MASTERY CHALLENGES
+
+## **CHALLENGE 1: Complex Boolean Expression**
+
+```python
+def mystery(a, b, c):
+    return not a or b and c or not c and a
+
+# Predict outputs:
+print(mystery(True, True, True))
+print(mystery(True, False, True))
+print(mystery(False, True, False))
+```
+
+<details>
+<summary>Solutions</summary>
+
+```python
+# Precedence: not > and > or
+# = (not a) or (b and c) or ((not c) and a)
+
+mystery(True, True, True)
+= False or True or False
+= True
+
+mystery(True, False, True)
+= False or False or False
+= False
+
+mystery(False, True, False)
+= True or False or False
+= True
+```
+</details>
+
+---
+
+## **CHALLENGE 2: Refactor This Nightmare**
+
+```python
+def process(data):
+    result = []
+    for i in range(len(data)):
+        if data[i] is not None:
+            if data[i] > 0:
+                if data[i] % 2 == 0:
+                    if data[i] < 100:
+                        result.append(data[i] * 2)
+    return result
+```
+
+<details>
+<summary>Elite Solution</summary>
+
+```python
+def process(data):
+    return [
+        x * 2
+        for x in data
+        if x is not None
+        and x > 0
+        and x % 2 == 0
+        and x < 100
+    ]
+
+# Or with guard clauses in a function
+def process(data):
+    result = []
+    for x in data:
+        if x is None:
+            continue
+        if x <= 0:
+            continue
+        if x % 2 != 0:
+            continue
+        if x >= 100:
+            continue
+        result.append(x * 2)
+    return result
+```
+</details>
+
+---
+
+## **CHALLENGE 3: State Machine Implementation**
+
+**Problem:** Implement a validator for a simplified regular expression: `a*b+c?`
+- `*` = 0 or more
+- `+` = 1 or more
+- `?` = 0 or 1
+
+```python
+def validate(s, pattern):
+    # Implement using state machine
+    pass
+
+# Test cases
+assert validate("aabbc", "a*b+c?") == True
+assert validate("bbc", "a*b+c?") == True
+assert validate("aac", "a*b+c?") == False
+```
+
+<details>
+<summary>Elite Solution</summary>
+
+```python
+def validate(s, pattern):
+    # Build state machine from pattern
+    # States: for each character in pattern + ACCEPT
+    
+    i, j = 0, 0  # Pointers for s and pattern
+    
+    while i < len(s) and j < len(pattern):
+        char = pattern[j]
+        
+        # Look ahead for quantifier
+        quantifier = pattern[j+1] if j+1 < len(pattern) else None
+        
+        if quantifier == '*':
+            # Match 0 or more
+            while i < len(s) and s[i] == char:
+                i += 1
+            j += 2
+        
+        elif quantifier == '+':
+            # Match 1 or more
+            if i >= len(s) or s[i] != char:
+                return False
+            while i < len(s) and s[i] == char:
+                i += 1
+            j += 2
+        
+        elif quantifier == '?':
+            # Match 0 or 1
+            if i < len(s) and s[i] == char:
+                i += 1
+            j += 2
+        
+        else:
+            # Exact match
+            if i >= len(s) or s[i] != char:
+                return False
+            i += 1
+            j += 1
+    
+    return i == len(s) and j == len(pattern)
+```
+</details>
+
+---
+
+# 🧘‍♂️ MASTERY PROTOCOL
+
+## **Daily Practice Regimen:**
+
+**Week 1-2: Boolean & Comparison Logic**
+- 10 LeetCode Easy problems, annotate every condition
+- Rewrite 5 old solutions with optimal logic
+- Write truth tables for complex expressions
+
+**Week 3-4: Control Flow**
+- Refactor nested ifs into guard clauses
+- Practice match/case patterns
+- Implement 3 design patterns (Strategy, State, Command)
+
+**Week 5-6: Loops & Iterators**
+- Convert all C-style loops to idiomatic patterns
+- Prove loop invariants for 5 algorithms
+- Implement iterators from scratch (Python, Rust)
+
+**Week 7-8: Advanced Patterns**
+- Master list comprehensions (replace all map/filter)
+- Practice walrus operator in real problems
+- Implement 5 functional algorithms
+
+**Week 9-10: DSA Integration**
+- Two pointers: 20 problems
+- Sliding window: 20 problems
+- Binary search variants: 15 problems
+
+**Week 11-12: State Machines & Review**
+- Implement regex engine
+- State machine for DP problems
+- Final assessment: 50 mixed problems
+
+---
+
+## **Cognitive Strategies:**
+
+1. **Verbalization:** Say logic out loud before coding
+2. **Visualization:** Draw state transitions
+3. **Prediction:** Guess output before running
+4. **Teaching:** Explain to rubber duck
+5. **Reflection:** Journal about mistakes
+
+---
+
+**Your next assignment:** Choose ONE module from above and complete ALL exercises. Reply with your solutions for surgical feedback.
+
+Which module calls to you? 🔥
