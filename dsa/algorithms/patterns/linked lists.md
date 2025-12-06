@@ -216,6 +216,83 @@ def detect_cycle_start(head):
     
     return ptr1
 ```
+### Detecting a Cycle in a Linked List
+
+Detecting a cycle (or loop) in a linked list is a classic problem in computer science. A **cycle** occurs when a node's `next` pointer points back to a previous node, forming a loop (e.g., 1 → 2 → 3 → 4 → 2).
+
+#### Floyd's Cycle Detection Algorithm (Tortoise and Hare)
+This efficient O(n) time, O(1) space method uses two pointers:
+- **Slow pointer (Tortoise)**: Moves 1 step at a time.
+- **Fast pointer (Hare)**: Moves 2 steps at a time.
+- If there's a cycle, the fast pointer will eventually "lap" the slow pointer inside the loop—they'll meet.
+- If no cycle, the fast pointer reaches the end (null).
+
+**Steps:**
+1. Initialize slow and fast to the head.
+2. While fast and fast.next are not null:
+   - Move slow = slow.next
+   - Move fast = fast.next.next
+   - If slow == fast, cycle detected!
+3. If fast reaches null, no cycle.
+
+**Python Example Code:**
+```python
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def has_cycle(head):
+    if not head:
+        return False
+    slow = fast = head
+    while fast and fast.next:
+        slow = slow.next
+        fast = fast.next.next
+        if slow == fast:
+            return True
+    return False
+```
+
+#### ASCII Diagram: Linked List with Cycle
+Here's a visual representation of a linked list with nodes **A → B → C → D → E** where **E points back to C** (cycle starts at C). The diagram shows:
+- Arrows (`→`) for normal links.
+- A looped arrow for the cycle.
+- Positions of **slow** and **fast** pointers after a few iterations (meeting at node D inside the cycle).
+
+```
+Head
+  |
+  v
+  +---+     +---+     +---+     +---+     +---+
+  | A | --> | B | --> | C | --> | D | --> | E |  <-- Cycle entry (E -> C)
+  +---+     +---+     +---+     +---+     +---+
+                                   ^         |
+                                   |         |
+                                   +---------+  (Loop closes here)
+                                           
+Iteration 3: Slow at D, Fast at D (they meet!)
+  +---+     +---+     +---+     +---+     +---+
+  | A | --> | B | --> | C | --> *| D |*--> | E |
+  +---+     +---+     +---+     +---+     +---+
+                                   ^         |
+                                   |         |
+                                   +---------+
+                             (Slow & Fast collide here)
+```
+
+- **Acyclic Case (No Loop):** The fast pointer would reach the end without meeting slow.
+```
+Head
+  |
+  v
+  +---+     +---+     +---+     +---+
+  | A | --> | B | --> | C | --> | D | --> null
+  +---+     +---+     +---+     +---+
+Fast reaches null → No cycle!
+```
+
+This algorithm is robust and widely used (e.g., in LeetCode #141). If you need code in another language, variations (like finding cycle start), or more details, let me know!
 
 #### Rust Implementation
 ```rust
@@ -279,7 +356,105 @@ def reverse_list_recursive(head):
     
     return reversed_head
 ```
+### Reversing a Linked List
 
+Reversing a linked list rearranges the nodes so the last node becomes the first, and the first becomes the last, while preserving the node values. For a list **1 → 2 → 3 → 4 → null**, it becomes **4 → 3 → 2 → 1 → null**. Pointers are updated in-place (O(n) time, O(1) space).
+
+#### Iterative Algorithm (Most Common)
+Use three pointers:
+- **prev**: Starts as `None` (new tail).
+- **curr**: Starts as `head`.
+- **next**: Temporary to save the next node.
+
+**Steps:**
+1. While `curr` is not `None`:
+   - Save `next = curr.next` (before overwriting).
+   - Set `curr.next = prev` (reverse the link).
+   - Move `prev = curr`.
+   - Move `curr = next`.
+2. Return `prev` as the new head.
+
+**Python Example Code:**
+```python
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def reverse_list(head):
+    prev = None
+    curr = head
+    while curr:
+        next_node = curr.next
+        curr.next = prev
+        prev = curr
+        curr = next_node
+    return prev
+```
+
+#### ASCII Diagram: Before and After Reversal
+Visualize a list with nodes **A (1) → B (2) → C (3) → D (4) → null**. Arrows (`→`) show `next` pointers.
+
+**Original List (Forward):**
+```
+Head
+  |
+  v
+  +---+     +---+     +---+     +---+
+  | A | --> | B | --> | C | --> | D | --> null
+  | 1 |     | 2 |     | 3 |     | 4 |
+  +---+     +---+     +---+     +---+
+```
+
+**After Iteration 1 (A reversed):**
+```
+Head (old)
+  |
+  v
+  +---+ <-- curr.next now points back
+  | A | 
+  | 1 |     +---+     +---+     +---+
+  +---+     | B | --> | C | --> | D | --> null
+            | 2 |     | 3 |     | 4 |
+            +---+     +---+     +---+
+   (prev = A, curr = B)
+```
+
+**After Iteration 2 (B reversed):**
+```
+Head (old)
+  |
+  v
+  +---+ <-- A
+  | A | 
+  | 1 | <-- B.next points to A
+  +---+ <-- prev = B
+     ^
+     |(B)+---+     +---+     +---+
+     +---| B |     | C | --> | D | --> null
+         | 2 |-->  | 3 |     | 4 |
+         +---+     +---+     +---+
+         (curr = C)
+```
+
+**After Full Reversal (Complete):**
+```
+New Head
+  |
+  v
+  +---+     +---+     +---+     +---+
+  | D | <-- | C | <-- | B | <-- | A | --> null
+  | 4 |     | 3 |     | 2 |     | 1 |
+  +---+     +---+     +---+     +---+
+     ^       ^       ^       ^
+     |       |       |       |
+   (Reversed pointers: arrows now flow backward)
+```
+
+- **Key Insight:** Each step "flips" one link, building the reversed chain from the end.
+- **Edge Cases:** Empty list (`None`) returns `None`; single node returns itself.
+
+This is a foundational problem (e.g., LeetCode #206). If you want recursive version, code in another language, or finding the k-th node from the end, just ask!
 #### Rust Implementation
 ```rust
 pub fn reverse_list_iterative(head: Option<Box<ListNode>>) -> Option<Box<ListNode>> {

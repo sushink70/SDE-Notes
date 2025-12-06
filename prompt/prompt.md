@@ -14,6 +14,11 @@ my bottleneck
 
 novel content like explanations, diagrams, 
 
+
+
+
+
+
 Software Development Life Cycle (SDLC)
 Design Patterns and Best Practices
 Performance Optimization Techniques
