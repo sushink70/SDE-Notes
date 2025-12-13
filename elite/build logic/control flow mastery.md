@@ -11,6 +11,7 @@ Let me give you a complete mental framework to eliminate this confusion forever.
 What you're experiencing is **implementation debt**—the cognitive load of translating logical understanding into precise control flow. Think of it like knowing chess strategy but fumbling piece movements. The problem isn't your logic; it's your **implementation vocabulary** and **state management mental models**.
 
 This happens because:
+
 - **Algorithms are described declaratively** ("process each element")
 - **Code is imperative** ("start here, loop here, check this, modify that")
 - **Your working memory is overloaded** tracking multiple variables, loop indices, and edge cases simultaneously
@@ -22,8 +23,8 @@ This happens because:
 ### **1. THE LOOP-CONDITION ORDERING PRINCIPLE**
 
 **Mental Model: "Guard First, Process Second"**
-
 Think of every code block as answering two questions in order:
+
 1. **"Is this element/state valid?"** → Condition (guard clause)
 2. **"What do I do with valid elements?"** → Loop (process)
 
@@ -41,6 +42,7 @@ if arr:  # Guard: Is there anything to process?
 ```
 
 **Decision Framework:**
+
 - **Condition → Loop**: When the condition determines *whether to iterate at all*
   - Example: "If array is not empty, process elements"
   - Pattern: Checking preconditions, null checks, size checks
@@ -50,6 +52,7 @@ if arr:  # Guard: Is there anything to process?
   - Pattern: Element-level filtering, state-dependent actions
 
 **Cognitive Trick:** Ask yourself: *"Does this check prevent the entire operation, or just affect one iteration?"*
+
 - Prevents entire operation → Outer condition
 - Affects one iteration → Inner condition
 
@@ -58,7 +61,6 @@ if arr:  # Guard: Is there anything to process?
 ### **2. THE STATE MUTATION TIMING FRAMEWORK**
 
 **Mental Model: "Read → Decide → Write → Advance"**
-
 Every iteration follows a natural flow. Confusion arises when you violate this sequence.
 
 ```python

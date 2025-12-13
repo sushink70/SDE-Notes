@@ -14,8 +14,8 @@ The **Two Pointers** technique is a algorithmic pattern where you maintain two r
 
 ```
 Initial State:
-    L                                           R
-    ↓                                           ↓
+    L                                    R
+    ↓                                    ↓
    [1,  2,  3,  4,  5,  6,  7,  8,  9,  10]
     
     Move based on condition:
@@ -162,6 +162,7 @@ Step 3: Continue sliding
 **Constraint**: O(n) time, O(1) space
 
 **Expert Thought Process**:
+
 1. Sorted array → think binary search or two pointers
 2. Need pairs → converging pointers eliminates O(n²)
 3. If sum < target → need larger number → move left pointer right
@@ -378,51 +379,61 @@ Checking PALINDROME?
 ## Real-World Use Cases
 
 ### 1. **Database Query Optimization**
+
    - Merging two sorted result sets
    - Finding intersection of two sorted tables
    - Efficient join operations on indexed columns
 
 ### 2. **Network Packet Processing**
+
    - Detecting duplicate packets in a stream
    - Finding matching request-response pairs
    - Buffer management with read/write pointers
 
 ### 3. **Memory Management**
+
    - Garbage collection (mark and sweep with two pointers)
    - Memory compaction algorithms
    - Cache replacement policies
 
 ### 4. **File Systems**
+
    - Detecting circular symbolic links (cycle detection)
    - Merging sorted directory listings
    - Finding duplicate files efficiently
 
 ### 5. **Data Compression**
+
    - Run-length encoding (fast/slow pointers)
    - Finding repeated patterns in data streams
    - Dictionary-based compression algorithms
 
 ### 6. **Bioinformatics**
+
    - DNA sequence alignment
    - Finding palindromic sequences in genomes
    - Protein structure analysis
 
 ### 7. **Financial Systems**
+
    - Matching buy/sell orders in trading systems
    - Detecting fraudulent transaction patterns
    - Time-series data analysis for trends
 
 ### 8. **Graphics & Gaming**
+
    - Collision detection in sorted object lists
    - Ray tracing optimization
    - Particle system management
 
 ### 9. **Text Processing**
+
    - Spell checking with dictionary lookups
    - Auto-complete functionality
    - Finding anagrams efficiently
 
 ### 10. **Load Balancing**
+
    - Distributing requests across servers
    - Finding server pairs with complementary loads
    - Resource allocation optimization
@@ -432,12 +443,15 @@ Checking PALINDROME?
 ## Cognitive Strategies for Mastery
 
 ### 1. **Chunking Strategy**
+
 Break problems into recognizable patterns:
+
 - "This needs pairs" → converging pointers
 - "This has cycles" → fast/slow
 - "This needs windows" → sliding window
 
 ### 2. **Deliberate Practice Protocol**
+
 ```
 Phase 1: Pattern Recognition (20 problems)
     → Identify which pointer pattern fits
@@ -457,11 +471,13 @@ Phase 4: Teaching (10 problems)
 **Deep Question**: Why does this work?
 
 **Answer Framework**:
+
 - What property of the data enables this? (sorted, linked, etc.)
 - What invariant do we maintain? (window sum, pointer positions)
 - What guarantees no missed solutions? (exhaustive coverage proof)
 
 ### 4. **Flow State Triggers**
+
 - Clear goal: "Solve this in O(n) with O(1) space"
 - Immediate feedback: Test cases after each line
 - Challenge-skill balance: Start easy, increase difficulty

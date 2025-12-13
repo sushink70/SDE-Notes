@@ -97,12 +97,14 @@ Step 3: [1, 2, 3, 4, 5, 6, 7, 8]
 **Pattern**: Start from both ends, move towards center
 
 **When to Use**:
+
 - Sorted array problems
 - Palindrome checking
 - Finding pairs with target sum
 - Container/trap water problems
 
 **ASCII Diagram**:
+
 ```
 Finding Pair Sum = 10 in [1, 3, 5, 6, 8, 9]
 ================================================
@@ -121,6 +123,7 @@ If sum == target: found!
 **Pattern**: Both start from beginning, move at different speeds
 
 **When to Use**:
+
 - Removing duplicates in-place
 - Partitioning arrays
 - Cycle detection in linked lists
@@ -149,6 +152,7 @@ Result: [1, 2, 2, 2, 3, 4, 4]
 **Pattern**: Two pointers maintain a window that slides through array
 
 **When to Use**:
+
 - Subarray problems (sum, product, etc.)
 - Substring problems
 - Finding patterns
@@ -177,6 +181,7 @@ Window 3: [2, 1, 5, 1, 3, 2]   sum = 5+1+3 = 9 ✓
 **Pattern**: Using more than two pointers for complex problems
 
 **When to Use**:
+
 - 3Sum, 4Sum problems
 - Merging multiple sorted arrays
 - Complex partitioning
@@ -194,6 +199,7 @@ Window 3: [2, 1, 5, 1, 3, 2]   sum = 5+1+3 = 9 ✓
 | Sliding Window | O(n) | O(n) | O(n) |
 
 **Comparison with Brute Force**:
+
 - Brute Force (nested loops): O(n²)
 - Two Pointers: O(n)
 - **Speed Improvement**: ~n times faster!
@@ -782,29 +788,34 @@ The implementation follows the same logic across all languages with syntax varia
 ### Problem Categories
 
 #### 1. **Pair/Triplet Problems**
+
 - Two Sum (sorted/unsorted)
 - Three Sum
 - Four Sum
 - Pair with target difference
 
 #### 2. **String/Array Manipulation**
+
 - Remove duplicates
 - Move zeros to end
 - Sort colors (Dutch National Flag)
 - Reverse string/array
 
 #### 3. **Subarray/Substring Problems**
+
 - Maximum sum subarray of size k
 - Longest substring without repeating characters
 - Minimum window substring
 - Longest substring with k distinct characters
 
 #### 4. **Palindrome Problems**
+
 - Valid palindrome
 - Longest palindromic substring
 - Palindrome linked list
 
 #### 5. **Linked List Problems**
+
 - Detect cycle
 - Find middle element
 - Remove nth node from end
@@ -880,12 +891,14 @@ def longest_substring_k_distinct(s, k):
 ## Practice Problems (Difficulty Progression)
 
 ### Easy
+
 1. Valid Palindrome
 2. Remove Duplicates from Sorted Array
 3. Move Zeroes
 4. Squares of Sorted Array
 
 ### Medium
+
 1. Container With Most Water
 2. 3Sum
 3. Longest Substring Without Repeating Characters
@@ -893,6 +906,7 @@ def longest_substring_k_distinct(s, k):
 5. Subarray Product Less Than K
 
 ### Hard
+
 1. Trapping Rain Water
 2. Minimum Window Substring
 3. Sliding Window Maximum
@@ -903,27 +917,32 @@ def longest_substring_k_distinct(s, k):
 ## Tips & Best Practices
 
 ### 1. **Initialization**
+
 - Always check edge cases (empty array, single element)
 - Initialize pointers correctly based on pattern
 - Consider boundary conditions
 
 ### 2. **Loop Conditions**
+
 - Opposite direction: `left < right`
 - Same direction: `fast < len(array)`
 - Sliding window: `right < len(array)`
 
 ### 3. **Pointer Movement**
+
 - Understand why each pointer moves
 - Avoid infinite loops
 - Handle duplicate elements carefully
 
 ### 4. **Common Pitfalls**
+
 - Off-by-one errors
 - Integer overflow (especially in C/C++)
 - Not handling duplicates
 - Incorrect loop termination
 
 ### 5. **Debugging**
+
 - Print pointer positions at each step
 - Visualize with ASCII diagrams
 - Test with edge cases first
@@ -933,12 +952,14 @@ def longest_substring_k_distinct(s, k):
 ## Conclusion
 
 The Two Pointer technique is essential for:
+
 - **Optimizing** nested loop solutions
 - **Reducing** space complexity
 - **Simplifying** complex array/string operations
 - **Real-world** data processing and analysis
 
 Master this pattern by:
+
 1. Understanding the three main types
 2. Recognizing problem patterns
 3. Practicing implementation in multiple languages
