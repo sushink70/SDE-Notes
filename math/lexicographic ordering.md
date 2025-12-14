@@ -16,6 +16,7 @@ Given two sequences `A = [a₁, a₂, ..., aₘ]` and `B = [b₁, b₂, ..., b�
 2. **Prefix rule**: If `A` is a proper prefix of `B` (all elements match but `m < n`), then `A < B`
 
 **Examples:**
+
 - `[1, 2, 3] < [1, 2, 4]` (first difference at index 2: 3 < 4)
 - `[1, 2] < [1, 2, 3]` (prefix rule)
 - `"apple" < "apply"` (character 'l' < 'y' at index 4)
@@ -27,12 +28,15 @@ Given two sequences `A = [a₁, a₂, ..., aₘ]` and `B = [b₁, b₂, ..., b�
 ## **2. Why Lexicographic Ordering Matters**
 
 ### **Cognitive Model**
+
 Think of lexicographic ordering as **hierarchical comparison with short-circuiting**. You check dimensions in priority order, stopping as soon as you find a difference. This mirrors how we think:
+
 - Phone books: Last name → First name → Middle initial
 - Dates: Year → Month → Day
 - Versions: Major → Minor → Patch
 
 ### **Algorithmic Power**
+
 1. **Natural sorting** for strings, tuples, arrays
 2. **State space exploration** (permutations, combinations)
 3. **Efficient comparison** (O(min(m,n)) worst case)
@@ -43,15 +47,19 @@ Think of lexicographic ordering as **hierarchical comparison with short-circuiti
 ## **3. Fundamental Properties**
 
 ### **3.1 Transitivity**
+
 If `A < B` and `B < C`, then `A < C`
 
 ### **3.2 Antisymmetry**  
+
 If `A ≤ B` and `B ≤ A`, then `A = B`
 
 ### **3.3 Reflexivity**
+
 `A ≤ A` always holds
 
 ### **3.4 Comparison Complexity**
+
 - **Time**: O(min(len(A), len(B)))
 - **Space**: O(1) for comparison
 - Early termination on first difference makes this highly efficient
@@ -67,10 +75,11 @@ Lexicographic Ordering: Fundamental Implementations
 Demonstrating built-in behavior and custom implementations
 """
 
-# ============================================
-# 1. BUILT-IN LEXICOGRAPHIC COMPARISON
-# ============================================
 
+## 1. BUILT-IN LEXICOGRAPHIC COMPARISON
+
+
+```python
 def demonstrate_builtin():
     """Python's built-in comparison already uses lexicographic ordering"""
     
@@ -90,11 +99,11 @@ def demonstrate_builtin():
     print((1, 2, "a") < (1, 2, "b"))  # True
     print((1, 2) < (1, 2, 3))         # True (prefix)
 
+```
 
-# ============================================
-# 2. CUSTOM LEXICOGRAPHIC COMPARATOR
-# ============================================
+## 2. CUSTOM LEXICOGRAPHIC COMPARATOR
 
+```python
 def lexicographic_compare(seq1, seq2):
     """
     Returns: -1 if seq1 < seq2
@@ -121,11 +130,11 @@ def lexicographic_compare(seq1, seq2):
     else:
         return 0
 
+```
 
-# ============================================
-# 3. SORTING WITH CUSTOM KEYS
-# ============================================
+## 3. SORTING WITH CUSTOM KEYS
 
+```python
 def sort_with_multiple_criteria():
     """Demonstrates multi-level sorting (lexicographic on tuples)"""
     
@@ -147,11 +156,11 @@ def sort_with_multiple_criteria():
     for student in sorted_students:
         print(student)
 
+```
 
-# ============================================
-# 4. LEXICOGRAPHICALLY SMALLEST/LARGEST
-# ============================================
+## 4. LEXICOGRAPHICALLY SMALLEST/LARGEST
 
+```python
 def find_lex_smallest(sequences):
     """
     Find lexicographically smallest sequence from a list
@@ -181,11 +190,11 @@ def demonstrate_lex_extremes():
     print(f"Lexicographically smallest: {find_lex_smallest(sequences)}")
     print(f"Lexicographically largest: {max(sequences)}")
 
+```
 
-# ============================================
-# 5. NEXT LEXICOGRAPHIC PERMUTATION
-# ============================================
+## 5. NEXT LEXICOGRAPHIC PERMUTATION
 
+```python
 def next_permutation(arr):
     """
     Rearrange into next lexicographically greater permutation.
@@ -236,11 +245,10 @@ def demonstrate_permutations():
     while next_permutation(arr):
         print(arr)
 
+```
 
-# ============================================
-# MAIN DEMONSTRATION
-# ============================================
 
+```python
 if __name__ == "__main__":
     demonstrate_builtin()
     print("\n" + "="*50 + "\n")
@@ -259,6 +267,7 @@ if __name__ == "__main__":
     print(f"[1,2,3] vs [1,2,4]: {lexicographic_compare([1,2,3], [1,2,4])}")
     print(f"[1,2] vs [1,2,3]: {lexicographic_compare([1,2], [1,2,3])}")
     print(f"[1,2,3] vs [1,2,3]: {lexicographic_compare([1,2,3], [1,2,3])}")
+```
 
 ## **5. Advanced Patterns & Problem Classes**
 
@@ -271,6 +280,7 @@ Advanced Lexicographic Ordering Patterns
 Problem-solving techniques and optimization strategies
 """
 
+```python
 from typing import List, Optional
 from collections import Counter
 import heapq
@@ -576,8 +586,9 @@ def demonstrate_patterns():
 
 if __name__ == "__main__":
     demonstrate_patterns()
-
+```
 **Algorithm Intuition**:
+
 1. **Find the pivot**: Rightmost position where sequence stops decreasing
 2. **Find successor**: Smallest element right of pivot that's still larger than pivot
 3. **Swap and reverse**: Swap them, then reverse the suffix to minimize it
@@ -585,6 +596,7 @@ if __name__ == "__main__":
 This is **O(n)** time and **O(1)** space — optimal!
 
 **Why this works**: 
+
 - Elements right of pivot are in descending order (can't be increased further in their arrangement)
 - Swapping with the smallest larger element makes the minimal increment
 - Reversing the suffix gives the smallest possible tail
@@ -594,6 +606,7 @@ This is **O(n)** time and **O(1)** space — optimal!
 Common pattern: "Rearrange elements to form lexicographically smallest sequence under constraints"
 
 **Strategy**:
+
 1. **Greedy placement**: Place smallest available element at each position
 2. **Constraint checking**: Verify constraints after each placement
 3. **Backtracking**: If dead end, backtrack and try next smallest---
@@ -603,11 +616,13 @@ Common pattern: "Rearrange elements to form lexicographically smallest sequence 
 ### **6.1 The Greedy Framework**
 
 **When greedy works for lexicographic problems**:
+
 - You want the **smallest/largest** element at each position
 - Earlier positions have **higher priority** than later ones
 - No future decision can "undo" the benefit of an optimal early choice
 
 **Pattern Recognition**:
+
 ```
 If problem asks for "lexicographically smallest/largest"
     AND you can make choices position-by-position
@@ -622,6 +637,7 @@ Many lexicographic problems reduce to maintaining a monotonic sequence while res
 **Key insight**: If you see a larger element followed by a smaller element, you can often improve lexicographic order by removing the larger one (if constraints allow).
 
 **Template**:
+
 1. Iterate through elements
 2. While stack top is "worse" than current AND we can afford to remove it:
    - Pop stack
@@ -630,6 +646,7 @@ Many lexicographic problems reduce to maintaining a monotonic sequence while res
 ### **6.3 Mathematical Decomposition**
 
 For problems involving **permutations** or **combinations**:
+
 - Think in terms of **factorial number systems**
 - Each position's choice affects the "budget" for remaining positions
 - Use rank/unrank algorithms to convert between permutation and index
@@ -659,6 +676,7 @@ Finding kth permutation: O(n²) naïve, O(n) optimized
 
 ## **8. Language-Specific Considerations**
 
+```rust
 // ============================================
 // RUST IMPLEMENTATION: Lexicographic Ordering
 // ============================================
@@ -886,6 +904,7 @@ fn demonstrate_rust_patterns() {
     data.sort_by_key(|&(name, score)| (name, std::cmp::Reverse(score)));
     println!("\nSorted by name ↑, score ↓: {:?}", data);
 }
+```
 
 // ============================================
 // GO IMPLEMENTATION (in comments for reference)
@@ -894,6 +913,7 @@ fn demonstrate_rust_patterns() {
 /*
 // Go version focusing on interfaces and standard library usage
 
+```go
 package main
 
 import (
@@ -1008,12 +1028,14 @@ func sortWithMultipleCriteria(items []Item) {
 fn main() {
     demonstrate_rust_patterns();
 }
+```
 
 ## **9. Problem-Solving Framework**
 
 ### **Step 1: Identify the Pattern**
 
 Ask yourself:
+
 1. **What are we comparing?** Strings, arrays, tuples, custom objects?
 2. **What's the goal?** Smallest? Largest? Next? Kth?
 3. **Are there constraints?** Fixed operations? Transformation rules?
@@ -1044,6 +1066,7 @@ Lexicographic Problem Decision Tree:
 ### **Step 3: Complexity Analysis**
 
 **Before coding**, estimate:
+
 - How many comparisons? (Each comparison is O(m) for length m sequences)
 - Can we use greedy? (Verify optimal substructure)
 - Do we need auxiliary space? (Can we work in-place?)
@@ -1053,21 +1076,26 @@ Lexicographic Problem Decision Tree:
 ## **10. Common Pitfalls & How to Avoid Them**
 
 ### **Pitfall 1: Forgetting Prefix Rule**
+
 ```python
 # Wrong: [1, 2] == [1, 2, 3] ❌
 # Right: [1, 2] < [1, 2, 3] ✓
 ```
 
 ### **Pitfall 2: Not Checking Remaining Elements**
+
 When using greedy removal, always ensure you have enough elements left to meet the target length.
 
 ### **Pitfall 3: Integer Overflow in Factorial Calculations**
+
 For large n, factorials overflow. Use modular arithmetic or arbitrary precision.
 
 ### **Pitfall 4: Case Sensitivity in Strings**
+
 'A' (65) < 'a' (97) in ASCII. Normalize if needed.
 
 ### **Pitfall 5: Mutating While Iterating**
+
 ```python
 # Dangerous:
 for i in range(len(arr)):
@@ -1083,18 +1111,21 @@ while arr:
 ## **11. Practice Problem Roadmap**
 
 ### **Foundation (Master These First)**
+
 1. ✅ Implement next permutation from scratch
 2. ✅ Find lexicographically smallest string after k swaps
 3. ✅ Remove k digits to minimize number
 4. ✅ Compare version strings
 
 ### **Intermediate (Pattern Recognition)**
+
 5. Smallest subsequence of distinct characters
 6. Lexicographically smallest equivalent string (Union-Find)
 7. Rearrange string k distance apart
 8. Next greater element (circular)
 
 ### **Advanced (Combination Patterns)**
+
 9. Count distinct permutations in lexicographic range
 10. Shortest palindrome by adding characters (KMP + lex)
 11. Lexicographically smallest string after substring swaps
@@ -1105,12 +1136,15 @@ while arr:
 ## **12. Cognitive Principles for Mastery**
 
 ### **Chunking Strategy**
+
 Group related patterns:
+
 - **Chunk 1**: "Position-by-position greedy" (swaps, removals)
 - **Chunk 2**: "Monotonic sequence maintenance" (stack-based)
 - **Chunk 3**: "Factorial decomposition" (permutation ranking)
 
 ### **Deliberate Practice Protocol**
+
 1. **Solve without looking** (30 min timer)
 2. **Compare with optimal** (analyze differences)
 3. **Explain to yourself** (Feynman technique)
@@ -1118,18 +1152,23 @@ Group related patterns:
 5. **Revisit after 1 day, 1 week, 1 month** (spaced repetition)
 
 ### **Mental Simulation**
+
 Before coding:
+
 - **Trace by hand** on 3-4 examples
 - **Identify invariants** (what stays true at each step?)
 - **Predict edge cases** (empty, single element, all same, reversed)
 
 ### **Meta-Learning Insight**
+
 Lexicographic problems train **hierarchical decision-making** — a transferable skill. You're learning to:
+
 - Prioritize dimensions of comparison
 - Make locally optimal choices with global awareness
 - Reason about state space efficiently
 
 This mental model applies to:
+
 - Database indexing
 - Game tree search (alpha-beta pruning)
 - Multi-criteria optimization
@@ -1140,6 +1179,7 @@ This mental model applies to:
 ## **13. Final Mastery Checklist**
 
 Can you:
+
 - [ ] Implement next permutation in O(n) time, O(1) space?
 - [ ] Explain why greedy works for "smallest after k swaps"?
 - [ ] Derive time complexity of sorting n sequences of length m?
@@ -1156,6 +1196,7 @@ Can you:
 You're not just learning an algorithm — you're internalizing a **fundamental way computers order information**. Every database index, every sorted file system, every ranked search result uses lexicographic ordering.
 
 **Next Steps**:
+
 1. Implement all patterns in the artifacts above in Rust and Go
 2. Solve 20 problems (5 from each category in the roadmap)
 3. Time yourself: can you recognize the pattern in <60 seconds?
@@ -1172,7 +1213,9 @@ Let's forge that intuition through fire. What problem shall we tackle first? �
 The array [1, 2, 3, 4, 5, 6] is strictly increasing, so it's the first permutation in lexicographical order. To find the "next" one, we apply the algorithm you described. Here's a step-by-step breakdown with ASCII diagrams (using 0-based indexing for clarity). I'll explain the pivot concept first, then walk through the steps.
 
 #### Quick Explanation of the Pivot
+
 The **pivot** is the *rightmost* position (index `k`) in the array where the sequence "stops decreasing" when scanning from the right. In other words:
+
 - Start from the end and move left, looking for the longest "decreasing suffix" (a tail where each element is ≥ the next one, i.e., non-increasing).
 - The pivot is the element *just before* this suffix starts—specifically, the rightmost index where `a[k] < a[k+1]`.
 - This works because the decreasing suffix represents the "exhausted" part of the permutation (like the end of a sorted list). To get the next permutation, we need to "bump up" the pivot (by swapping with a slightly larger successor) and then minimize the new suffix to keep things lexicographically smallest.
@@ -1181,6 +1224,7 @@ The **pivot** is the *rightmost* position (index `k`) in the array where the seq
 If no such pivot exists (e.g., fully decreasing like [6,5,4,3,2,1]), it's the last permutation—wrap around to the sorted one.
 
 #### Step 1: Find the Pivot
+
 Scan from the right for the rightmost `k` where `a[k] < a[k+1]`.
 
 ```
@@ -1194,6 +1238,7 @@ Pivot (k=4): Rightmost where it "stops decreasing" (5 < 6)
 ```
 
 #### Step 2: Find the Successor
+
 From the right of the pivot (suffix starting at index 5), find the *smallest* element `l > k` where `a[l] > a[k]` (i.e., >5). Here, only 6 qualifies, so `l=5`.
 
 ```
@@ -1203,6 +1248,7 @@ Pivot val:     5                  ↑
 ```
 
 #### Step 3: Swap Pivot and Successor, Then Reverse Suffix
+
 - Swap `a[4]` (5) and `a[5]` (6) → [1, 2, 3, 4, 6, 5]
 - Reverse the suffix after the pivot (indices 5 to end: just [5], which stays the same)
 
@@ -1229,47 +1275,57 @@ The result [1, 2, 3, 4, 6, 5] is the immediate next permutation—smallest possi
 These terms come from the standard algorithm for generating the next lexicographically larger permutation of a sequence (e.g., from [1,2,3] to [1,3,2]). The goal is to find the smallest possible "next" arrangement without generating all permutations. I'll explain each term below, using the example sequence **[1, 2, 3, 4, 5, 6]** (which becomes [1, 2, 3, 4, 6, 5] as the next one). I'll include a simple ASCII diagram for context.
 
 #### 1. **Pivot**
-   - **Meaning**: The *rightmost* index `k` in the sequence where the elements start to "increase" again after scanning from the right. In other words, it's the position where `a[k] < a[k+1]` holds, marking the end of the longest "decreasing suffix" (a tail where elements are non-increasing, like a sorted descending list that's been exhausted).
-   - **Why it matters**: This identifies the point to "increment" the sequence—like carrying over in addition. Everything left of the pivot stays the same (it's already the smallest possible prefix), and we only tweak the suffix.
-   - **In the example**: The whole sequence is increasing, so the decreasing suffix is just [6]. The pivot is at index 4 (value **5**), because 5 < 6.
-     ```
+
+- **Meaning**: The *rightmost* index `k` in the sequence where the elements start to "increase" again after scanning from the right. In other words, it's the position where `a[k] < a[k+1]` holds, marking the end of the longest "decreasing suffix" (a tail where elements are non-increasing, like a sorted descending list that's been exhausted).
+- **Why it matters**: This identifies the point to "increment" the sequence—like carrying over in addition. Everything left of the pivot stays the same (it's already the smallest possible prefix), and we only tweak the suffix.
+- **In the example**: The whole sequence is increasing, so the decreasing suffix is just [6]. The pivot is at index 4 (value **5**), because 5 < 6.
+
+```
      [ 1, 2, 3, 4 | 5, 6 ]  ← Pivot at | (index 4: 5 < 6)
             Prefix  |  Suffix (decreasing tail)
-     ```
+```
 
 #### 2. **Successor**
-   - **Meaning**: The *smallest* element in the suffix (right of the pivot) that is *larger* than the pivot value. It's found by scanning the suffix from the right.
-   - **Why it matters**: Swapping with this ensures the smallest possible increase at the pivot position, keeping the new permutation as close as possible to the original (lexicographically next).
-   - **In the example**: Suffix is [6]. The smallest >5 is **6** (at index 5).
-     ```
+
+- **Meaning**: The *smallest* element in the suffix (right of the pivot) that is *larger* than the pivot value. It's found by scanning the suffix from the right.
+- **Why it matters**: Swapping with this ensures the smallest possible increase at the pivot position, keeping the new permutation as close as possible to the original (lexicographically next).
+- **In the example**: Suffix is [6]. The smallest >5 is **6** (at index 5).
+
+```
      [ 1, 2, 3, 4 | 5, 6 ]  ← Successor is 6 (smallest in suffix > pivot 5)
             Prefix  |  ↑ (index 5)
-     ```
+```
 
 #### 3. **Suffix**
-   - **Meaning**: The subsequence starting *immediately after the pivot* to the end of the array. This is always non-increasing (decreasing or equal) by definition of the pivot.
-   - **Why it matters**: It's the "exhausted" part of the current permutation. After swapping, we need to rearrange it to be the smallest possible (ascending) for the next permutation.
-   - **In the example**: After pivot (index 4), suffix = **[6]** (indices 5 to end).
-     ```
+
+- **Meaning**: The subsequence starting *immediately after the pivot* to the end of the array. This is always non-increasing (decreasing or equal) by definition of the pivot.
+- **Why it matters**: It's the "exhausted" part of the current permutation. After swapping, we need to rearrange it to be the smallest possible (ascending) for the next permutation.
+- **In the example**: After pivot (index 4), suffix = **[6]** (indices 5 to end).
+
+```
      [ 1, 2, 3, 4 | 5 | 6 ]  ← Suffix starts after pivot: [6]
             Prefix  |     |
                  Pivot   Suffix
-     ```
+```
 
 #### 4. **Reverse Suffix**
-   - **Meaning**: After swapping the pivot with its successor, *reverse* the entire suffix (now including the swapped elements) to sort it in ascending order. This minimizes the tail, ensuring the overall permutation is the smallest possible next one.
-   - **Why it matters**: The suffix was originally descending; reversing makes it ascending, which is the lexicographically smallest arrangement of those elements.
-   - **In the example**:
-     - After swap: [1, 2, 3, 4, **6**, **5**] (suffix now [5])
-     - Reverse suffix [5] → still [5] (single element, no change)
-     - Final: **[1, 2, 3, 4, 6, 5]**
-     ```
+
+- **Meaning**: After swapping the pivot with its successor, *reverse* the entire suffix (now including the swapped elements) to sort it in ascending order. This minimizes the tail, ensuring the overall permutation is the smallest possible next one.
+- **Why it matters**: The suffix was originally descending; reversing makes it ascending, which is the lexicographically smallest arrangement of those elements.
+- **In the example**:
+
+- After swap: [1, 2, 3, 4, **6**, **5**] (suffix now [5])
+- Reverse suffix [5] → still [5] (single element, no change)
+- Final: **[1, 2, 3, 4, 6, 5]**
+
+```
      Before swap: [ 1, 2, 3, 4 | 5 | 6 ]  ← Suffix: [6]
      After swap:  [ 1, 2, 3, 4 | 6 | 5 ]  ← Suffix now: [5] (descending? No, but reverse anyway)
      After reverse:[ 1, 2, 3, 4 | 6 | 5 ]  ← Suffix reversed to ascending: [5]
-     ```
+```
 
 For a more interesting example with a longer suffix, consider [1, 2, 5, 4, 3]:
+
 - Pivot: Index 1 (2 < 5)
 - Suffix: [5,4,3] (decreasing)
 - Successor: 3 (smallest in suffix >2)
