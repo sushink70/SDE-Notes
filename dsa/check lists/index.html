@@ -1,0 +1,1020 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSA Mastery Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(31, 41, 55, 0.3);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(75, 85, 99, 0.5);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(107, 114, 128, 0.7);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 flex">
+    <!-- Sidebar -->
+    <div id="sidebar" class="w-80 transition-all duration-300 overflow-hidden bg-gray-900/50 backdrop-blur-sm border-r border-gray-700/50">
+        <div class="p-6 space-y-6">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                    Problems
+                </h2>
+                <button id="closeSidebar" class="lg:hidden text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4.5 h-4.5"></i>
+                <input
+                    id="searchInput"
+                    type="text"
+                    placeholder="Search problems..."
+                    class="w-full pl-10 pr-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                />
+            </div>
+            <div id="problemsList" class="space-y-2 max-h-[calc(100vh-250px)] overflow-y-auto custom-scrollbar"></div>
+            <div class="flex gap-2">
+                <button
+                    id="exportBtn"
+                    class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-all text-sm"
+                >
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    Export
+                </button>
+                <label class="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-all cursor-pointer text-sm">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    Import
+                    <input id="importInput" type="file" accept=".json" class="hidden" />
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col">
+        <!-- Header -->
+        <header class="bg-gray-900/50 backdrop-blur-sm border-b border-gray-700/50 p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <button id="openSidebar" class="text-gray-400 hover:text-white hidden">
+                        <i data-lucide="menu" class="w-6 h-6"></i>
+                    </button>
+                    <h1 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400">
+                        DSA Mastery Tracker
+                    </h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg">
+                        <i data-lucide="clock" class="w-4.5 h-4.5 text-blue-400"></i>
+                        <span id="timerDisplay" class="font-mono text-lg">00:00</span>
+                        <button
+                            id="timerToggle"
+                            class="ml-2 px-3 py-1 rounded bg-green-500/20 text-green-400 transition-all text-sm"
+                        >
+                            Start
+                        </button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button
+                            id="statsBtn"
+                            class="p-2 rounded-lg transition-all bg-gray-800 text-gray-400 hover:text-white"
+                        >
+                            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                        </button>
+                        <button
+                            id="newProblemBtn"
+                            class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg transition-all font-semibold"
+                        >
+                            <i data-lucide="plus" class="w-5 h-5"></i>
+                            New Problem
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <div id="contentArea" class="flex-1 overflow-y-auto custom-scrollbar p-6"></div>
+    </div>
+
+    <script>
+        // Global state
+        let problems = [];
+        let currentProblem = null;
+        let view = 'empty'; // 'empty', 'form', 'stats'
+        let sidebarOpen = true;
+        let searchTerm = '';
+        let timer = 0;
+        let timerRunning = false;
+        let timerInterval = null;
+        let copied = false;
+        let autoSaveInterval = null;
+
+        // Pattern resources for helpful tips
+        const patternResources = {
+            array: { tip: 'Focus on indexing, traversal, and manipulation techniques.', resource: 'https://www.geeksforgeeks.org/array-data-structure/' },
+            twoPointers: { tip: 'Ideal for sorted arrays to find pairs or subarrays efficiently in O(n) time.', resource: 'https://www.geeksforgeeks.org/two-pointers-technique/' },
+            slidingWindow: { tip: 'Use for subarray problems to maintain a dynamic window size.', resource: 'https://www.geeksforgeeks.org/window-sliding-technique/' },
+            binarySearch: { tip: 'Achieve O(log n) search on sorted data by halving the search space.', resource: 'https://www.geeksforgeeks.org/binary-search/' },
+            hashMap: { tip: 'Provides average O(1) lookups; great for frequency counts and caching.', resource: 'https://www.geeksforgeeks.org/hashing-data-structure/' },
+            stack: { tip: 'LIFO structure perfect for parentheses validation and monotonic stacks.', resource: 'https://www.geeksforgeeks.org/stack-data-structure/' },
+            heap: { tip: 'Priority queues for top-k problems; min/max heaps for efficient extraction.', resource: 'https://www.geeksforgeeks.org/heap-data-structure/' },
+            linkedList: { tip: 'Dynamic sizing; watch for cycle detection with slow/fast pointers.', resource: 'https://www.geeksforgeeks.org/data-structures/linked-list/' },
+            tree: { tip: 'Hierarchical data; DFS/BFS for traversal, recursion common.', resource: 'https://www.geeksforgeeks.org/binary-tree-data-structure/' },
+            graph: { tip: 'Nodes and edges; BFS for shortest path, DFS for connectivity.', resource: 'https://www.geeksforgeeks.org/graph-data-structure-and-algorithms/' },
+            backtracking: { tip: 'Explore all possibilities with pruning; for permutations and subsets.', resource: 'https://www.geeksforgeeks.org/backtracking-algorithms/' },
+            dp: { tip: 'Break into subproblems; memoization or tabulation to avoid recomputation.', resource: 'https://www.geeksforgeeks.org/dynamic-programming/' },
+            greedy: { tip: 'Local optimum leads to global; sort and pick best at each step.', resource: 'https://www.geeksforgeeks.org/greedy-algorithms/' },
+            divideConquer: { tip: 'Divide problem, solve recursively, combine; like merge sort.', resource: 'https://www.geeksforgeeks.org/divide-and-conquer-algorithm/' },
+            bitManipulation: { tip: 'Use bitwise ops for efficient math; XOR for unique elements.', resource: 'https://www.geeksforgeeks.org/bitwise-algorithms/' },
+            math: { tip: 'Leverage mathematical properties; modular arithmetic, primes.', resource: 'https://www.geeksforgeeks.org/mathematics/' }
+        };
+
+        // DOM elements
+        const sidebar = document.getElementById('sidebar');
+        const problemsList = document.getElementById('problemsList');
+        const searchInput = document.getElementById('searchInput');
+        const contentArea = document.getElementById('contentArea');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timerToggle = document.getElementById('timerToggle');
+        const openSidebar = document.getElementById('openSidebar');
+        const closeSidebar = document.getElementById('closeSidebar');
+        const statsBtn = document.getElementById('statsBtn');
+        const newProblemBtn = document.getElementById('newProblemBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const importInput = document.getElementById('importInput');
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Utility functions
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const updateTimerDisplay = () => {
+            timerDisplay.textContent = formatTime(timer);
+        };
+
+        const startTimer = () => {
+            timerRunning = true;
+            timerInterval = setInterval(() => {
+                timer++;
+                updateTimerDisplay();
+            }, 1000);
+            timerToggle.textContent = 'Pause';
+            timerToggle.className = 'ml-2 px-3 py-1 rounded bg-red-500/20 text-red-400 transition-all text-sm';
+        };
+
+        const stopTimer = () => {
+            timerRunning = false;
+            if (timerInterval) clearInterval(timerInterval);
+            timerToggle.textContent = 'Start';
+            timerToggle.className = 'ml-2 px-3 py-1 rounded bg-green-500/20 text-green-400 transition-all text-sm';
+        };
+
+        const toggleTimer = () => {
+            if (timerRunning) {
+                stopTimer();
+            } else {
+                startTimer();
+            }
+        };
+
+        // Load/Save to localStorage
+        const loadProblems = () => {
+            const saved = localStorage.getItem('dsa_problems');
+            if (saved) {
+                problems = JSON.parse(saved);
+                renderProblemsList();
+                renderStats();
+            }
+        };
+
+        const saveProblems = () => {
+            if (problems.length > 0) {
+                localStorage.setItem('dsa_problems', JSON.stringify(problems));
+            }
+        };
+
+        // Auto-save feature
+        const startAutoSave = () => {
+            if (autoSaveInterval) clearInterval(autoSaveInterval);
+            autoSaveInterval = setInterval(() => {
+                if (currentProblem && view === 'form') {
+                    saveProblem();
+                }
+            }, 120000); // 2 minutes
+        };
+
+        const stopAutoSave = () => {
+            if (autoSaveInterval) clearInterval(autoSaveInterval);
+        };
+
+        // LeetCode Fetch Details
+        const fetchLeetCodeDetails = async (url) => {
+            if (!url.startsWith('https://leetcode.com/problems/')) {
+                alert('Please enter a valid LeetCode problem URL.');
+                return;
+            }
+            try {
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Failed to fetch');
+                const html = await response.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+
+                // Extract title (assuming h1 with class)
+                const titleEl = doc.querySelector('h1.text-lg.font-semibold') || doc.querySelector('h1');
+                const title = titleEl ? titleEl.textContent.trim() : '';
+
+                // Extract difficulty (assuming span with difficulty class)
+                const diffEl = doc.querySelector('.difficulty');
+                const difficulty = diffEl ? diffEl.textContent.trim() : '';
+
+                // Extract description
+                const descEl = doc.querySelector('.description') || doc.querySelector('[data-cy="question-desc"]');
+                const description = descEl ? descEl.innerHTML : '';
+
+                // Extract first example
+                const examples = doc.querySelectorAll('.example');
+                let example1Input = '', example1Output = '', example1Why = '';
+                if (examples.length > 0) {
+                    const firstExample = examples[0].querySelector('pre code');
+                    if (firstExample) {
+                        const text = firstExample.textContent;
+                        const inputMatch = text.match(/Input:(.*?)(?=\nOutput:)/s);
+                        const outputMatch = text.match(/Output:(.*?)(?=\nExplanation:|$)/s);
+                        const whyMatch = text.match(/Explanation:(.*)$/s);
+                        example1Input = inputMatch ? inputMatch[1].trim() : '';
+                        example1Output = outputMatch ? outputMatch[1].trim() : '';
+                        example1Why = whyMatch ? whyMatch[1].trim() : '';
+                    }
+                }
+
+                // Extract constraints
+                const constraintsEl = doc.querySelector('.constraints ul');
+                const constraints = constraintsEl ? Array.from(constraintsEl.querySelectorAll('li')).map(li => li.textContent.trim()).join('\n') : '';
+
+                // Update current problem
+                currentProblem.problemName = title;
+                currentProblem.difficulty = difficulty;
+                currentProblem.problemDescription = description;
+                currentProblem.example1Input = example1Input;
+                currentProblem.example1Output = example1Output;
+                currentProblem.example1Why = example1Why;
+                currentProblem.constraints = constraints;
+
+                // Re-render form to show updates
+                renderForm();
+
+                alert('Details fetched and populated successfully! Note: Parsing may not be perfect; review and edit as needed.');
+            } catch (error) {
+                console.error('Fetch error:', error);
+                alert('Failed to fetch details. Ensure the URL is correct and try again. Note: Some details may require manual entry.');
+            }
+        };
+
+        // Problem template (added confidence)
+        const createNewProblem = () => {
+            const template = {
+                id: Date.now(),
+                createdAt: new Date().toISOString(),
+                problemName: '',
+                difficulty: '',
+                timeSpent: 0,
+                pattern: '',
+                category: '',
+                leetcodeUrl: '',
+                problemDescription: '',
+                input: '',
+                output: '',
+                constraints: '',
+                timeComplexityTarget: '',
+                spaceComplexityTarget: '',
+                example1Input: '',
+                example1Output: '',
+                example1Why: '',
+                example2Input: '',
+                example2Output: '',
+                example2Why: '',
+                edgeCases: {
+                    emptyInput: false,
+                    singleElement: false,
+                    allSame: false,
+                    maxSize: false,
+                    negative: false,
+                    duplicates: false,
+                    sorted: false,
+                    reverseSorted: false,
+                    custom1: '',
+                    custom2: ''
+                },
+                patterns: {
+                    array: false,
+                    twoPointers: false,
+                    slidingWindow: false,
+                    binarySearch: false,
+                    hashMap: false,
+                    stack: false,
+                    heap: false,
+                    linkedList: false,
+                    tree: false,
+                    graph: false,
+                    backtracking: false,
+                    dp: false,
+                    greedy: false,
+                    divideConquer: false,
+                    bitManipulation: false,
+                    math: false
+                },
+                selectedPattern: '',
+                similarProblems: '',
+                bruteForce: { idea: '', time: '', space: '', whySlow: '' },
+                optimization1: { idea: '', time: '', space: '', tradeoff: '' },
+                optimization2: { idea: '', time: '', space: '', whyWorks: '' },
+                selectedApproach: '',
+                algorithmSteps: ['', '', '', ''],
+                invariants: ['', ''],
+                pseudocode: '',
+                language: 'rust',
+                code: '',
+                timeBest: '',
+                timeAverage: '',
+                timeWorst: '',
+                space: '',
+                learnings: '',
+                mistakes: '',
+                keyInsight: '',
+                completed: false,
+                confidence: '' // New: User confidence level
+            };
+            currentProblem = template;
+            timer = 0;
+            updateTimerDisplay();
+            startTimer();
+            view = 'form';
+            renderContent();
+            startAutoSave();
+        };
+
+        const saveProblem = () => {
+            if (!currentProblem.problemName) {
+                alert('Please enter a problem name');
+                return;
+            }
+            currentProblem.timeSpent = timer;
+            const existingIndex = problems.findIndex(p => p.id === currentProblem.id);
+            if (existingIndex >= 0) {
+                problems[existingIndex] = { ...currentProblem };
+            } else {
+                problems.unshift({ ...currentProblem });
+            }
+            saveProblems();
+            renderProblemsList();
+            stopTimer();
+            alert('Problem saved successfully!');
+            stopAutoSave();
+        };
+
+        const loadProblem = (problem) => {
+            currentProblem = { ...problem };
+            timer = problem.timeSpent || 0;
+            updateTimerDisplay();
+            stopTimer();
+            view = 'form';
+            renderContent();
+            startAutoSave();
+        };
+
+        const deleteProblem = (id) => {
+            if (confirm('Are you sure you want to delete this problem?')) {
+                problems = problems.filter(p => p.id !== id);
+                saveProblems();
+                renderProblemsList();
+                if (currentProblem?.id === id) {
+                    currentProblem = null;
+                    view = 'empty';
+                    renderContent();
+                    stopAutoSave();
+                }
+            }
+        };
+
+        const exportData = () => {
+            const dataStr = JSON.stringify(problems, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `dsa-problems-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        };
+
+        const importData = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        problems = imported;
+                        saveProblems();
+                        renderProblemsList();
+                        renderStats();
+                        alert('Data imported successfully!');
+                    } catch (error) {
+                        alert('Error importing data. Please check the file format.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+
+        const generateMarkdown = (problem) => {
+            return `# ${problem.problemName}
+**Difficulty:** ${problem.difficulty} | **Time:** ${formatTime(problem.timeSpent)}
+**Pattern:** ${problem.pattern} | **Category:** ${problem.category}
+## Problem Description
+${problem.problemDescription}
+## Approach
+${problem.selectedApproach}
+## Code (${problem.language})
+\`\`\`${problem.language}
+${problem.code}
+\`\`\`
+## Complexity
+- Time: ${problem.timeWorst}
+- Space: ${problem.space}
+## Key Insight
+${problem.keyInsight}`;
+        };
+
+        const copyToClipboard = () => {
+            if (!currentProblem) return;
+            const text = generateMarkdown(currentProblem);
+            navigator.clipboard.writeText(text).then(() => {
+                copied = true;
+                const copyBtn = document.querySelector('#copyBtn');
+                if (copyBtn) {
+                    copyBtn.innerHTML = '<i data-lucide="check" class="w-4.5 h-4.5 text-green-400"></i> Copied!';
+                    copyBtn.classList.add('bg-green-500/20', 'text-green-400');
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<i data-lucide="copy" class="w-4.5 h-4.5"></i> Copy Markdown';
+                        copyBtn.classList.remove('bg-green-500/20', 'text-green-400');
+                        lucide.createIcons();
+                    }, 2000);
+                }
+            });
+        };
+
+        // Stats calculation (added byPattern)
+        const getStats = () => {
+            const stats = {
+                total: problems.length,
+                completed: problems.filter(p => p.completed).length,
+                avgTime: problems.length > 0 ? Math.round(problems.reduce((acc, p) => acc + p.timeSpent, 0) / problems.length) : 0,
+                thisWeek: problems.filter(p => {
+                    const weekAgo = new Date();
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    return new Date(p.createdAt) > weekAgo;
+                }).length,
+                byDifficulty: {
+                    easy: problems.filter(p => p.difficulty === 'Easy').length,
+                    medium: problems.filter(p => p.difficulty === 'Medium').length,
+                    hard: problems.filter(p => p.difficulty === 'Hard').length
+                },
+                byPattern: {}
+            };
+            problems.forEach(p => {
+                Object.entries(p.patterns).forEach(([pat, checked]) => {
+                    if (checked) {
+                        if (!stats.byPattern[pat]) stats.byPattern[pat] = 0;
+                        stats.byPattern[pat]++;
+                    }
+                });
+            });
+            return stats;
+        };
+
+        // Render functions
+        const renderProblemsList = () => {
+            const filtered = problems.filter(p =>
+                p.problemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.pattern.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.category.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            problemsList.innerHTML = filtered.map(problem => `
+                <div class="group p-3 bg-gray-800/30 hover:bg-gray-800/60 border border-gray-700/50 rounded-lg cursor-pointer transition-all duration-200 hover:scale-[1.02]" data-id="${problem.id}">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <i data-lucide="${problem.completed ? 'check-square' : 'square'}" class="w-4 h-4 ${problem.completed ? 'text-green-400' : 'text-gray-500'} flex-shrink-0"></i>
+                                <h3 class="font-semibold text-sm truncate">${problem.problemName || 'Untitled'}</h3>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-400">
+                                <span class="px-2 py-0.5 rounded ${
+                                    problem.difficulty === 'Easy' ? 'bg-green-500/20 text-green-400' :
+                                    problem.difficulty === 'Medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-red-500/20 text-red-400'
+                                }">
+                                    ${problem.difficulty}
+                                </span>
+                                <span>${formatTime(problem.timeSpent)}</span>
+                            </div>
+                        </div>
+                        <button class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-opacity" data-delete="${problem.id}">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+            // Add event listeners
+            document.querySelectorAll('[data-id]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    if (!e.target.closest('[data-delete]')) {
+                        const id = parseInt(el.dataset.id);
+                        const problem = problems.find(p => p.id === id);
+                        loadProblem(problem);
+                    }
+                });
+            });
+            document.querySelectorAll('[data-delete]').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = parseInt(el.dataset.delete);
+                    deleteProblem(id);
+                });
+            });
+        };
+
+        const renderStats = () => {
+            const stats = getStats();
+            const topPatterns = Object.entries(stats.byPattern)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5)
+                .map(([pat, count]) => ({
+                    name: pat.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                    count
+                }));
+            contentArea.innerHTML = `
+                <div class="max-w-6xl mx-auto space-y-6">
+                    <h2 class="text-3xl font-bold mb-6">Your Progress</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 shadow-lg">
+                            <div class="text-white/80 text-sm mb-2">Total Problems</div>
+                            <div class="text-3xl font-bold text-white">${stats.total}</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 shadow-lg">
+                            <div class="text-white/80 text-sm mb-2">Completed</div>
+                            <div class="text-3xl font-bold text-white">${stats.completed}</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 shadow-lg">
+                            <div class="text-white/80 text-sm mb-2">Avg Time</div>
+                            <div class="text-3xl font-bold text-white">${Math.floor(stats.avgTime / 60)}m</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl p-6 shadow-lg">
+                            <div class="text-white/80 text-sm mb-2">This Week</div>
+                            <div class="text-3xl font-bold text-white">${stats.thisWeek}</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6">
+                            <h3 class="text-xl font-semibold mb-4">By Difficulty</h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Easy</span>
+                                        <span class="text-gray-400">${stats.byDifficulty.easy}</span>
+                                    </div>
+                                    <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-green-500 transition-all duration-500" style="width: ${stats.total > 0 ? (stats.byDifficulty.easy / stats.total) * 100 : 0}%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Medium</span>
+                                        <span class="text-gray-400">${stats.byDifficulty.medium}</span>
+                                    </div>
+                                    <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-yellow-500 transition-all duration-500" style="width: ${stats.total > 0 ? (stats.byDifficulty.medium / stats.total) * 100 : 0}%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Hard</span>
+                                        <span class="text-gray-400">${stats.byDifficulty.hard}</span>
+                                    </div>
+                                    <div class="w-full h-2 bg-gray-700 rounded-full overflow-hidden">
+                                        <div class="h-full bg-red-500 transition-all duration-500" style="width: ${stats.total > 0 ? (stats.byDifficulty.hard / stats.total) * 100 : 0}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6">
+                            <h3 class="text-xl font-semibold mb-4">Top Patterns Practiced</h3>
+                            <div class="space-y-2">
+                                ${topPatterns.map(p => `
+                                    <div class="flex justify-between items-center text-sm">
+                                        <span class="truncate flex-1">${p.name}</span>
+                                        <span class="text-gray-400 ml-2">${p.count}</span>
+                                    </div>
+                                `).join('') || '<p class="text-gray-500">No patterns tracked yet.</p>'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6">
+                        <h3 class="text-xl font-semibold mb-4">Recent Activity</h3>
+                        <div class="space-y-2">
+                            ${problems.slice(0, 5).map(p => `
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="truncate flex-1">${p.problemName || 'Untitled'}</span>
+                                    <span class="text-gray-400 ml-2">${new Date(p.createdAt).toLocaleDateString()}</span>
+                                </div>
+                            `).join('') || '<p class="text-gray-500">No recent activity.</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        };
+
+        const renderEmptyState = () => {
+            contentArea.innerHTML = `
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center space-y-4">
+                        <i data-lucide="code" class="mx-auto w-16 h-16 text-gray-600"></i>
+                        <h3 class="text-2xl font-semibold text-gray-400">No Problem Selected</h3>
+                        <p class="text-gray-500">Start your journey to the top 1%</p>
+                        <button id="emptyNewBtn" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg transition-all font-semibold">
+                            Create Your First Problem
+                        </button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+            document.getElementById('emptyNewBtn').addEventListener('click', createNewProblem);
+        };
+
+        const createInput = (label, value, onChange, placeholder = '', type = 'text', mono = false, rows = 1) => {
+            if (rows > 1) {
+                return `
+                    <div>
+                        ${label ? `<label class="block text-sm font-semibold text-gray-300 mb-2">${label}</label>` : ''}
+                        <textarea rows="${rows}" class="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all text-gray-100 placeholder-gray-500 resize-none ${mono ? 'font-mono text-sm' : ''}" value="${value}" data-field="${onChange.field}" placeholder="${placeholder}">${value}</textarea>
+                    </div>
+                `;
+            }
+            return `
+                <div>
+                    ${label ? `<label class="block text-sm font-semibold text-gray-300 mb-2">${label}</label>` : ''}
+                    <input type="${type}" class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all text-gray-100 placeholder-gray-500 ${mono ? 'font-mono text-sm' : ''}" value="${value}" data-field="${onChange.field}" placeholder="${placeholder}">
+                </div>
+            `;
+        };
+
+        const createCheckbox = (label, checked, field, parent = null) => {
+            return `
+                <label class="flex items-center gap-2 cursor-pointer group">
+                    <input type="checkbox" class="w-4 h-4 rounded bg-gray-900/50 border-gray-700 text-blue-500 focus:ring-2 focus:ring-blue-500/50 cursor-pointer" ${checked ? 'checked' : ''} data-field="${parent ? `${parent}.${field}` : field}">
+                    <span class="text-sm text-gray-300 group-hover:text-gray-100 transition-colors">${label}</span>
+                </label>
+            `;
+        };
+
+        const createSelect = (label, value, options, field) => {
+            return `
+                <div>
+                    ${label ? `<label class="block text-sm font-semibold text-gray-300 mb-2">${label}</label>` : ''}
+                    <select class="w-full px-4 py-2 bg-gray-900/50 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-gray-100" data-field="${field}" value="${value}">
+                        ${options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt || 'Select...'}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+        };
+
+        const renderForm = () => {
+            if (!currentProblem) return;
+            const patternTip = currentProblem.selectedPattern && patternResources[currentProblem.selectedPattern] ? `
+                <div class="bg-blue-900/30 border border-blue-700/50 rounded-lg p-4 mt-4">
+                    <h4 class="font-semibold text-blue-300 mb-2">Quick Tip for ${currentProblem.selectedPattern.replace(/([A-Z])/g, ' $1').toUpperCase()}:</h4>
+                    <p class="text-gray-300 mb-3">${patternResources[currentProblem.selectedPattern].tip}</p>
+                    <a href="${patternResources[currentProblem.selectedPattern].resource}" target="_blank" class="text-blue-400 hover:text-blue-300 font-semibold">Learn More on GeeksforGeeks →</a>
+                </div>
+            ` : '';
+            contentArea.innerHTML = `
+                <div class="max-w-6xl mx-auto space-y-6">
+                    <!-- Header Actions -->
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-2xl font-bold">Problem Workspace</h2>
+                        <div class="flex gap-2">
+                            <button id="copyBtn" class="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-all">
+                                <i data-lucide="copy" class="w-4.5 h-4.5"></i>
+                                Copy Markdown
+                            </button>
+                            <button id="saveBtn" class="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg transition-all font-semibold">
+                                <i data-lucide="save" class="w-4.5 h-4.5"></i>
+                                Save Problem
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Section 0: LeetCode Import -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="file-text" class="w-5 h-5 text-blue-400"></i>
+                            <h3 class="text-xl font-bold text-gray-200">LeetCode Problem</h3>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex gap-2">
+                                ${createInput('LeetCode URL', currentProblem.leetcodeUrl, {field: 'leetcodeUrl'}, 'https://leetcode.com/problems/...')}
+                                <button id="fetchBtn" class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-all text-white font-medium">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                    Fetch Details
+                                </button>
+                            </div>
+                            ${createInput('Paste Problem Description', currentProblem.problemDescription, {field: 'problemDescription'}, 'Paste the full problem description from LeetCode here...', 'text', false, 6)}
+                        </div>
+                    </div>
+
+                    <!-- Section 1: Problem Header -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="edit" class="w-5 h-5 text-blue-400"></i>
+                            <h3 class="text-xl font-bold text-gray-200">1. Problem Header</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${createInput('Problem Name', currentProblem.problemName, {field: 'problemName'}, 'e.g., Two Sum', 'text')}
+                            ${createSelect('Difficulty', currentProblem.difficulty, ['', 'Easy', 'Medium', 'Hard'], 'difficulty')}
+                            ${createInput('Pattern', currentProblem.pattern, {field: 'pattern'}, 'e.g., Hash Map')}
+                            ${createInput('Category', currentProblem.category, {field: 'category'}, 'e.g., Array, String')}
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Understand & Visualize -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h3 class="text-xl font-bold text-gray-200">2. Understand & Visualize</h3>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${createInput('Input Format', currentProblem.input, {field: 'input'}, 'e.g., Array of integers')}
+                                ${createInput('Output Format', currentProblem.output, {field: 'output'}, 'e.g., Single integer')}
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                ${createInput('Constraints', currentProblem.constraints, {field: 'constraints'}, 'n ≤ 10^5')}
+                                ${createInput('Target Time', currentProblem.timeComplexityTarget, {field: 'timeComplexityTarget'}, 'O(n)')}
+                                ${createInput('Target Space', currentProblem.spaceComplexityTarget, {field: 'spaceComplexityTarget'}, 'O(1)')}
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-3">
+                                    <label class="block text-sm font-semibold text-gray-300">Example 1 (Given)</label>
+                                    ${createInput('Input', currentProblem.example1Input, {field: 'example1Input'}, '[2,7,11,15], 9')}
+                                    ${createInput('Output', currentProblem.example1Output, {field: 'example1Output'}, '[0,1]')}
+                                    ${createInput('Why?', currentProblem.example1Why, {field: 'example1Why'}, 'nums[0] + nums[1] == 9')}
+                                </div>
+                                <div class="space-y-3">
+                                    <label class="block text-sm font-semibold text-gray-300">Example 2 (Your Own)</label>
+                                    ${createInput('Input', currentProblem.example2Input, {field: 'example2Input'}, 'Create your own test case')}
+                                    ${createInput('Output', currentProblem.example2Output, {field: 'example2Output'}, 'Expected output')}
+                                    ${createInput('Why?', currentProblem.example2Why, {field: 'example2Why'}, 'Explanation')}
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-300 mb-3">Edge Cases</label>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    ${Object.entries(currentProblem.edgeCases).map(([key, value]) => {
+                                        if (key.startsWith('custom')) {
+                                            return createInput(key === 'custom1' ? 'Custom edge case 1' : 'Custom edge case 2', value, {field: `edgeCases.${key}`});
+                                        }
+                                        return createCheckbox(
+                                            key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                                            value,
+                                            key,
+                                            'edgeCases'
+                                        );
+                                    }).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Pattern Recognition -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h3 class="text-xl font-bold text-gray-200">3. Pattern Recognition</h3>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                ${Object.entries(currentProblem.patterns).map(([key, value]) => 
+                                    createCheckbox(
+                                        key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()),
+                                        value,
+                                        key,
+                                        'patterns'
+                                    )
+                                ).join('')}
+                            </div>
+                            ${createInput('Selected Pattern', currentProblem.selectedPattern, {field: 'selectedPattern'}, 'Primary pattern for this problem')}
+                            ${patternTip}
+                            ${createInput('Similar Problems Solved', currentProblem.similarProblems, {field: 'similarProblems'}, 'List similar problems you\'ve solved')}
+                        </div>
+                    </div>
+
+                    <!-- Section 4: Approach Comparison -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h3 class="text-xl font-bold text-gray-200">4. Approach Comparison</h3>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="bg-gray-900/30 border border-gray-700/30 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-200 mb-3">Brute Force</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    ${createInput('Idea', currentProblem.bruteForce.idea, {field: 'bruteForce.idea'}, 'Idea')}
+                                    ${createInput('Time', currentProblem.bruteForce.time, {field: 'bruteForce.time'}, 'Time')}
+                                    ${createInput('Space', currentProblem.bruteForce.space, {field: 'bruteForce.space'}, 'Space')}
+                                    ${createInput('Why Too Slow', currentProblem.bruteForce.whySlow, {field: 'bruteForce.whySlow'}, 'Why Too Slow')}
+                                </div>
+                            </div>
+                            <div class="bg-gray-900/30 border border-gray-700/30 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-200 mb-3">Optimization 1</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    ${createInput('Idea', currentProblem.optimization1.idea, {field: 'optimization1.idea'}, 'Idea')}
+                                    ${createInput('Time', currentProblem.optimization1.time, {field: 'optimization1.time'}, 'Time')}
+                                    ${createInput('Space', currentProblem.optimization1.space, {field: 'optimization1.space'}, 'Space')}
+                                    ${createInput('Trade-off', currentProblem.optimization1.tradeoff, {field: 'optimization1.tradeoff'}, 'Trade-off')}
+                                </div>
+                            </div>
+                            <div class="bg-gray-900/30 border border-gray-700/30 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-200 mb-3">Optimization 2 (Target)</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    ${createInput('Idea', currentProblem.optimization2.idea, {field: 'optimization2.idea'}, 'Idea')}
+                                    ${createInput('Time', currentProblem.optimization2.time, {field: 'optimization2.time'}, 'Time')}
+                                    ${createInput('Space', currentProblem.optimization2.space, {field: 'optimization2.space'}, 'Space')}
+                                    ${createInput('Why This Works', currentProblem.optimization2.whyWorks, {field: 'optimization2.whyWorks'}, 'Why This Works')}
+                                </div>
+                            </div>
+                            ${createInput('Selected Approach', currentProblem.selectedApproach, {field: 'selectedApproach'}, 'Which approach will you implement?')}
+                        </div>
+                    </div>
+
+                    <!-- Section 5: Algorithm Plan -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h3 class="text-xl font-bold text-gray-200">5. Detailed Algorithm Plan</h3>
+                        </div>
+                        <div class="space-y-4">
+                            ${currentProblem.algorithmSteps.map((step, idx) => createInput(`Step ${idx + 1}`, step, {field: `algorithmSteps.${idx}`}, `Describe step ${idx + 1}...`, 'text', false, 2)).join('')}
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-300 mb-2">Invariants</label>
+                                ${currentProblem.invariants.map((inv, idx) => createInput('', inv, {field: `invariants.${idx}`}, `Invariant ${idx + 1}: What's ALWAYS true in your loop?`, 'text')).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 6: Code -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h3 class="text-xl font-bold text-gray-200">6. Code Implementation</h3>
+                        </div>
+                        <div class="space-y-4">
+                            ${createSelect('Programming Language', currentProblem.language, ['rust', 'python', 'go', 'javascript', 'cpp', 'java'], 'language')}
+                            ${createInput('Pseudocode / Plan', currentProblem.pseudocode, {field: 'pseudocode'}, 'Write your pseudocode here...', 'text', true, 6)}
+                            ${createInput('Implementation', currentProblem.code, {field: 'code'}, 'Write your code here...', 'text', true, 15)}
+                        </div>
+                    </div>
+
+                    <!-- Section 7: Complexity Analysis -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h3 class="text-xl font-bold text-gray-200">7. Complexity Analysis</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${createInput('Time - Best Case', currentProblem.timeBest, {field: 'timeBest'}, 'O(?)')}
+                            ${createInput('Time - Average Case', currentProblem.timeAverage, {field: 'timeAverage'}, 'O(?)')}
+                            ${createInput('Time - Worst Case', currentProblem.timeWorst, {field: 'timeWorst'}, 'O(?)')}
+                            ${createInput('Space Complexity', currentProblem.space, {field: 'space'}, 'O(?)')}
+                        </div>
+                    </div>
+
+                    <!-- Section 8: Reflection -->
+                    <div class="bg-gray-800/30 border border-gray-700/50 rounded-xl p-6 hover:border-gray-600/50 transition-all">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h3 class="text-xl font-bold text-gray-200">8. Post-Solve Reflection</h3>
+                        </div>
+                        <div class="space-y-4">
+                            ${createInput('What I Learned', currentProblem.learnings, {field: 'learnings'}, 'Key takeaways from this problem...', 'text', false, 3)}
+                            ${createInput('Mistakes Made', currentProblem.mistakes, {field: 'mistakes'}, 'What went wrong? What would you do differently?', 'text', false, 3)}
+                            ${createInput('Key Insight to Remember', currentProblem.keyInsight, {field: 'keyInsight'}, 'The one thing you\'ll remember from this problem...', 'text', false, 2)}
+                            ${createSelect('Your Confidence Level', currentProblem.confidence, ['', 'Low', 'Medium', 'High'], 'confidence')}
+                            ${createCheckbox('Mark as Completed', currentProblem.completed, 'completed')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+
+            // Add event listeners for form inputs
+            contentArea.querySelectorAll('input, textarea, select').forEach(el => {
+                el.addEventListener('input', (e) => {
+                    const field = e.target.dataset.field;
+                    if (!field) return;
+                    const parts = field.split('.');
+                    let target = currentProblem;
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        target = target[parts[i]];
+                    }
+                    target[parts[parts.length - 1]] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                    startAutoSave(); // Trigger auto-save on change
+                });
+            });
+
+            // Button listeners
+            document.getElementById('saveBtn').addEventListener('click', saveProblem);
+            document.getElementById('copyBtn').addEventListener('click', copyToClipboard);
+            const fetchBtn = document.getElementById('fetchBtn');
+            if (fetchBtn) {
+                fetchBtn.addEventListener('click', () => {
+                    const urlInput = contentArea.querySelector('[data-field="leetcodeUrl"]');
+                    fetchLeetCodeDetails(urlInput.value);
+                });
+            }
+        };
+
+        const renderContent = () => {
+            if (view === 'stats') {
+                renderStats();
+            } else if (view === 'form' && currentProblem) {
+                renderForm();
+            } else {
+                renderEmptyState();
+            }
+        };
+
+        // Sidebar toggle
+        const toggleSidebar = (open) => {
+            sidebarOpen = open;
+            sidebar.classList.toggle('w-0', !open);
+            sidebar.classList.toggle('w-80', open);
+            openSidebar.classList.toggle('hidden', open);
+        };
+
+        // Event listeners
+        timerToggle.addEventListener('click', toggleTimer);
+        statsBtn.addEventListener('click', () => { view = 'stats'; renderContent(); });
+        newProblemBtn.addEventListener('click', createNewProblem);
+        exportBtn.addEventListener('click', exportData);
+        importInput.addEventListener('change', importData);
+        closeSidebar.addEventListener('click', () => toggleSidebar(false));
+        openSidebar.addEventListener('click', () => toggleSidebar(true));
+        searchInput.addEventListener('input', (e) => {
+            searchTerm = e.target.value;
+            renderProblemsList();
+        });
+
+        // Dark/Light mode toggle
+        const header = document.querySelector('header');
+        const toggleModeBtn = document.createElement('button');
+        toggleModeBtn.innerHTML = '<i data-lucide="sun" class="w-5 h-5"></i>';
+        toggleModeBtn.className = 'p-2 rounded-lg transition-all bg-gray-800 text-gray-400 hover:text-white';
+        header.querySelector('.flex.items-center.gap-4:last-child').appendChild(toggleModeBtn);
+        let isDark = true;
+        toggleModeBtn.addEventListener('click', () => {
+            isDark = !isDark;
+            document.body.classList.toggle('bg-gradient-to-br', isDark);
+            document.body.classList.toggle('from-gray-900', isDark);
+            document.body.classList.toggle('via-gray-800', isDark);
+            document.body.classList.toggle('to-gray-900', isDark);
+            document.body.classList.toggle('bg-white', !isDark);
+            document.body.classList.toggle('text-black', !isDark);
+            // Update other elements accordingly (simplified)
+            toggleModeBtn.innerHTML = `<i data-lucide="${isDark ? 'sun' : 'moon'}" class="w-5 h-5"></i>`;
+            lucide.createIcons();
+        });
+
+        // Initialize
+        loadProblems();
+        renderProblemsList();
+        renderContent();
+        updateTimerDisplay();
+        lucide.createIcons();
+    </script>
+</body>
+</html>

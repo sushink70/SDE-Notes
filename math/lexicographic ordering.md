@@ -75,9 +75,7 @@ Lexicographic Ordering: Fundamental Implementations
 Demonstrating built-in behavior and custom implementations
 """
 
-
 ## 1. BUILT-IN LEXICOGRAPHIC COMPARISON
-
 
 ```python
 def demonstrate_builtin():
@@ -906,12 +904,6 @@ fn demonstrate_rust_patterns() {
 }
 ```
 
-// ============================================
-// GO IMPLEMENTATION (in comments for reference)
-// ============================================
-
-/*
-// Go version focusing on interfaces and standard library usage
 
 ```go
 package main
