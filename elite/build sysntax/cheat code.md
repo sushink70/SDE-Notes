@@ -3,6 +3,14 @@
 ## 🐍 PYTHON SPEED SHEET
 
 ```python
+
+# ✅ All of these work on Leetcode
+from collections import defaultdict, Counter, deque
+from heapq import heappush, heappop
+from bisect import bisect_left
+import math
+import re
+
 # ============================================================================
 # DATA STRUCTURES - INITIALIZATION
 # ============================================================================
@@ -1034,3 +1042,201 @@ printf("%lld\n", ans);         // Output long long
 ```
 
 **Save these sheets. They're your career toolkit. Print and keep near desk for first 3 months of practice.**
+
+# DSA Speed Sheet: Comprehensive Quick Reference
+
+This speed sheet covers core Data Structures and Algorithms (DSA) topics for interviews, revision, or quick lookups. It includes key concepts, operations with time/space complexities (assuming standard implementations), common patterns, and tips. Use Big O notation for asymptotics: **T(n)** for time, **S(n)** for space.
+
+## 1. Big O Notation Basics
+| Notation | Description | Example |
+|----------|-------------|---------|
+| O(1) | Constant | Array access |
+| O(log n) | Logarithmic | Binary search |
+| O(n) | Linear | Single loop |
+| O(n log n) | Linearithmic | Merge sort |
+| O(n²) | Quadratic | Nested loops |
+| O(2ⁿ) | Exponential | Recursive Fibonacci (naive) |
+
+**Tips**: Amortized analysis for dynamic arrays (e.g., resize in O(1) avg). Drop constants/low-order terms.
+
+## 2. Arrays & Strings
+**Arrays**: Contiguous memory, fixed/random access.  
+**Strings**: Immutable arrays of chars (in many langs).
+
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Access (index i) | O(1) | O(1) | - |
+| Insert/Delete (end) | O(1) amortized | O(n) | Dynamic arrays (e.g., Python lists) |
+| Insert/Delete (middle) | O(n) | O(n) | Shift elements |
+| Search (unsorted) | O(n) | O(1) | Linear scan |
+| Search (sorted) | O(log n) | O(1) | Binary search |
+| Subarray sum | O(n) | O(1) | Prefix sums for range queries |
+
+**Common Patterns**:
+- Two pointers (e.g., reverse, palindrome): O(n) time.
+- Sliding window (e.g., max substring): O(n) time.
+- Prefix/suffix arrays for hashing (e.g., string matching).
+
+**Tips**: Use arrays for cache-friendly access. For strings, consider immutability (e.g., Java StringBuilder for mutations).
+
+## 3. Linked Lists
+**Singly/Doubly**: Nodes with value + pointer(s). Head/tail for access.
+
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Access (index i) | O(n) | O(1) | Traverse from head |
+| Insert/Delete (head) | O(1) | O(1) | Update pointers |
+| Insert/Delete (tail) | O(1) | O(1) | With tail pointer |
+| Insert/Delete (middle) | O(n) | O(1) | Find node + update |
+| Search | O(n) | O(1) | Linear |
+
+**Common Patterns**:
+- Cycle detection: Floyd's tortoise-hare (O(n) time, O(1) space).
+- Reverse: Iterative (O(n) time) or recursive.
+- Merge two sorted: Dummy node (O(n) time).
+
+**Tips**: Use dummy nodes for edge cases (empty list). Space: O(n) total for list.
+
+## 4. Stacks & Queues
+**Stack**: LIFO (push/pop).  
+**Queue**: FIFO (enqueue/dequeue). Deque for both.
+
+| Operation | Stack Time | Queue Time | Space | Impl Notes |
+|-----------|------------|------------|-------|------------|
+| Push/Enqueue | O(1) | O(1) | O(1) | Array or linked list |
+| Pop/Dequeue | O(1) | O(1) | O(1) | - |
+| Peek/Front | O(1) | O(1) | O(1) | - |
+| Search | O(n) | O(n) | O(1) | Not efficient |
+
+**Common Patterns**:
+- Stack: Valid parentheses (O(n)), next greater element (monotonic stack).
+- Queue: BFS (level order), sliding window max (deque).
+- Priority Queue (Heap): Min/max heap for Dijkstra, median finder.
+
+**Tips**: Python: `list` for stack, `collections.deque` for queue (O(1) both ends). Heaps: `heapq` (min-heap).
+
+## 5. Trees
+**Binary Tree**: ≤2 children/node. BST: sorted, balanced ~O(log n).
+
+| Operation | Unbalanced Time | Balanced Time | Space | Notes |
+|-----------|-----------------|----------------|-------|-------|
+| Traverse (in/pre/post/order) | O(n) | O(n) | O(h) | h=height (O(n) worst) |
+| Insert (BST) | O(h) | O(log n) | O(1) | - |
+| Delete (BST) | O(h) | O(log n) | O(1) | Handle 0/1/2 children |
+| Search (BST) | O(h) | O(log n) | O(1) | - |
+| Height/LCA | O(n) | O(log n) | O(h) | - |
+
+**Common Patterns**:
+- Level order: BFS queue (O(n)).
+- Diameter: 2 DFS heights (O(n)).
+- Serialize/Deserialize: Preorder + markers.
+- Balanced Trees: AVL/Red-Black (self-balancing).
+
+**Tips**: Recursion for traversal. Morris traversal: O(1) space inorder. h = O(log n) for balanced.
+
+## 6. Graphs
+**Adj List**: {node: [neighbors]}. Directed/Undirected, Weighted.
+
+| Operation | Time | Space | Notes |
+|-----------|------|-------|-------|
+| Add Edge | O(1) | O(1) | - |
+| Traverse (DFS/BFS) | O(V+E) | O(V) | V=vertices, E=edges |
+| Shortest Path (unweighted) | O(V+E) | O(V) | BFS |
+| Shortest Path (weighted) | O((V+E) log V) | O(V) | Dijkstra (PQ) |
+| Detect Cycle | O(V+E) | O(V) | DFS (recursion stack) or topo sort |
+| Topo Sort | O(V+E) | O(V) | Kahn's (indegrees) or DFS |
+
+**Common Patterns**:
+- Union-Find (DSU): For connectivity (O(α(n)) ~O(1) amortized).
+- MST: Kruskal/Prim (O(E log V)).
+- Bellman-Ford: Negative weights (O(VE)).
+
+**Tips**: Adj list for sparse graphs (space O(V+E)). DFS recursion depth O(V). Handle disconnected components.
+
+## 7. Sorting Algorithms
+| Algorithm | Time (Avg/Worst) | Space | Stable? | Notes |
+|-----------|------------------|-------|---------|-------|
+| Bubble | O(n²)/O(n²) | O(1) | Yes | Simple, rarely used |
+| Insertion | O(n²)/O(n²) | O(1) | Yes | Good for small/nearly sorted |
+| Selection | O(n²)/O(n²) | O(1) | No | - |
+| Merge | O(n log n)/O(n log n) | O(n) | Yes | Divide-conquer |
+| Quick | O(n log n)/O(n²) | O(log n) | No | Pivot choice matters |
+| Heap | O(n log n)/O(n log n) | O(1) | No | In-place |
+| Counting/Radix | O(n+k)/O(n+k) | O(n+k) | Yes | k=range, non-comparison |
+
+**Tips**: Use built-ins (e.g., `sorted()` in Python: Timsort, O(n log n)). Stable preserves order.
+
+## 8. Searching Algorithms
+| Algorithm | Time | Space | Prerequisites | Notes |
+|-----------|------|-------|---------------|-------|
+| Linear | O(n) | O(1) | None | Unsorted |
+| Binary | O(log n) | O(1) | Sorted | Iterative/recursive |
+| Ternary | O(log₃ n) | O(1) | Sorted | Divides into 3 |
+| Jump | O(√n) | O(1) | Sorted | Block size √n |
+| Exponential | O(log n) | O(1) | Sorted, unimodal | Double interval |
+
+**Tips**: Binary for sorted arrays. Hash tables for avg O(1) search.
+
+## 9. Hashing
+**Hash Table**: Key-value, hash function + chaining/resize.
+
+| Operation | Avg Time | Worst Time | Space |
+|-----------|----------|------------|-------|
+| Insert | O(1) | O(n) | O(n) |
+| Delete | O(1) | O(n) | O(n) |
+| Search | O(1) | O(n) | O(n) |
+
+**Common Patterns**:
+- Collision: Chaining (lists) or open addressing (linear probing).
+- Substring anagram: Sliding window + freq map.
+- LRU Cache: Hash + DLL (O(1) all ops).
+
+**Tips**: Load factor ~0.7. Python: `dict`. Handle collisions for worst-case.
+
+## 10. Dynamic Programming (DP)
+**Memoization/Tabulation**: Overlapping subproblems + optimal substructure.
+
+| Type | Time | Space | Optimization |
+|------|------|-------|--------------|
+| 0/1 Knapsack | O(nW) | O(nW) | O(W) space |
+| Fibonacci | O(n) | O(n) | O(1) space |
+| LCS | O(mn) | O(mn) | O(min(m,n)) |
+| Matrix Chain | O(n³) | O(n²) | - |
+
+**Common Patterns**:
+- 1D DP: House robber (O(n) time/space).
+- 2D DP: Edit distance (O(mn)).
+- State: dp[i][j] = optimal for subproblem i,j.
+
+**Tips**: Identify recurrence → memoize → tabulate bottom-up. Space optimize by using prev row.
+
+## 11. Greedy Algorithms
+**Local optimum → global**: No backtracking.
+
+| Problem | Greedy Choice | Time |
+|---------|---------------|------|
+| Activity Selection | Earliest finish | O(n log n) |
+| Huffman Coding | Min freq merge | O(n log n) |
+| Fractional Knapsack | Value/weight ratio | O(n log n) |
+| Dijkstra | Min dist edge | O((V+E) log V) |
+
+**Tips**: Prove greedy works (exchange argument). Not for all (e.g., 0/1 knapsack).
+
+## 12. Common Interview Patterns & Tips
+| Pattern | Key Idea | Example Problems |
+|---------|----------|------------------|
+| Two Pointers | Slow/fast, left/right | Container with most water, Remove duplicates |
+| Sliding Window | Expand/shrink | Longest substring without repeat, Max sum subarray |
+| Backtracking | Try/undo | Subsets, N-Queens, Permutations |
+| Bit Manipulation | Masks, shifts | Single number, Subsets (2^n) |
+| Math/Number Theory | Primes, GCD | Sieve of Eratosthenes, Euclidean algo |
+| Design | Scale, consistency | LRU Cache, TinyURL |
+
+**General Tips**:
+- **Complexity**: Always state T/S. Optimize space (in-place where possible).
+- **Edge Cases**: Empty input, single element, duplicates, overflow.
+- **Languages**: Python (easy), C++ (fast), Java (OOP).
+- **Practice**: LeetCode (blind 75), Cracking the Coding Interview.
+- **Debug**: Draw examples, dry-run code.
+
+This sheet is concise yet comprehensive—print/fold for speed! For deeper dives, refer to CLRS or online resources.

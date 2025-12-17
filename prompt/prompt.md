@@ -13,6 +13,9 @@ my bottleneck
 novel content like explanations, diagrams, 
 
 
+flow charts or flow diagrams
+neet and clean presentation
+organized code or structure
 
 
 
