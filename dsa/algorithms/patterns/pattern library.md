@@ -1,17 +1,12 @@
-"""
-50 FUNDAMENTAL DSA PATTERNS - PYTHON REFERENCE
-===============================================
-Memorize these patterns. Recognition → Implementation → Mastery.
-Time to recognize: 30 seconds. Time to implement: 3 minutes.
-"""
-
-# ============================================================================
 # CATEGORY 1: ARRAY & STRING FUNDAMENTALS (5 patterns)
-# ============================================================================
 
-# Pattern 1: Prefix Sum (Range Sum Queries)
-# Use: O(1) range sum after O(n) preprocessing
-# Time: O(n) build, O(1) query | Space: O(n)
+## Pattern 1: Prefix Sum (Range Sum Queries)
+
+## Use: O(1) range sum after O(n) preprocessing
+
+## Time: O(n) build, O(1) query | Space: O(n)
+
+```python
 def prefix_sum_pattern(arr):
     n = len(arr)
     prefix = [0] * (n + 1)  # prefix[i] = sum of arr[0..i-1]
@@ -91,9 +86,9 @@ def cyclic_sort_pattern(arr):
             return i + 1
     return len(arr) + 1
 
-# ============================================================================
+
 # CATEGORY 2: TWO POINTERS (5 patterns)
-# ============================================================================
+
 
 # Pattern 6: Two Sum (Sorted Array)
 # Use: Find pair with target sum in sorted array
@@ -184,9 +179,9 @@ def floyd_cycle_detection_pattern(get_next, start):
     
     return slow  # Cycle start
 
-# ============================================================================
+
 # CATEGORY 3: SLIDING WINDOW (5 patterns)
-# ============================================================================
+
 
 # Pattern 11: Fixed Size Window Maximum
 # Use: Maximum in every window of size k
@@ -315,9 +310,9 @@ def longest_repeating_replacement_pattern(s, k):
     
     return max_length
 
-# ============================================================================
+
 # CATEGORY 4: BINARY SEARCH VARIANTS (5 patterns)
-# ============================================================================
+
 
 # Pattern 16: Classic Binary Search
 # Use: Find exact target in sorted array
@@ -420,9 +415,9 @@ def binary_search_answer_pattern(arr, condition_func):
     
     return result
 
-# ============================================================================
+
 # CATEGORY 5: LINKED LIST (5 patterns)
-# ============================================================================
+
 
 class ListNode:
     def __init__(self, val=0, next=None):
@@ -522,9 +517,9 @@ def reorder_list_pattern(head):
         second.next = temp1
         first, second = temp1, temp2
 
-# ============================================================================
+
 # CATEGORY 6: TREE TRAVERSALS (5 patterns)
-# ============================================================================
+
 
 class TreeNode:
     def __init__(self, val=0, left=None, right=None):
@@ -630,9 +625,8 @@ def path_sum_pattern(root, target):
     backtrack(root, target, [])
     return result
 
-# ============================================================================
+
 # CATEGORY 7: GRAPH ALGORITHMS (5 patterns)
-# ============================================================================
 
 # Pattern 31: DFS on Graph (Adjacency List)
 # Use: Explore all connected components
@@ -753,9 +747,8 @@ def dijkstra_pattern(graph, start):
     
     return distances
 
-# ============================================================================
+
 # CATEGORY 8: DYNAMIC PROGRAMMING (5 patterns)
-# ============================================================================
 
 # Pattern 36: 1D DP (Fibonacci-like)
 # Use: Current state depends on previous states
@@ -856,9 +849,9 @@ def dp_memo_pattern(coins, amount):
     result = dp(amount)
     return result if result != float('inf') else -1
 
-# ============================================================================
+
 # CATEGORY 9: BACKTRACKING (5 patterns)
-# ============================================================================
+
 
 # Pattern 41: Permutations
 # Use: Generate all permutations of array
@@ -989,9 +982,9 @@ def word_search_pattern(board, word):
                 return True
     return False
 
-# ============================================================================
+
 # CATEGORY 10: ADVANCED PATTERNS (5 patterns)
-# ============================================================================
+
 
 # Pattern 46: Trie (Prefix Tree)
 # Use: Efficient string prefix operations
@@ -1093,29 +1086,31 @@ def top_k_pattern(nums, k):
             heapq.heappop(heap)
     
     return heap
+```
 
-"""
 MASTERY CHECKLIST:
-==================
+
 For each pattern:
+
 1. Recognize in < 30 seconds from problem description
 2. Write from memory in < 3 minutes
 3. Explain time/space complexity instantly
 4. Know when NOT to use it (anti-patterns)
 
 DELIBERATE PRACTICE PROTOCOL:
-==============================
+
 Week 1-2: Implement each pattern 3 times
 Week 3-4: Mixed recognition drills (random problems)
 Week 5-6: Speed contests (time yourself)
 Week 7-8: Teach each pattern (Feynman technique)
 
 PATH TO TOP 1%:
-===============
+
 These 50 patterns cover 90% of competitive programming problems.
 Master these → Combine them → Create new variants.
 
 The difference between good and world-class:
+
 - Good: Knows the patterns
 - World-class: Recognizes which pattern in 10 seconds
 
@@ -1126,7 +1121,7 @@ your conscious mind finishes reading.
 That's true mastery.
 """
 
-# Complete Pattern Library Created ✓
+## Complete Pattern Library Created ✓
 
 I've built you a **combat-ready reference** with all 50 fundamental patterns organized into 10 categories:
 
@@ -1150,12 +1145,14 @@ I've built you a **combat-ready reference** with all 50 fundamental patterns org
 ### **Phase 1: Pattern Recognition (Week 1-2)**
 
 **Daily Protocol:**
+
 - Pick 5 patterns each day
 - Read code → Close eyes → Recite structure from memory
 - Write out 3 times without looking
 - Explain to rubber duck: "This pattern solves X by doing Y"
 
 **Memory Anchor:** Associate each pattern with a **visual image**
+
 - Two Pointers → Two hands closing a book
 - Sliding Window → Window sliding across a wall
 - Backtracking → Walking maze, leaving breadcrumbs
@@ -1163,12 +1160,14 @@ I've built you a **combat-ready reference** with all 50 fundamental patterns org
 ### **Phase 2: Speed Drills (Week 3-4)**
 
 **Blind Implementation Challenge:**
+
 - Set timer for 3 minutes
 - Pick random pattern number (1-50)
 - Implement from scratch without reference
 - If you fail → Study pattern → Retry immediately
 
 **Target Speed:**
+
 - Week 3: 5 minutes per pattern
 - Week 4: 3 minutes per pattern
 - Week 5+: < 2 minutes per pattern
@@ -1176,11 +1175,13 @@ I've built you a **combat-ready reference** with all 50 fundamental patterns org
 ### **Phase 3: Problem Mapping (Week 5-6)**
 
 For each LeetCode problem:
+
 1. **Before reading solution:** Which pattern? (30 sec max)
 2. **After solving:** Was I right? What was the tell?
 3. **Pattern signals journal:** Track recognition cues
 
 **Example signals:**
+
 - "Find in sorted array" → Binary Search
 - "All possible combinations" → Backtracking
 - "Maximum/minimum subarray" → DP or Kadane's
@@ -1189,6 +1190,7 @@ For each LeetCode problem:
 ### **Phase 4: Pattern Fusion (Week 7-8)**
 
 Hard problems combine 2-3 patterns:
+
 - Sliding Window + HashMap → Minimum window substring
 - Binary Search + DP → Optimal answer in sorted space
 - Union-Find + DFS → Connected components with constraints
@@ -1224,6 +1226,7 @@ O(n²)        → 2D DP table, adjacency matrix
 Read problem statement → Start timer → Force yourself to guess pattern in 10 seconds.
 
 **Mental checklist (in order):**
+
 1. Is it sorted? → Binary search family
 2. Find all/count? → Backtracking/DP
 3. Optimize/maximize? → DP/Greedy
@@ -1234,6 +1237,7 @@ Read problem statement → Start timer → Force yourself to guess pattern in 10
 ### **Technique 2: The Wrong Answer Journal**
 
 Every time you:
+
 - Pick wrong pattern → Write down why you were fooled
 - Miss optimization → Write down the clue you missed
 - Implement incorrectly → Write down the control flow error
@@ -1243,6 +1247,7 @@ Every time you:
 ### **Technique 3: The Reverse Problem**
 
 Given a pattern, invent 3 problems it solves:
+
 - **Easy variant:** Simple application
 - **Medium variant:** With one twist
 - **Hard variant:** Combined with another pattern
@@ -1263,11 +1268,13 @@ This trains **pattern → problem** recognition (the inverse skill).
 ## The Psychological Edge
 
 **Pattern mastery creates cognitive chunks.** Right now, your brain sees:
+
 ```
 "for i in range(n): if arr[i] > threshold: count += 1"
 ```
 
 After mastery, your brain sees:
+
 ```
 "linear_filter_pattern"  ← Single chunk
 ```
@@ -1279,6 +1286,7 @@ This frees up working memory for **higher-level strategy**. You're not thinking 
 When top competitive programmers read a problem, they instantly see: *"Oh, this is sliding window with hash table tracking, then binary search on answer space."*
 
 Your journey:
+
 - **Month 1:** Recognize patterns consciously (slow)
 - **Month 3:** Recognize patterns subconsciously (fast)  
 - **Month 6:** Invent new patterns by combining (mastery)
@@ -1286,6 +1294,7 @@ Your journey:
 ---
 
 Want me to create:
+
 1. **A 30-day training schedule** with specific problems mapped to each pattern?
 2. **Pattern combination examples** (hard problems requiring 2-3 patterns)?
 3. **Anti-pattern guide** (when NOT to use each pattern)?
@@ -1293,7 +1302,7 @@ Want me to create:
 
 Tell me what would accelerate your path to mastery most. 🔥
 
-# Mastering the Sorting + Two-Pointer Pattern: A Strategic Learning Path
+## Mastering the Sorting + Two-Pointer Pattern: A Strategic Learning Path
 
 This is **the** question that separates mediocre from elite problem-solvers. Let me give you the complete roadmap.
 
@@ -1304,9 +1313,11 @@ This is **the** question that separates mediocre from elite problem-solvers. Let
 ### **The Core Insight: Sorting Creates Monotonicity**
 
 **Unsorted array:**
+
 ```
 [3, -2, 5, 1, -4, 7]
 ```
+
 - Chaotic: no relationship between position and value
 - Must check **all combinations** → O(n²) or O(n³)
 
@@ -1314,6 +1325,7 @@ This is **the** question that separates mediocre from elite problem-solvers. Let
 ```
 [-4, -2, 1, 3, 5, 7]
 ```
+
 - **Monotonic property**: values increase left-to-right
 - This enables **binary decisions**: "move left" or "move right"
 - Transforms brute force into **guided search**
@@ -1323,6 +1335,7 @@ This is **the** question that separates mediocre from elite problem-solvers. Let
 ### **Two-Pointer Intuition: Converging from Extremes**
 
 **The mental model:**
+
 ```
 sorted: [-4, -2, 1, 3, 5, 7]
           ↑              ↑
@@ -1334,6 +1347,7 @@ If sum equals target → found it!
 ```
 
 **Why this works:**
+
 1. Start at **extremes** (smallest + largest)
 2. Each decision **eliminates possibilities** without checking them
 3. **Proof of correctness**: if `sum < target`, moving `right--` would make sum even smaller (useless)
@@ -1345,6 +1359,7 @@ If sum equals target → found it!
 ### **Canonical Resources (In Order of Learning)**
 
 #### **1. NeetCode's Two Pointers Playlist** ⭐ START HERE
+
 - **Link:** Search "NeetCode Two Pointers" on YouTube
 - **Why:** Visual explanations with code walkthroughs
 - **Key videos:**
@@ -1358,11 +1373,13 @@ If sum equals target → found it!
 ---
 
 #### **2. LeetCode's Study Plan: "Top Interview 150"**
+
 - **Link:** LeetCode.com → Study Plan → Top Interview 150
 - **Relevant section:** "Two Pointers"
 - **Curated progression** from easy → hard
 
 **Key problems in order:**
+
 1. **Valid Palindrome** (LC 125) - warmup
 2. **Two Sum II** (LC 167) - **THE foundation**
 3. **3Sum** (LC 15) - your problem
@@ -1372,6 +1389,7 @@ If sum equals target → found it!
 ---
 
 #### **3. "Elements of Programming Interviews" (EPI)**
+
 - **Chapter:** Arrays (Chapter 5)
 - **Why:** Rigorous explanations with variants
 - **Best for:** Understanding **why** patterns work, not just **how**
@@ -1383,12 +1401,14 @@ If sum equals target → found it!
 #### **4. Competitive Programming Resources**
 
 **For building intuition:**
+
 - **"Competitive Programmer's Handbook"** (Free PDF)
   - Chapter 3: "Sorting and Searching"
   - Chapter 8: "Data Structures"
   - **Link:** Google "cses competitive programming handbook"
 
 **For systematic practice:**
+
 - **Codeforces Edu Section:** "Two Pointers Method"
   - **Link:** codeforces.com/edu/course/2
   - Interactive problems with hints
@@ -1416,6 +1436,7 @@ Ask yourself these questions:
 There are **three main variants** you must master:
 
 #### **Type 1: Opposite Direction (Converging)**
+
 ```python
 left, right = 0, len(arr) - 1
 while left < right:
@@ -1427,6 +1448,7 @@ while left < right:
 ```
 
 **Use cases:**
+
 - 2Sum II (sorted array)
 - 3Sum
 - Container With Most Water
@@ -1435,6 +1457,7 @@ while left < right:
 ---
 
 #### **Type 2: Same Direction (Sliding Window)**
+
 ```python
 left = 0
 for right in range(len(arr)):
@@ -1446,6 +1469,7 @@ for right in range(len(arr)):
 ```
 
 **Use cases:**
+
 - Longest Substring Without Repeating Characters
 - Minimum Window Substring
 - Maximum Sum Subarray of Size K
@@ -1453,6 +1477,7 @@ for right in range(len(arr)):
 ---
 
 #### **Type 3: Fast-Slow (Cycle Detection)**
+
 ```python
 slow = fast = head
 while fast and fast.next:
@@ -1463,6 +1488,7 @@ while fast and fast.next:
 ```
 
 **Use cases:**
+
 - Linked List Cycle
 - Find Duplicate Number
 - Middle of Linked List
@@ -1474,6 +1500,7 @@ while fast and fast.next:
 ### **Week 1: Foundation (Type 1 - Converging Pointers)**
 
 **Day 1-2:** Two Sum II (LC 167)
+
 ```python
 # Master this FIRST - it's the building block
 def twoSum(nums, target):
@@ -1489,6 +1516,7 @@ def twoSum(nums, target):
 ```
 
 **Practice:**
+
 - Code in Python, Rust, Go
 - Explain out loud why each decision is correct
 - Prove why this doesn't miss any solutions
@@ -1496,6 +1524,7 @@ def twoSum(nums, target):
 ---
 
 **Day 3-4:** Valid Palindrome (LC 125)
+
 ```python
 def isPalindrome(s: str) -> bool:
     left, right = 0, len(s) - 1
@@ -1520,6 +1549,7 @@ def isPalindrome(s: str) -> bool:
 ---
 
 **Day 5-7:** 3Sum (LC 15)
+
 - **Day 5:** Code brute force O(n³)
 - **Day 6:** Optimize to O(n²) with two pointers
 - **Day 7:** Implement in all three languages
@@ -1564,6 +1594,7 @@ def isPalindrome(s: str) -> bool:
 5. **30-day review:** Teach it to someone (or write an explanation)
 
 **Tool:** Use Anki flashcards with:
+
 - Front: Problem name + key constraint
 - Back: Pattern name + code skeleton
 
@@ -1579,6 +1610,7 @@ def isPalindrome(s: str) -> bool:
 4. **Edge cases:** "What inputs would break my initial thinking?"
 
 **Example for 3Sum:**
+
 - **Pattern:** Sorting + Two Pointers (Converging)
 - **Trigger:** "Find triplets" + "sum to target" + "no duplicates"
 - **Variations:** 3Sum Closest (change condition), 4Sum (add another loop)
@@ -1602,6 +1634,7 @@ for i in range(len(nums) - 2):
 ```
 
 **Key techniques:**
+
 - `enumerate()` for index tracking
 - List comprehensions for filtering
 - `itertools.groupby()` for grouping duplicates
@@ -1624,6 +1657,7 @@ match (left_val + right_val).cmp(&target) {
 ```
 
 **Key techniques:**
+
 - `.windows(2)` for pairwise comparisons
 - `.dedup()` for removing consecutive duplicates
 - Iterator chains for functional style
@@ -1650,6 +1684,7 @@ for left < right {
 ```
 
 **Key techniques:**
+
 - `slices.Clone()` for safe copies
 - `slices.Equal()` for comparison
 - Defer for cleanup logic
@@ -1661,6 +1696,7 @@ for left < right {
 ### **Real-World Applications**
 
 **This pattern appears in:**
+
 1. **Databases:** Merge join algorithms
 2. **Genomics:** DNA sequence alignment
 3. **Computer Vision:** Finding matching features
@@ -1674,6 +1710,7 @@ for left < right {
 ### **Competitive Programming**
 
 **Practice sites (easier → harder):**
+
 1. **HackerRank:** "Arrays" domain
 2. **Codeforces:** Filter by "two pointers" tag
 3. **AtCoder:** Beginner contests often have these
@@ -1688,11 +1725,13 @@ for left < right {
 ### **Avoid Tutorial Hell**
 
 **Wrong approach:**
+
 - Watch 10 videos on two pointers
 - Read 5 articles
 - Never actually code
 
 **Right approach:**
+
 1. Watch ONE quality explanation (NeetCode)
 2. Code it yourself
 3. Struggle (this is where learning happens)
@@ -1704,6 +1743,7 @@ for left < right {
 ### **Flow State Optimization**
 
 **For maximum learning:**
+
 - **Pomodoro:** 25 min focused coding + 5 min review
 - **Progressive difficulty:** Start easy, gradually increase
 - **Reflection:** After each session, write down what you learned
@@ -1714,12 +1754,14 @@ for left < right {
 ### **Measuring Progress**
 
 **Track these metrics:**
+
 1. **Recognition time:** How fast do you identify the pattern?
 2. **Implementation time:** How long to code the solution?
 3. **Bug rate:** How many bugs before AC (Accepted)?
 4. **Explanation clarity:** Can you teach it to someone?
 
 **Target (after 3 months):**
+
 - Recognition: <2 minutes
 - Implementation: <15 minutes
 - Bug rate: <2 bugs per problem
@@ -1730,21 +1772,25 @@ for left < right {
 ## **Your 30-Day Action Plan**
 
 **Week 1:**
+
 - Day 1-2: Two Sum II (3 implementations)
 - Day 3-4: Valid Palindrome + Container With Most Water
 - Day 5-7: 3Sum (deep dive)
 
 **Week 2:**
+
 - Day 8-9: 3Sum Closest + 4Sum
 - Day 10-12: Remove Duplicates + Trapping Rain Water
 - Day 13-14: Review & re-implement all from memory
 
 **Week 3:**
+
 - Day 15-17: Sliding window problems (Type 2)
 - Day 18-20: Fast-slow pointers (Type 3)
 - Day 21: Mixed problem set (random from all types)
 
 **Week 4:**
+
 - Day 22-25: Codeforces "two pointers" problems
 - Day 26-28: Implement classic algorithms using pattern
 - Day 29-30: Teach the pattern (write blog/explain to friend)
@@ -1756,10 +1802,12 @@ for left < right {
 **Pattern recognition is NOT magic—it's exposure + reflection.**
 
 The difference between you now and you in 3 months:
+
 - **Now:** "I need to check all combinations" (brute force thinking)
 - **3 months:** "Sorted array + converging pointers" (instant recognition)
 
 **This only happens through:**
+
 1. ✅ Deliberate practice (not random LeetCode grinding)
 2. ✅ Spaced repetition (not one-and-done)
 3. ✅ Active reflection (not passive watching)
@@ -1771,17 +1819,21 @@ The difference between you now and you in 3 months:
 ## **Resources Summary**
 
 **Must-watch:**
+
 - NeetCode Two Pointers playlist
 
 **Must-read:**
+
 - CSES Competitive Programming Handbook (free)
 - Elements of Programming Interviews (deep understanding)
 
 **Must-solve:**
+
 - LeetCode: 167, 125, 15, 11, 42, 26, 16, 18
 - Codeforces: Two pointers tag (first 20 problems)
 
 **Must-track:**
+
 - Notion/Obsidian page with: problem → pattern → key insight
 
 ---
@@ -1789,3 +1841,4 @@ The difference between you now and you in 3 months:
 **Now stop reading and START CODING. The pattern is earned through repetition, not revelation.**
 
 **Go solve Two Sum II right now. In all three languages. Without looking at solutions. Then come back stronger.** 🔥
+

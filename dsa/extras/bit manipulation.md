@@ -13,11 +13,13 @@
 ## Fundamentals
 
 ### Binary Representation
+
 - Computers store numbers in binary (base-2)
 - Each bit represents a power of 2
 - Example: `13 = 1101₂ = 1×2³ + 1×2² + 0×2¹ + 1×2⁰`
 
 ### Bitwise Operators
+
 | Operator | Symbol | Description |
 |----------|--------|-------------|
 | AND | `&` | 1 if both bits are 1 |
@@ -34,6 +36,7 @@
 ### 1. Check if i-th Bit is Set
 
 **Rust:**
+
 ```rust
 fn is_bit_set(num: i32, i: u32) -> bool {
     (num & (1 << i)) != 0
@@ -41,6 +44,7 @@ fn is_bit_set(num: i32, i: u32) -> bool {
 ```
 
 **Python:**
+
 ```python
 def is_bit_set(num: int, i: int) -> bool:
     return (num & (1 << i)) != 0
@@ -49,6 +53,7 @@ def is_bit_set(num: int, i: int) -> bool:
 ### 2. Set i-th Bit
 
 **Rust:**
+
 ```rust
 fn set_bit(num: i32, i: u32) -> i32 {
     num | (1 << i)
@@ -56,6 +61,7 @@ fn set_bit(num: i32, i: u32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def set_bit(num: int, i: int) -> int:
     return num | (1 << i)
@@ -64,6 +70,7 @@ def set_bit(num: int, i: int) -> int:
 ### 3. Clear i-th Bit
 
 **Rust:**
+
 ```rust
 fn clear_bit(num: i32, i: u32) -> i32 {
     num & !(1 << i)
@@ -71,6 +78,7 @@ fn clear_bit(num: i32, i: u32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def clear_bit(num: int, i: int) -> int:
     return num & ~(1 << i)
@@ -79,6 +87,7 @@ def clear_bit(num: int, i: int) -> int:
 ### 4. Toggle i-th Bit
 
 **Rust:**
+
 ```rust
 fn toggle_bit(num: i32, i: u32) -> i32 {
     num ^ (1 << i)
@@ -86,6 +95,7 @@ fn toggle_bit(num: i32, i: u32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def toggle_bit(num: int, i: int) -> int:
     return num ^ (1 << i)
@@ -98,6 +108,7 @@ def toggle_bit(num: int, i: int) -> int:
 ### 1. Count Set Bits (Hamming Weight)
 
 **Rust:**
+
 ```rust
 fn count_set_bits(mut num: i32) -> i32 {
     let mut count = 0;
@@ -120,6 +131,7 @@ fn count_set_bits_optimized(mut num: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def count_set_bits(num: int) -> int:
     count = 0
@@ -144,6 +156,7 @@ def count_set_bits_builtin(num: int) -> int:
 ### 2. Check if Power of Two
 
 **Rust:**
+
 ```rust
 fn is_power_of_two(n: i32) -> bool {
     n > 0 && (n & (n - 1)) == 0
@@ -151,6 +164,7 @@ fn is_power_of_two(n: i32) -> bool {
 ```
 
 **Python:**
+
 ```python
 def is_power_of_two(n: int) -> bool:
     return n > 0 and (n & (n - 1)) == 0
@@ -159,6 +173,7 @@ def is_power_of_two(n: int) -> bool:
 ### 3. Find Rightmost Set Bit
 
 **Rust:**
+
 ```rust
 fn rightmost_set_bit(num: i32) -> i32 {
     num & -num
@@ -166,6 +181,7 @@ fn rightmost_set_bit(num: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def rightmost_set_bit(num: int) -> int:
     return num & -num
@@ -174,6 +190,7 @@ def rightmost_set_bit(num: int) -> int:
 ### 4. Clear Rightmost Set Bit
 
 **Rust:**
+
 ```rust
 fn clear_rightmost_set_bit(num: i32) -> i32 {
     num & (num - 1)
@@ -181,6 +198,7 @@ fn clear_rightmost_set_bit(num: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def clear_rightmost_set_bit(num: int) -> int:
     return num & (num - 1)
@@ -189,6 +207,7 @@ def clear_rightmost_set_bit(num: int) -> int:
 ### 5. Get All Subsets (Power Set)
 
 **Rust:**
+
 ```rust
 fn get_all_subsets(nums: Vec<i32>) -> Vec<Vec<i32>> {
     let n = nums.len();
@@ -209,6 +228,7 @@ fn get_all_subsets(nums: Vec<i32>) -> Vec<Vec<i32>> {
 ```
 
 **Python:**
+
 ```python
 def get_all_subsets(nums: list[int]) -> list[list[int]]:
     n = len(nums)
@@ -231,6 +251,7 @@ def get_all_subsets(nums: list[int]) -> list[list[int]]:
 ### 1. Single Number (All others appear twice)
 
 **Rust:**
+
 ```rust
 fn single_number(nums: Vec<i32>) -> i32 {
     nums.iter().fold(0, |acc, &x| acc ^ x)
@@ -238,6 +259,7 @@ fn single_number(nums: Vec<i32>) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def single_number(nums: list[int]) -> int:
     result = 0
@@ -256,6 +278,7 @@ def single_number_functional(nums: list[int]) -> int:
 ### 2. Single Number II (All others appear 3 times)
 
 **Rust:**
+
 ```rust
 fn single_number_ii(nums: Vec<i32>) -> i32 {
     let mut ones = 0;
@@ -273,6 +296,7 @@ fn single_number_ii(nums: Vec<i32>) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def single_number_ii(nums: list[int]) -> int:
     ones, twos = 0, 0
@@ -290,6 +314,7 @@ def single_number_ii(nums: list[int]) -> int:
 ### 3. Two Numbers Appearing Once (All others twice)
 
 **Rust:**
+
 ```rust
 fn single_number_iii(nums: Vec<i32>) -> Vec<i32> {
     let xor_all = nums.iter().fold(0, |acc, &x| acc ^ x);
@@ -311,6 +336,7 @@ fn single_number_iii(nums: Vec<i32>) -> Vec<i32> {
 ```
 
 **Python:**
+
 ```python
 def single_number_iii(nums: list[int]) -> list[int]:
     xor_all = 0
@@ -333,6 +359,7 @@ def single_number_iii(nums: list[int]) -> list[int]:
 ### 4. Reverse Bits
 
 **Rust:**
+
 ```rust
 fn reverse_bits(mut n: u32) -> u32 {
     let mut result = 0u32;
@@ -345,6 +372,7 @@ fn reverse_bits(mut n: u32) -> u32 {
 ```
 
 **Python:**
+
 ```python
 def reverse_bits(n: int) -> int:
     result = 0
@@ -357,6 +385,7 @@ def reverse_bits(n: int) -> int:
 ### 5. Count Bits (0 to n)
 
 **Rust:**
+
 ```rust
 fn count_bits(n: i32) -> Vec<i32> {
     let mut result = vec![0; (n + 1) as usize];
@@ -368,6 +397,7 @@ fn count_bits(n: i32) -> Vec<i32> {
 ```
 
 **Python:**
+
 ```python
 def count_bits(n: int) -> list[int]:
     result = [0] * (n + 1)
@@ -379,6 +409,7 @@ def count_bits(n: int) -> list[int]:
 ### 6. Maximum XOR of Two Numbers
 
 **Rust:**
+
 ```rust
 fn find_maximum_xor(nums: Vec<i32>) -> i32 {
     let mut max_xor = 0;
@@ -405,6 +436,7 @@ fn find_maximum_xor(nums: Vec<i32>) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def find_maximum_xor(nums: list[int]) -> int:
     max_xor = 0
@@ -432,11 +464,13 @@ def find_maximum_xor(nums: list[int]) -> int:
 Addition can be performed using XOR (for sum without carry) and AND (for carry).
 
 **Algorithm:**
+
 - `a ^ b` gives sum without considering carry
 - `(a & b) << 1` gives the carry
 - Repeat until carry becomes 0
 
 **Rust:**
+
 ```rust
 fn add_without_arithmetic(mut a: i32, mut b: i32) -> i32 {
     while b != 0 {
@@ -469,6 +503,7 @@ fn add_without_arithmetic(mut a: i32, mut b: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def add_without_arithmetic(a: int, b: int) -> int:
     # Python has arbitrary precision integers, so we need to handle the mask
@@ -496,6 +531,7 @@ def add_positive(a: int, b: int) -> int:
 Subtraction is addition with two's complement: `a - b = a + (~b + 1)`
 
 **Rust:**
+
 ```rust
 fn subtract_without_arithmetic(a: i32, b: i32) -> i32 {
     // a - b = a + (-b)
@@ -515,6 +551,7 @@ fn subtract(mut a: i32, mut b: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def subtract_without_arithmetic(a: int, b: int) -> int:
     # a - b = a + (-b)
@@ -544,6 +581,7 @@ def subtract(a: int, b: int) -> int:
 Multiplication through repeated addition and left shifts (like long multiplication).
 
 **Rust:**
+
 ```rust
 fn multiply_without_arithmetic(mut a: i32, mut b: i32) -> i32 {
     let mut result = 0;
@@ -571,6 +609,7 @@ fn multiply_without_arithmetic(mut a: i32, mut b: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def multiply_without_arithmetic(a: int, b: int) -> int:
     result = 0
@@ -602,6 +641,7 @@ def multiply_russian_peasant(a: int, b: int) -> int:
 Division through repeated subtraction with left shifts (binary search approach).
 
 **Rust:**
+
 ```rust
 fn divide_without_arithmetic(mut dividend: i32, mut divisor: i32) -> i32 {
     if divisor == 0 {
@@ -636,6 +676,7 @@ fn divide_without_arithmetic(mut dividend: i32, mut divisor: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def divide_without_arithmetic(dividend: int, divisor: int) -> int:
     if divisor == 0:
@@ -672,6 +713,7 @@ def divide_without_arithmetic(dividend: int, divisor: int) -> int:
 ### 5. Modulo Using Bits
 
 **Rust:**
+
 ```rust
 fn modulo_without_arithmetic(dividend: i32, divisor: i32) -> i32 {
     let quotient = divide_without_arithmetic(dividend, divisor);
@@ -686,6 +728,7 @@ fn modulo_power_of_two(n: i32, pow2: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def modulo_without_arithmetic(dividend: int, divisor: int) -> int:
     quotient = divide_without_arithmetic(dividend, divisor)
@@ -700,6 +743,7 @@ def modulo_power_of_two(n: int, pow2: int) -> int:
 ### 6. Negation Using Bits
 
 **Rust:**
+
 ```rust
 fn negate(n: i32) -> i32 {
     // Two's complement: -n = ~n + 1
@@ -708,6 +752,7 @@ fn negate(n: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def negate(n: int) -> int:
     # Two's complement: -n = ~n + 1
@@ -717,6 +762,7 @@ def negate(n: int) -> int:
 ### 7. Absolute Value Using Bits
 
 **Rust:**
+
 ```rust
 fn abs_value(n: i32) -> i32 {
     let mask = n >> 31; // All 1s if negative, all 0s if positive
@@ -734,6 +780,7 @@ fn abs_value_alt(n: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def abs_value(n: int) -> int:
     # Assuming 32-bit integer
@@ -748,6 +795,7 @@ def abs_value_alt(n: int) -> int:
 ### 8. Maximum of Two Numbers Without Comparison
 
 **Rust:**
+
 ```rust
 fn max_without_comparison(a: i32, b: i32) -> i32 {
     let diff = a - b;
@@ -764,6 +812,7 @@ fn max_safe(a: i32, b: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def max_without_comparison(a: int, b: int) -> int:
     diff = a - b
@@ -778,6 +827,7 @@ def max_safe(a: int, b: int) -> int:
 ### 9. Minimum of Two Numbers Without Comparison
 
 **Rust:**
+
 ```rust
 fn min_without_comparison(a: i32, b: i32) -> i32 {
     let diff = a - b;
@@ -787,6 +837,7 @@ fn min_without_comparison(a: i32, b: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def min_without_comparison(a: int, b: int) -> int:
     diff = a - b
@@ -797,6 +848,7 @@ def min_without_comparison(a: int, b: int) -> int:
 ### 10. Sign of a Number
 
 **Rust:**
+
 ```rust
 fn sign(n: i32) -> i32 {
     // Returns: -1 for negative, 0 for zero, 1 for positive
@@ -810,6 +862,7 @@ fn sign_alt(n: i32) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def sign(n: int) -> int:
     # Returns: -1 for negative, 0 for zero, 1 for positive
@@ -893,6 +946,7 @@ Result: 15 ✓
 ### 1. Bit Masking for State Representation
 
 **Rust:**
+
 ```rust
 // Example: Traveling Salesman Problem
 fn tsp_dp(dist: Vec<Vec<i32>>) -> i32 {
@@ -921,6 +975,7 @@ fn tsp_dp(dist: Vec<Vec<i32>>) -> i32 {
 ```
 
 **Python:**
+
 ```python
 def tsp_dp(dist: list[list[int]]) -> int:
     n = len(dist)
@@ -945,6 +1000,7 @@ def tsp_dp(dist: list[list[int]]) -> int:
 ### 2. Gosper's Hack (Iterate through all k-bit subsets)
 
 **Rust:**
+
 ```rust
 fn gospers_hack(n: usize, k: usize) -> Vec<i32> {
     let mut result = Vec::new();
@@ -962,6 +1018,7 @@ fn gospers_hack(n: usize, k: usize) -> Vec<i32> {
 ```
 
 **Python:**
+
 ```python
 def gospers_hack(n: int, k: int) -> list[int]:
     result = []
@@ -980,6 +1037,7 @@ def gospers_hack(n: int, k: int) -> list[int]:
 ### 3. Gray Code Generation
 
 **Rust:**
+
 ```rust
 fn gray_code(n: i32) -> Vec<i32> {
     let size = 1 << n;
@@ -988,6 +1046,7 @@ fn gray_code(n: i32) -> Vec<i32> {
 ```
 
 **Python:**
+
 ```python
 def gray_code(n: int) -> list[int]:
     size = 1 << n
@@ -997,6 +1056,7 @@ def gray_code(n: int) -> list[int]:
 ### 4. Check if Numbers Have Opposite Signs
 
 **Rust:**
+
 ```rust
 fn opposite_signs(x: i32, y: i32) -> bool {
     (x ^ y) < 0
@@ -1004,6 +1064,7 @@ fn opposite_signs(x: i32, y: i32) -> bool {
 ```
 
 **Python:**
+
 ```python
 def opposite_signs(x: int, y: int) -> bool:
     return (x ^ y) < 0
@@ -1012,6 +1073,7 @@ def opposite_signs(x: int, y: int) -> bool:
 ### 5. Swap Two Numbers Without Temp Variable
 
 **Rust:**
+
 ```rust
 fn swap(a: &mut i32, b: &mut i32) {
     if a != b {
@@ -1023,6 +1085,7 @@ fn swap(a: &mut i32, b: &mut i32) {
 ```
 
 **Python:**
+
 ```python
 def swap(a: int, b: int) -> tuple[int, int]:
     if a != b:

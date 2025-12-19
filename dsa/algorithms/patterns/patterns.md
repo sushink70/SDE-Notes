@@ -1,6 +1,4 @@
-Great question 👍 — array problems are everywhere in coding interviews, competitive programming, and real-world applications. Instead of approaching each problem randomly, it’s smart to recognize **common patterns** that keep showing up. Here’s a structured list of **array problem-solving patterns** you can use:
-
----
+# 📚 Algorithmic Patterns Library
 
 ## 🔑 Core Patterns for Array Problems
 
