@@ -9,6 +9,7 @@
 ## 1. ARRAY / TWO POINTERS
 
 ### When to Use
+
 - **Sorted array** or you can sort it
 - Need to find pairs/triplets with specific sum
 - Reverse/rotate operations
@@ -16,6 +17,7 @@
 - Partition problems
 
 ### Recognition Signals
+
 - Keywords: "sorted", "pairs", "in-place", "partition"
 - Need O(1) space with O(n) time
 - Processing from both ends simultaneously
@@ -79,17 +81,20 @@ func twoSum(numbers []int, target int) []int {
 ## 2. SLIDING WINDOW
 
 ### When to Use
+
 - **Contiguous subarray/substring** problems
 - Finding min/max/sum of subarrays of size K
 - Longest/shortest substring with conditions
 - All permutations/anagrams in string
 
 ### Recognition Signals
+
 - Keywords: "subarray", "substring", "contiguous", "window", "consecutive"
 - Need to optimize brute force O(n²) to O(n)
 - Fixed or variable window size based on condition
 
 ### Types
+
 - **Fixed Window**: Size K is given
 - **Dynamic Window**: Expand/shrink based on condition
 
@@ -155,6 +160,7 @@ func lengthOfLongestSubstring(s string) int {
 ## 3. HASH TABLE / HASH MAP
 
 ### When to Use
+
 - Need O(1) lookup/insert
 - Counting frequency
 - Finding duplicates
@@ -162,6 +168,7 @@ func lengthOfLongestSubstring(s string) int {
 - Two-element relationships (like two sum)
 
 ### Recognition Signals
+
 - Keywords: "unique", "count", "frequency", "cache", "duplicate"
 - Trading space for time optimization
 - Need to track seen elements
@@ -231,6 +238,7 @@ func sortString(s string) string {
 ## 4. STACK
 
 ### When to Use
+
 - Matching pairs (parentheses, brackets)
 - Nested structures
 - Reversing order
@@ -239,6 +247,7 @@ func sortString(s string) string {
 - Function call simulation (DFS iterative)
 
 ### Recognition Signals
+
 - Keywords: "valid", "balanced", "nested", "next greater", "match"
 - LIFO (Last In First Out) behavior needed
 - Need to track most recent unmatched element
@@ -311,6 +320,7 @@ func isValid(s string) bool {
 ## 5. RECURSION
 
 ### When to Use
+
 - Problem can be broken into **identical subproblems**
 - Tree/graph traversal
 - Divide and conquer
@@ -318,6 +328,7 @@ func isValid(s string) bool {
 - Mathematical sequences (Fibonacci, factorial)
 
 ### Recognition Signals
+
 - Keywords: "all possibilities", "generate", "tree", "divide"
 - Natural recursive structure (trees, nested lists)
 - Base case + recursive case clearly identifiable
@@ -394,23 +405,27 @@ func backtrack(result *[]string, current string, open, close, max int) {
 ## 6. DYNAMIC PROGRAMMING (DP)
 
 ### When to Use
+
 - **Overlapping subproblems** + **Optimal substructure**
 - Optimization problems (min/max/count)
 - Decision problems with choices at each step
 - Counting number of ways
 
 ### Recognition Signals
+
 - Keywords: "maximum", "minimum", "longest", "shortest", "count ways"
 - Problem can be solved recursively but has repeated calculations
 - Current choice depends on previous choices
 
 ### DP Detection Formula
+
 1. Can you make a choice at each step?
 2. Does the choice depend on previous choices?
 3. Are there overlapping subproblems?
 4. Want optimal solution? → **USE DP**
 
 ### Types
+
 - **Top-Down (Memoization)**: Recursion + caching
 - **Bottom-Up (Tabulation)**: Iterative with table
 
@@ -484,17 +499,20 @@ func min(a, b int) int {
 ## 7. BACKTRACKING
 
 ### When to Use
+
 - Need to explore **all possible solutions**
 - Generate combinations, permutations, subsets
 - Constraint satisfaction problems
 - Puzzles (N-Queens, Sudoku)
 
 ### Recognition Signals
+
 - Keywords: "all", "find all", "generate all", "combinations", "permutations"
 - Need to make a choice, explore, then undo (backtrack)
 - Search space is a tree of choices
 
 ### Backtracking Template
+
 1. Choose
 2. Explore
 3. Unchoose (backtrack)
@@ -565,6 +583,7 @@ func backtrack(nums []int, start int, current []int, result *[][]int) {
 ## 8. GREEDY
 
 ### When to Use
+
 - **Local optimal choice leads to global optimal**
 - Scheduling problems
 - Interval problems
@@ -572,11 +591,13 @@ func backtrack(nums []int, start int, current []int, result *[][]int) {
 - Huffman coding
 
 ### Recognition Signals
+
 - Keywords: "maximize", "minimize", "earliest", "latest", "most", "least"
 - Sorting often helps
 - Can prove that greedy choice is safe
 
 ### Greedy vs DP
+
 - **Greedy**: Local choice, no looking back
 - **DP**: Consider all choices, optimal substructure
 
@@ -640,6 +661,7 @@ func canJump(nums []int) bool {
 ## 9. GRAPH ALGORITHMS
 
 ### When to Use
+
 - Relationships between entities
 - Networks, dependencies, paths
 - Social networks, map navigation
@@ -647,10 +669,12 @@ func canJump(nums []int) bool {
 ### Types
 
 #### BFS (Breadth-First Search)
+
 - **Use for**: Shortest path (unweighted), level-order, minimum steps
 - **Recognition**: "shortest", "minimum moves", "level by level"
 
 #### DFS (Depth-First Search)
+
 - **Use for**: Path existence, cycles, topological sort, connected components
 - **Recognition**: "all paths", "cycle detection", "connected"
 
@@ -751,17 +775,20 @@ func numIslands(grid [][]byte) int {
 ## 10. BINARY SEARCH
 
 ### When to Use
+
 - **Sorted array** (or can be modeled as sorted)
 - Search in O(log n)
 - Finding boundaries
 - Optimization problems on monotonic functions
 
 ### Recognition Signals
+
 - Keywords: "sorted", "find", "search"
 - Need better than O(n)
 - Answer space is ordered/monotonic
 
 ### Types
+
 - **Find exact value**
 - **Find first/last occurrence**
 - **Binary search on answer** (for optimization)
@@ -899,6 +926,7 @@ Problem Analysis
 ## Key Insight
 
 > **The pattern is not about the data structure alone, but about the PROBLEM STRUCTURE:**
+
 > - Recursion is about problem decomposition
 > - DP is about overlapping subproblems
 > - Greedy is about optimal local choices
@@ -910,12 +938,15 @@ I'll create a comprehensive pattern recognition guide for elite software enginee
 ## Key Insights to Master:
 
 ### **The Recognition Hierarchy**
+
 1. **First**: Look for the data structure (sorted → binary search, contiguous → sliding window)
 2. **Second**: Identify the problem type (optimization → DP/Greedy, all solutions → backtracking)
 3. **Third**: Check constraints (time limits, space limits)
 
 ### **The 5-Second Pattern Test**
+
 Ask yourself:
+
 - Is it sorted? → **Binary Search or Two Pointers**
 - Is it contiguous? → **Sliding Window**
 - Need all answers? → **Backtracking**
@@ -923,6 +954,10 @@ Ask yourself:
 - Need fast lookup? → **Hash Table**
 
 ### **Real-World Mapping**
+
+- **Navigation systems** → Graph (Dijkstra/A*)
+- **Flight routes** → Graph (Dijkstra)
+- **Social network connections** → Graph (BFS/DFS)
 - **Rate limiting/caching** → Hash Table + Queue
 - **Autocomplete** → Trie (specialized tree)
 - **Load balancing** → Heap + Hash Table
@@ -932,7 +967,9 @@ Ask yourself:
 - **Data pipelines** → Sliding Window
 
 ### **The Debug Checklist**
+
 When stuck:
+
 1. Did you consider the sorted property?
 2. Can you trade space for time?
 3. Is there a greedy choice?
@@ -940,6 +977,7 @@ When stuck:
 5. Can you use two pointers instead of nested loops?
 
 ### **Language-Specific Notes**
+
 - **Rust**: Ownership helps prevent bugs but requires careful borrowing in recursive solutions
 - **Python**: Clean syntax, use `collections` module heavily (defaultdict, Counter, deque)
 - **Go**: Explicit but fast, remember to handle slice/map initialization carefully
@@ -952,14 +990,16 @@ Let’s build a **battle-tested guide** that you can use as a **decision compass
 
 ---
 
-# Elite Software Engineer's DSA Pattern Recognition Guide
+## Elite Software Engineer's DSA Pattern Recognition Guide
 
 ## 🎯 Core Philosophy
+
 **Pattern recognition in problem-solving is about mapping problem characteristics to algorithmic approaches, not memorizing solutions.**
 
 ---
 
 ## 📋 Table of Contents
+
 1. [Keyword → Pattern Mapping](#keyword-pattern-mapping)
 2. [Problem Classification Framework](#problem-classification-framework)
 3. [Pattern Recognition Checklist](#pattern-recognition-checklist)
@@ -1069,6 +1109,7 @@ Let’s build a **battle-tested guide** that you can use as a **decision compass
 ### **2. Problem Type Classification**
 
 **Optimization Problems**
+
 - **Keywords**: maximize, minimize, optimal, best
 - **Approach**: DP, Greedy, Binary Search on Answer
 - **Questions to ask**:
@@ -1077,6 +1118,7 @@ Let’s build a **battle-tested guide** that you can use as a **decision compass
   - Can I optimize brute force? → Pruning, Memoization
 
 **Counting Problems**
+
 - **Keywords**: count ways, number of, how many
 - **Approach**: DP, Combinatorics, Math
 - **Questions to ask**:
@@ -1085,6 +1127,7 @@ Let’s build a **battle-tested guide** that you can use as a **decision compass
   - Can I use math formula? → Direct calculation
 
 **Search Problems**
+
 - **Keywords**: find, search, exists, locate
 - **Approach**: Binary Search, DFS, BFS, Hashing
 - **Questions to ask**:
@@ -1093,6 +1136,7 @@ Let’s build a **battle-tested guide** that you can use as a **decision compass
   - Need just existence? → Hashing, Early termination
 
 **Construction Problems**
+
 - **Keywords**: build, construct, generate, create
 - **Approach**: Backtracking, Greedy, Simulation
 - **Questions to ask**:
@@ -1143,6 +1187,7 @@ Let’s build a **battle-tested guide** that you can use as a **decision compass
 **Use When**: Contiguous subarray/substring, "maximum/minimum in window"
 
 **Python**
+
 ```python
 def max_sum_subarray(arr, k):
     """Maximum sum of subarray of size k"""
@@ -1173,6 +1218,7 @@ def longest_substring_without_repeating(s):
 ```
 
 **Rust**
+
 ```rust
 use std::collections::HashMap;
 
@@ -1212,6 +1258,7 @@ fn longest_substring_without_repeating(s: &str) -> usize {
 ```
 
 **Go**
+
 ```go
 func maxSumSubarray(arr []int, k int) int {
     if len(arr) < k {
@@ -1260,6 +1307,7 @@ func longestSubstringWithoutRepeating(s string) int {
 **Use When**: Sorted array, pair finding, palindrome checking
 
 **Python**
+
 ```python
 def two_sum_sorted(arr, target):
     """Find pair with given sum in sorted array"""
@@ -1291,6 +1339,7 @@ def remove_duplicates(arr):
 ```
 
 **Rust**
+
 ```rust
 fn two_sum_sorted(arr: &[i32], target: i32) -> (i32, i32) {
     let mut left = 0;
@@ -1328,6 +1377,7 @@ fn remove_duplicates(arr: &mut Vec<i32>) -> usize {
 ```
 
 **Go**
+
 ```go
 func twoSumSorted(arr []int, target int) [2]int {
     left, right := 0, len(arr)-1
@@ -1370,6 +1420,7 @@ func removeDuplicates(arr []int) int {
 **Use When**: Linked list cycle, finding middle, palindrome
 
 **Python**
+
 ```python
 class ListNode:
     def __init__(self, val=0, next=None):
@@ -1400,6 +1451,7 @@ def find_middle(head):
 ```
 
 **Rust**
+
 ```rust
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -1430,6 +1482,7 @@ fn has_cycle(head: Option<Rc<RefCell<ListNode>>>) -> bool {
 ```
 
 **Go**
+
 ```go
 type ListNode struct {
     Val  int
@@ -1469,6 +1522,7 @@ func findMiddle(head *ListNode) *ListNode {
 **Use When**: Sorted input, "search in O(log n)", optimization problems
 
 **Python**
+
 ```python
 def binary_search(arr, target):
     """Standard binary search"""
@@ -1531,6 +1585,7 @@ def binary_search_on_answer(arr, k):
 ```
 
 **Rust**
+
 ```rust
 fn binary_search(arr: &[i32], target: i32) -> i32 {
     let mut left = 0;
@@ -1570,6 +1625,7 @@ fn find_first_occurrence(arr: &[i32], target: i32) -> i32 {
 ```
 
 **Go**
+
 ```go
 func binarySearch(arr []int, target int) int {
     left, right := 0, len(arr)-1
@@ -1615,6 +1671,7 @@ func findFirstOccurrence(arr []int, target int) int {
 **Use When**: "k largest/smallest", "top k frequent"
 
 **Python**
+
 ```python
 import heapq
 
@@ -1674,6 +1731,7 @@ def kth_largest(arr, k):
 ```
 
 **Rust**
+
 ```rust
 use std::collections::BinaryHeap;
 use std::cmp::Reverse;
@@ -1701,6 +1759,7 @@ fn k_largest_elements(arr: &[i32], k: usize) -> Vec<i32> {
 ```
 
 **Go**
+
 ```go
 import (
     "container/heap"
@@ -1753,6 +1812,7 @@ func kLargestElements(arr []int, k int) []int {
 **Use When**: "optimize", "maximize/minimize", "count ways", overlapping subproblems
 
 **Python**
+
 ```python
 def fibonacci(n):
     """Classic DP example - bottom-up"""
@@ -1812,6 +1872,7 @@ def knapsack_01(weights, values, capacity):
 ```
 
 **Rust**
+
 ```rust
 fn fibonacci(n: usize) -> u64 {
     if n <= 1 {
@@ -1865,6 +1926,7 @@ fn longest_common_subsequence(text1: &str, text2: &str) -> usize {
 ```
 
 **Go**
+
 ```go
 func fibonacci(n int) int {
     if n <= 1 {
@@ -1939,6 +2001,7 @@ func max(a, b int) int {
 **Use When**: Graph/tree problems, shortest path, connected components
 
 **Python**
+
 ```python
 from collections import deque, defaultdict
 
@@ -2020,6 +2083,7 @@ def topological_sort(graph, n):
 ```
 
 **Rust**
+
 ```rust
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -2089,6 +2153,7 @@ fn count_islands(grid: &mut Vec<Vec<char>>) -> i32 {
 ```
 
 **Go**
+
 ```go
 func bfsShortestPath(graph map[int][]int, start, end int) []int {
     type item struct {
@@ -2287,24 +2352,28 @@ Problem: Optimize/Maximize/Minimize
 ## 📚 Study Path for Elite Engineers
 
 ### **Phase 1: Foundations (Weeks 1-4)**
+
 - Arrays: Two pointers, sliding window, prefix sum
 - Strings: KMP, Rabin-Karp, sliding window
 - Hashing: HashMap patterns, frequency counting
 - Sorting: QuickSort, MergeSort, counting sort
 
 ### **Phase 2: Core Structures (Weeks 5-8)**
+
 - Linked Lists: Fast/slow pointers, reversal
 - Stacks & Queues: Monotonic stack, deque
 - Trees: DFS, BFS, traversals
 - Heaps: Priority queue patterns, k-th element
 
 ### **Phase 3: Advanced (Weeks 9-12)**
+
 - Graphs: BFS, DFS, Dijkstra, Union-Find
 - Dynamic Programming: 1D, 2D, optimization
 - Binary Search: On array, on answer space
 - Backtracking: Permutations, combinations, N-Queens
 
 ### **Phase 4: Mastery (Weeks 13+)**
+
 - Advanced DP: Bitmask, digit, tree DP
 - Advanced Graphs: Bellman-Ford, Floyd-Warshall, MST
 - Segment Trees, Fenwick Trees
@@ -2354,13 +2423,22 @@ I'll create a comprehensive guide for recognizing DSA patterns and choosing the 
 ## **Key Features:**
 
 ### **1. Keyword Recognition System**
+
 The guide includes extensive tables mapping problem keywords to specific patterns. For example:
+
+- "find duplicate" → Hash Set
+- "longest substring" → Sliding Window
+- "two sum" → Two Pointers or Hash Map
 - "subarray sum" → Sliding Window
 - "k largest" → Heap pattern
 - "shortest path" → BFS/Dijkstra
 
 ### **2. Complete Implementations**
+
 Every pattern includes production-ready code in **Python, Rust, and Go**, covering:
+
+- Arrays/Strings
+- Hash Maps/Sets
 - Sliding Window (variable and fixed size)
 - Two Pointers
 - Fast/Slow Pointers
@@ -2370,21 +2448,30 @@ Every pattern includes production-ready code in **Python, Rust, and Go**, coveri
 - Graph Traversal (BFS/DFS)
 
 ### **3. Decision Framework**
+
+A flowchart-style decision tree helps you choose the right approach based on problem characteristics.
 Before coding, the guide teaches you to ask:
+
+- What are the keywords?
+- What data structures are implied?
 - What are the constraints? (This determines your time complexity target)
 - Is the input sorted?
 - What type of output is needed?
 - Can I transform the problem?
 
 ### **4. Real-World Mappings**
+
 It connects DSA to actual engineering:
+
 - **Rate Limiter** → Sliding Window
 - **LRU Cache** → HashMap + Doubly Linked List
 - **Autocomplete** → Trie
 - **Load Balancer** → Consistent Hashing
 
 ### **5. Complexity Shortcuts**
+
 Quick rules like:
+
 - n ≤ 20 → Exponential algorithms OK
 - n ≤ 10⁶ → Must be O(n) or O(n log n)
 - "Contiguous" → Think sliding window
@@ -2392,9 +2479,10 @@ Quick rules like:
 
 The guide emphasizes **pattern recognition over memorization** - teaching you to think like an elite engineer who can quickly identify the right approach for any problem.
 
-# Elite Software Engineer's Guide: Keyword-to-DSA Pattern Recognition
+## Elite Software Engineer's Guide: Keyword-to-DSA Pattern Recognition
 
 ## Table of Contents
+
 1. [Core Pattern Recognition Framework](#core-pattern-recognition-framework)
 2. [Keyword Mapping Matrix](#keyword-mapping-matrix)
 3. [Domain-Specific Patterns](#domain-specific-patterns)
@@ -2408,18 +2496,24 @@ The guide emphasizes **pattern recognition over memorization** - teaching you to
 ### The 3-Step Analysis Method
 
 **Step 1: IDENTIFY - Extract Signal Keywords**
+
+- Data operation keywords (find, sort, count, path, optimize)
 - Action verbs (find, count, maximize, minimize, track)
 - Constraint words (unique, consecutive, overlapping, distinct)
 - Structure hints (tree, graph, sequence, stream, interval)
 - Performance requirements (real-time, concurrent, distributed)
 
 **Step 2: CLASSIFY - Map to Pattern Family**
+
+- What data structure fits? (array, linked list, tree, graph, hash)
 - What operation dominates? (insert, delete, lookup, update)
 - What's the access pattern? (sequential, random, range-based)
 - What's the cardinality? (bounded, unbounded, streaming)
 - What are the trade-offs? (time vs space, consistency vs availability)
 
 **Step 3: OPTIMIZE - Select Best-Fit DSA**
+
+- Analyze time/space complexity needs
 - Consider your domain constraints
 - Evaluate concurrency requirements
 - Assess scalability needs
@@ -2518,18 +2612,21 @@ The guide emphasizes **pattern recognition over memorization** - teaching you to
 ### ☁️ Cloud & Infrastructure
 
 #### Resource Management
+
 - **Problem**: VM allocation with resource constraints
 - **Keywords**: allocate, capacity, constraint, optimize
 - **Pattern**: Bin Packing (First-Fit, Best-Fit) + Priority Queue
 - **DSA**: Heap + Greedy Algorithm
 
 #### Load Balancing
+
 - **Problem**: Distribute requests across servers
 - **Keywords**: balance, distribute, weight, health
 - **Pattern**: Consistent Hashing + Weighted Round Robin
 - **DSA**: Hash Ring + Priority Queue
 
 #### Auto-scaling
+
 - **Problem**: Scale resources based on metrics
 - **Keywords**: threshold, monitor, scale, trend
 - **Pattern**: Time Series Analysis + Sliding Window
@@ -2538,18 +2635,21 @@ The guide emphasizes **pattern recognition over memorization** - teaching you to
 ### 🌐 Networking
 
 #### Packet Routing
+
 - **Problem**: Route packets through network
 - **Keywords**: route, path, latency, hop
 - **Pattern**: Shortest Path with Constraints
 - **DSA**: Dijkstra's with modifications, A*
 
 #### Traffic Shaping
+
 - **Problem**: Control bandwidth usage
 - **Keywords**: rate, bandwidth, burst, limit
 - **Pattern**: Token Bucket + Leaky Bucket
 - **DSA**: Queue + Counter
 
 #### DNS Resolution
+
 - **Problem**: Resolve domain names efficiently
 - **Keywords**: lookup, cache, TTL, hierarchy
 - **Pattern**: Multi-level Cache + Trie
@@ -2558,18 +2658,21 @@ The guide emphasizes **pattern recognition over memorization** - teaching you to
 ### 🔐 Security
 
 #### Firewall Rules
+
 - **Problem**: Match packets against rules efficiently
 - **Keywords**: match, filter, rule, priority
 - **Pattern**: Rule Matching + Priority Ordering
 - **DSA**: Trie (for IP prefixes), Priority Queue
 
 #### Intrusion Detection
+
 - **Problem**: Detect anomalous patterns
 - **Keywords**: pattern, anomaly, threshold, signature
 - **Pattern**: Pattern Matching + Statistical Analysis
 - **DSA**: Aho-Corasick, Bloom Filter, Sliding Window
 
 #### Access Control
+
 - **Problem**: Check permissions efficiently
 - **Keywords**: permission, role, hierarchy, grant
 - **Pattern**: RBAC Tree + Bitset
@@ -2578,12 +2681,14 @@ The guide emphasizes **pattern recognition over memorization** - teaching you to
 ### 📦 Sandboxing & Virtualization
 
 #### Resource Isolation
+
 - **Problem**: Isolate resource access
 - **Keywords**: isolate, namespace, limit, quota
 - **Pattern**: Hierarchical Namespaces + Resource Tracking
 - **DSA**: Tree + Hash Map
 
 #### Process Management
+
 - **Problem**: Schedule and track processes
 - **Keywords**: schedule, priority, deadline, preempt
 - **Pattern**: Multi-level Feedback Queue
@@ -2596,26 +2701,31 @@ The guide emphasizes **pattern recognition over memorization** - teaching you to
 ### The CASER Framework
 
 **C - Constraints**
+
 - What are the size limits? (n < 10³, 10⁶, 10⁹?)
 - What are the time limits? (real-time, batch, interactive?)
 - What are the space limits? (memory-constrained, distributed?)
 
 **A - Access Pattern**
+
 - Random or sequential?
 - Read-heavy or write-heavy?
 - Point queries or range queries?
 
 **S - Scalability**
+
 - Single-threaded or concurrent?
 - Single-node or distributed?
 - Static or dynamic data?
 
 **E - Error Tolerance**
+
 - Exact or approximate?
 - Best-effort or guaranteed?
 - Fault-tolerant requirements?
 
 **R - Requirements**
+
 - Latency requirements (p50, p95, p99)?
 - Throughput requirements?
 - Consistency requirements?
@@ -2631,6 +2741,7 @@ The guide emphasizes **pattern recognition over memorization** - teaching you to
 **Use Case**: API rate limiting in cloud services
 
 #### Rust Implementation
+
 ```rust
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
@@ -2691,6 +2802,7 @@ fn handle_request(limiter: &SafeTokenBucket) -> Result<(), &'static str> {
 ```
 
 #### Python Implementation
+
 ```python
 import time
 import threading
@@ -2752,6 +2864,7 @@ def handle_api_request():
 ```
 
 #### Go Implementation
+
 ```go
 package main
 
@@ -2828,6 +2941,7 @@ func RateLimitMiddleware(limiter *TokenBucket) func(http.Handler) http.Handler {
 **Use Case**: DNS caching, API response caching
 
 #### Rust Implementation
+
 ```rust
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
@@ -2926,6 +3040,7 @@ fn dns_cache_example() {
 ```
 
 #### Python Implementation
+
 ```python
 from collections import OrderedDict
 from typing import Optional, Generic, TypeVar, Any
@@ -3026,6 +3141,7 @@ class DNSResolver:
 ```
 
 #### Go Implementation
+
 ```go
 package main
 
@@ -3188,6 +3304,7 @@ func (r *DNSResolver) actualDNSLookup(domain string) string {
 **Use Case**: Load balancing, distributed caching, data partitioning
 
 #### Rust Implementation
+
 ```rust
 use std::collections::{BTreeMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -3307,6 +3424,7 @@ fn load_balancer_example() {
 ```
 
 #### Python Implementation
+
 ```python
 from bisect import bisect_right
 from typing import List, Optional, Set
@@ -3452,6 +3570,7 @@ for i in range(10):
 ```
 
 #### Go Implementation
+
 ```go
 package main
 
@@ -3714,30 +3833,36 @@ Many real-world problems require combining multiple patterns:
 Before implementing, ask yourself:
 
 ✅ **Requirements Analysis**
+
 - [ ] What is the exact problem statement?
+- [ ] What are the input and output formats?
 - [ ] What are the constraints (time, space, scale)?
 - [ ] What are the edge cases?
 - [ ] What are the performance requirements (latency, throughput)?
 
 ✅ **Pattern Recognition**
+
 - [ ] What keywords appear in the problem?
 - [ ] Which pattern family does this belong to?
 - [ ] Are there multiple patterns to combine?
 - [ ] What are the trade-offs between options?
 
 ✅ **Implementation Strategy**
+
 - [ ] What's the simplest solution that works?
 - [ ] How can I optimize it?
 - [ ] How do I handle concurrency?
 - [ ] How do I handle failures?
 
 ✅ **Validation**
+
 - [ ] Does it handle edge cases?
 - [ ] Does it meet performance requirements?
 - [ ] Is it maintainable and testable?
 - [ ] Does it scale to the required load?
 
 ✅ **Production Readiness**
+
 - [ ] Monitoring and observability?
 - [ ] Error handling and recovery?
 - [ ] Resource cleanup and leak prevention?
@@ -3769,23 +3894,27 @@ I'll create a comprehensive guide for recognizing problem patterns and selecting
 ## Key Highlights:
 
 **🎯 Pattern Recognition Framework**
+
 - **IDENTIFY**: Extract keywords from problem statements
 - **CLASSIFY**: Map to DSA pattern families
 - **OPTIMIZE**: Select best-fit based on constraints
 
 **📋 Extensive Keyword Matrices** covering:
+
 - Search & Retrieval (hash maps, binary search, spatial queries)
 - Graph & Network problems (routing, flow, connectivity)
 - Concurrency & Security (rate limiting, caching, access control)
 - Distributed Systems (consensus, partitioning, consistency)
 
 **🏗️ Domain-Specific Patterns** for:
+
 - Cloud resource management (bin packing, load balancing)
 - Network operations (packet routing, traffic shaping, DNS)
 - Security systems (firewall rules, intrusion detection, RBAC)
 - Virtualization (resource isolation, process scheduling)
 
 **💻 Three Complete Production-Ready Examples**:
+
 1. **Rate Limiter** (Token Bucket) - for API throttling
 2. **LRU Cache with TTL** - for distributed caching
 3. **Consistent Hashing** - for load balancing & sharding
@@ -3793,6 +3922,7 @@ I'll create a comprehensive guide for recognizing problem patterns and selecting
 Each with full implementations in **Rust, Python, and Go**, including thread-safety and error handling.
 
 **🧠 The CASER Decision Framework**:
+
 - **C**onstraints (size, time, space limits)
 - **A**ccess Pattern (random, sequential, range)
 - **S**calability (concurrent, distributed, dynamic)
@@ -3801,7 +3931,7 @@ Each with full implementations in **Rust, Python, and Go**, including thread-saf
 
 The guide includes quick-reference cheat sheets and a final checklist to ensure you always choose the optimal approach. Use it as your go-to reference when architecting systems or solving complex problems!
 
-# 🧭 1. The Meta-Framework: How to Choose
+### 🧭 1. The Meta-Framework: How to Choose
 
 Think of each technique as a **weapon in your arsenal**. The choice depends on:
 
@@ -3819,7 +3949,7 @@ Think of each technique as a **weapon in your arsenal**. The choice depends on:
 
 ---
 
-# 🧠 2. Memory Model & Call Semantics
+### 🧠 2. Memory Model & Call Semantics
 
 - **Recursion** → stack frames grow; risk of stack overflow. Rust requires explicit `Box`/`Rc` for heap recursion.  
 - **DP** → can be top-down (recursion + memoization) or bottom-up (iterative, heap arrays).  
@@ -3831,9 +3961,10 @@ Think of each technique as a **weapon in your arsenal**. The choice depends on:
 
 ---
 
-# ⚙️ 3. Language-Specific Idioms
+### ⚙️ 3. Language-Specific Idioms
 
 ### **Rust**
+
 ```rust
 // Recursion
 fn factorial(n: u64) -> u64 {
@@ -3861,6 +3992,7 @@ for x in vec![1,2,2,3] {
 ---
 
 ### **Python**
+
 ```python
 # Recursion
 def factorial(n):
@@ -3886,6 +4018,7 @@ def max_subarray_sum(nums, k):
 ---
 
 ### **Go**
+
 ```go
 // Recursion
 func factorial(n int) int {
@@ -3912,7 +4045,7 @@ for _, x := range []int{1,2,2,3} {
 
 ---
 
-# 🏆 4. Elite Heuristics
+### 🏆 4. Elite Heuristics
 
 - **Ask the right meta-question**:  
   - *Do I need all possibilities?* → Backtracking.  
@@ -3937,7 +4070,7 @@ for _, x := range []int{1,2,2,3} {
 
 ---
 
-# 🌌 Fantasy Anchor
+### 🌌 Fantasy Anchor
 
 Imagine you’re a **celestial strategist**:
 
@@ -3951,7 +4084,8 @@ Imagine you’re a **celestial strategist**:
 
 ---
 
-✅ **Summary for elite engineers**:  
+✅ **Summary for elite engineers**:
+
 - Start with **problem signals** (overlap, optimality, exploration, lookup, contiguity).  
 - Map to **technique** (DP, recursion, backtracking, hash, sliding window, greedy, matrix).  
 - Use **language idioms** for clarity and performance.  

@@ -1,4 +1,5 @@
 # Complete Array Patterns & Techniques Guide
+
 ## The Mental Framework for Array Mastery
 
 > **Cognitive Principle**: Pattern recognition is your competitive advantage. The difference between top 1% and average isn't raw intelligence—it's the ability to **instantly recognize underlying structures** and map problems to known patterns.
@@ -11,7 +12,7 @@ Before diving into techniques, internalize this decision tree:
 
 1. **Can I solve it in one pass?** → Use traversal patterns
 2. **Do I need to compare elements?** → Consider two pointers or sliding window
-3. **Do I need cumulative information?** → Think prefix sums
+3. **Do I need cumulative information(increasing steadily in amount, degree, etc.)?** → Think prefix sums
 4. **Is there a subarray/subsequence constraint?** → Sliding window or DP
 5. **Does order matter?** → If not, consider sorting first
 6. **Can I modify in-place?** → Use space-optimized techniques
@@ -21,6 +22,7 @@ Before diving into techniques, internalize this decision tree:
 ## 1. Fundamental Access Patterns
 
 ### 1.1 Linear Traversal (Single Pass)
+
 **Mental Model**: Scan once, decide once per element.
 
 ```python
@@ -52,6 +54,7 @@ int idx = (it != arr.end()) ? std::distance(arr.begin(), it) : -1;
 ---
 
 ### 1.2 Reverse Traversal
+
 **Mental Model**: Sometimes problems are easier backward.
 
 ```python
@@ -68,6 +71,7 @@ def is_sorted_desc(arr):
 ---
 
 ### 1.3 Multi-Pass Patterns
+
 **Mental Model**: When one pass isn't enough, but multiple passes still keep O(n).
 
 ```python
@@ -125,6 +129,7 @@ fn two_sum_sorted(arr: &[i32], target: i32) -> Option<(usize, usize)> {
 ```
 
 **Pattern Recognition**:
+
 - Array is sorted or can be sorted
 - Looking for pairs/triplets with constraints
 - Palindrome checking
@@ -146,7 +151,8 @@ def remove_duplicates(arr):
             arr[slow] = arr[fast]
     
     return slow + 1
-
+n = remove_duplicates(arr)
+print(arr[:n])  # [1, 2, 3, 4, 5] ✓
 # Time: O(n), Space: O(1)
 ```
 
@@ -169,6 +175,7 @@ func removeDuplicates(nums []int) int {
 ```
 
 **Pattern Recognition**:
+
 - In-place array modification
 - Partitioning problems
 - Removing elements with constraints
@@ -302,6 +309,7 @@ fn longest_substring_k_distinct(s: &str, k: usize) -> usize {
 ```
 
 **Pattern Recognition**:
+
 - "Longest/shortest substring/subarray with constraint"
 - "At most K distinct elements"
 - "Minimum window covering all elements"
@@ -398,6 +406,7 @@ def subarray_sum_k(arr, k):
 ```
 
 **Pattern Recognition**:
+
 - "Subarray with sum equal to K"
 - "Find if subarray sum is divisible by K"
 - "Longest subarray with sum ≤ K"
@@ -583,6 +592,7 @@ fn cyclic_sort(arr: &mut [i32]) {
 ```
 
 **Applications**:
+
 - Finding missing numbers
 - Finding duplicates in 1..N
 - First K missing positive integers
@@ -1017,19 +1027,23 @@ Before coding, ask yourself:
 ### Performance Intuition
 
 **Rust-Specific:**
+
 - Use iterators for zero-cost abstractions
 - Prefer `&[T]` slices over `Vec<T>` when possible
 - Use `swap()` for in-place operations
 
 **Python-Specific:**
+
 - List comprehensions are faster than loops for simple transformations
 - `collections` module is your friend (Counter, defaultdict, deque)
 
 **C++ Specific:**
+
 - STL algorithms are highly optimized (use `std::transform`, `std::accumulate`)
 - Reserve vector capacity if size is known: `vec.reserve(n)`
 
 **Go-Specific:**
+
 - Slicing is cheap (shares underlying array)
 - Use `make()` with capacity for efficiency
 
@@ -1048,6 +1062,7 @@ Before coding, ask yourself:
 5. **Benchmark Yourself**: Track solve time. Top 1% solve medium in < 15 min
 
 **The Monk's Approach:**
+
 - One pattern, deeply > Many patterns, shallowly
 - Understand WHY, not just HOW
 - Every problem is a teacher
@@ -1057,7 +1072,7 @@ You now have the complete mental arsenal. The journey from pattern recognition t
 
 **Now go practice with purpose. 🔥**
 
-# The Complete Array Mastery Guide
+## The Complete Array Mastery Guide
 
 I'll create a comprehensive reference that will become your mental arsenal for array problems. This is designed to build your pattern recognition at an expert level.---
 
@@ -1068,16 +1083,19 @@ I've created a complete reference guide that covers **every major array pattern*
 ### Your Learning Path (Monk Mode Activated)
 
 **Phase 1: Foundation (Week 1-2)**
+
 - Master patterns 1-3 (Traversal, Two Pointers, Sliding Window)
 - These are your bread and butter—60% of array problems use these
 - Do 15-20 problems per pattern before moving on
 
 **Phase 2: Optimization (Week 3-4)**  
+
 - Patterns 4-6 (Prefix Sum, Kadane's, Partitioning)
 - These separate good coders from great ones
 - Focus on recognizing when cumulative information helps
 
 **Phase 3: Advanced Techniques (Week 5-6)**
+
 - Patterns 7-12 (Cyclic Sort, In-place, Matrix, Advanced)
 - These are your competitive edge for hard problems
 - Many top coders miss these patterns
@@ -1125,6 +1143,7 @@ The difference between solving in 5 minutes vs 50 minutes is **instant pattern r
 ```
 
 **Why this works** (Cognitive Science):
+
 - **Chunking**: Patterns become single mental units
 - **Spaced Repetition**: Prevents pattern decay
 - **Interleaving**: Mixing patterns after mastery increases discrimination
@@ -1148,6 +1167,7 @@ Watch for these keywords in problems:
 **Goal**: Solve 150 array problems (5/day) organized by pattern
 
 **Daily Routine** (2-3 hours):
+
 1. Morning: Review one pattern section (15 min)
 2. Solve 3 medium problems of that pattern (90 min)
 3. Solve 2 easy problems of different patterns (30 min)
