@@ -1,33 +1,13 @@
 # Prompt Engg
 
 my bottleneck
-- how to structure the data and destructure and manipulate it depending on the use case - like when to use loops, recursion, iterators, generators, comprehensions, conditionals, functions, classes, modules, packages, libraries, frameworks etc
-
-- how to break down a complex problem into smaller sub-problems and solve them step by step
+- 
 
 - list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams. 
 
 ==========important===========
 provide what are the common patterns compendium to access and manipulate, etc... array data structures. provide all things without missing anything even I missed to mention here. provide a comprehensive guide. this will help me to do problem solving easily.
 ==============================
-
-
-
-novel content like explanations, diagrams, 
-
-
-flow charts or flow diagrams
-neet and clean presentation
-organized code or structure
-
-Bucket techniques
-
-
-
-
-arrays, lists, dictionaries, sets, tuples, strings
-what and all the way we can use loops until finish the [string]. the loop must run until the [string] ends. provide a comprehensive guide. cover rust, go, python, c/c++ implementations.
-
 
 1. Create a comprehensive guide to Development Methodologies (e.g., Agile, Scrum, etc...) in Go, python, rust. Complete implementations in Go, python, rust. Cover - with and without using it, errors and Warnings if not using it, correct usage and incorrect usage. what is the benefit, control over the Go code using it and without using it?
 
