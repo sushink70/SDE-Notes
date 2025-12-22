@@ -1,0 +1,258 @@
+[
+  {
+    "call_id": 1,
+    "func_name": "merge_sort",
+    "args": {
+      "arr": "[3, 1, 4, 1, 5, 9, 2, 6]"
+    },
+    "return_value": "[1, 1, 2, 3, 4, 5, 6, 9]",
+    "duration_ms": 4.244735002430389,
+    "depth": 0,
+    "children": [
+      {
+        "call_id": 2,
+        "func_name": "merge_sort",
+        "args": {
+          "arr": "[3, 1, 4, 1]"
+        },
+        "return_value": "[1, 1, 3, 4]",
+        "duration_ms": 1.7250829987460747,
+        "depth": 1,
+        "children": [
+          {
+            "call_id": 3,
+            "func_name": "merge_sort",
+            "args": {
+              "arr": "[3, 1]"
+            },
+            "return_value": "[1, 3]",
+            "duration_ms": 0.5275380026432686,
+            "depth": 2,
+            "children": [
+              {
+                "call_id": 4,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[3]"
+                },
+                "return_value": "[3]",
+                "duration_ms": 0.016707999748177826,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 5,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[1]"
+                },
+                "return_value": "[1]",
+                "duration_ms": 0.02502999996067956,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 6,
+                "func_name": "merge",
+                "args": {
+                  "left": "[3]",
+                  "right": "[1]"
+                },
+                "return_value": "[1, 3]",
+                "duration_ms": 0.031476000003749505,
+                "depth": 3,
+                "children": []
+              }
+            ]
+          },
+          {
+            "call_id": 7,
+            "func_name": "merge_sort",
+            "args": {
+              "arr": "[4, 1]"
+            },
+            "return_value": "[1, 4]",
+            "duration_ms": 0.6633150005654898,
+            "depth": 2,
+            "children": [
+              {
+                "call_id": 8,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[4]"
+                },
+                "return_value": "[4]",
+                "duration_ms": 0.0275249985861592,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 9,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[1]"
+                },
+                "return_value": "[1]",
+                "duration_ms": 0.035257999115856364,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 10,
+                "func_name": "merge",
+                "args": {
+                  "left": "[4]",
+                  "right": "[1]"
+                },
+                "return_value": "[1, 4]",
+                "duration_ms": 0.03337599991937168,
+                "depth": 3,
+                "children": []
+              }
+            ]
+          },
+          {
+            "call_id": 11,
+            "func_name": "merge",
+            "args": {
+              "left": "[1, 3]",
+              "right": "[1, 4]"
+            },
+            "return_value": "[1, 1, 3, 4]",
+            "duration_ms": 0.03370799822732806,
+            "depth": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "call_id": 12,
+        "func_name": "merge_sort",
+        "args": {
+          "arr": "[5, 9, 2, 6]"
+        },
+        "return_value": "[2, 5, 6, 9]",
+        "duration_ms": 1.9478750000416767,
+        "depth": 1,
+        "children": [
+          {
+            "call_id": 13,
+            "func_name": "merge_sort",
+            "args": {
+              "arr": "[5, 9]"
+            },
+            "return_value": "[5, 9]",
+            "duration_ms": 0.66250400050194,
+            "depth": 2,
+            "children": [
+              {
+                "call_id": 14,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[5]"
+                },
+                "return_value": "[5]",
+                "duration_ms": 0.028245998692000285,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 15,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[9]"
+                },
+                "return_value": "[9]",
+                "duration_ms": 0.03462399763520807,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 16,
+                "func_name": "merge",
+                "args": {
+                  "left": "[5]",
+                  "right": "[9]"
+                },
+                "return_value": "[5, 9]",
+                "duration_ms": 0.03287499930593185,
+                "depth": 3,
+                "children": []
+              }
+            ]
+          },
+          {
+            "call_id": 17,
+            "func_name": "merge_sort",
+            "args": {
+              "arr": "[2, 6]"
+            },
+            "return_value": "[2, 6]",
+            "duration_ms": 0.6962339975871146,
+            "depth": 2,
+            "children": [
+              {
+                "call_id": 18,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[2]"
+                },
+                "return_value": "[2]",
+                "duration_ms": 0.027889000193681568,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 19,
+                "func_name": "merge_sort",
+                "args": {
+                  "arr": "[6]"
+                },
+                "return_value": "[6]",
+                "duration_ms": 0.028312999347690493,
+                "depth": 3,
+                "children": []
+              },
+              {
+                "call_id": 20,
+                "func_name": "merge",
+                "args": {
+                  "left": "[2]",
+                  "right": "[6]"
+                },
+                "return_value": "[2, 6]",
+                "duration_ms": 0.031242998375091702,
+                "depth": 3,
+                "children": []
+              }
+            ]
+          },
+          {
+            "call_id": 21,
+            "func_name": "merge",
+            "args": {
+              "left": "[5, 9]",
+              "right": "[2, 6]"
+            },
+            "return_value": "[2, 5, 6, 9]",
+            "duration_ms": 0.03197100159013644,
+            "depth": 2,
+            "children": []
+          }
+        ]
+      },
+      {
+        "call_id": 22,
+        "func_name": "merge",
+        "args": {
+          "left": "[1, 1, 3, 4]",
+          "right": "[2, 5, 6, 9]"
+        },
+        "return_value": "[1, 1, 2, 3, 4, 5, 6, 9]",
+        "duration_ms": 0.033061001886380836,
+        "depth": 1,
+        "children": []
+      }
+    ]
+  }
+]

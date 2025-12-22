@@ -589,7 +589,6 @@ def solve_n_queens(n):
     backtrack(0, set(), set(), set(), board)
     return solutions
 
-backtrack(0, set(), set(), set(), board)
 ```
 
 #### Rust N-Queens (Idiomatic with Borrowing)
@@ -654,6 +653,7 @@ fn solve_n_queens(n: usize) -> Vec<Vec<String>> {
 ```
 
 #### Go N-Queens
+
 ```go
 func solveNQueens(n int) [][]string {
     solutions := [][]string{}
@@ -763,6 +763,7 @@ With pruning: Much fewer nodes explored
 ### When to Use DP?
 
 DP applies when problems have:
+
 1. **Optimal Substructure:** Optimal solution contains optimal solutions to subproblems
 2. **Overlapping Subproblems:** Same subproblems are solved multiple times
 
@@ -808,6 +809,7 @@ Many repeated computations! fib(2) calculated 3 times, fib(3) twice
 #### Memoization (Top-Down DP)
 
 **Python Memoization**
+
 ```python
 def fib_memo(n, memo=None):
     """
@@ -842,6 +844,7 @@ def fib_cached(n):
 ```
 
 **Rust Memoization**
+
 ```rust
 use std::collections::HashMap;
 
@@ -870,6 +873,7 @@ fn fib_memo(n: u64, memo: &mut HashMap<u64, u64>) -> u64 {
 ```
 
 **Go Memoization**
+
 ```go
 func fibMemo(n int, memo map[int]int) int {
     // BASE CASES
@@ -895,6 +899,7 @@ func fibMemo(n int, memo map[int]int) int {
 #### Tabulation (Bottom-Up DP)
 
 **Python Tabulation**
+
 ```python
 def fib_tab(n):
     """
@@ -939,6 +944,7 @@ def fib_optimized(n):
 ```
 
 **Rust Tabulation**
+
 ```rust
 fn fib_tab(n: usize) -> u64 {
     if n <= 1 {
@@ -979,6 +985,7 @@ fn fib_optimized(n: usize) -> u64 {
 **Problem:** Find length of longest subsequence common to two strings.
 
 **Example:**
+
 - s1 = "ABCDGH"
 - s2 = "AEDFHR"
 - LCS = "ADH" (length 3)
@@ -993,7 +1000,7 @@ RECURRENCE:
 │ if s1[i] == s2[j]:                          │
 │     dp[i][j] = dp[i-1][j-1] + 1             │
 │ else:                                       │
-│     dp[i][j] = max(dp[i-1][j], dp[i][j-1]) │
+│     dp[i][j] = max(dp[i-1][j], dp[i][j-1])  │
 └─────────────────────────────────────────────┘
 
 BASE CASES:
@@ -1002,6 +1009,7 @@ dp[i][0] = 0 (empty s2)
 ```
 
 **Python LCS Implementation**
+
 ```python
 def lcs(s1, s2):
     """
@@ -1054,6 +1062,7 @@ def lcs_with_string(s1, s2):
 ```
 
 **Rust LCS**
+
 ```rust
 fn lcs(s1: &str, s2: &str) -> usize {
     let s1_chars: Vec<char> = s1.chars().collect();
@@ -1105,6 +1114,11 @@ How to read:
 ### The Recursion Mindset
 
 **"Think Smaller, Not Bigger"**
+
+- Break problem into smaller subproblems
+- Solve each subproblem recursively
+- Combine subproblem solutions for final answer
+
 1. **Trust the recursion:** Assume smaller problems are solved correctly
 2. **Focus on current level:** What do I do at THIS step?
 3. **Combine results:** How do I use subproblem solutions?
@@ -1154,6 +1168,7 @@ Examples:
 ```
 
 **Space Complexity:**
+
 ```
 Space = (Recursion depth) × (Space per frame) + (Auxiliary space)
 
@@ -1232,24 +1247,29 @@ STEP 5: VALIDATE
 ### Cognitive Principles for Mastery
 
 **1. Chunking**
+
 - Group related concepts (base case, recursive case, combination)
 - Practice recognizing patterns (subset sum, path finding, optimization)
 
 **2. Deliberate Practice**
+
 - Focus on weak areas (backtracking state management, DP transitions)
 - Implement same problem in multiple languages
 - Optimize after getting correct solution
 
 **3. Spaced Repetition**
+
 - Revisit problems after 1 day, 1 week, 1 month
 - Each iteration should be faster and more elegant
 
 **4. Meta-Learning**
+
 - After solving, ask: "What pattern did I use?"
 - Document your mistakes and insights
 - Build a personal problem taxonomy
 
 **5. Flow State Prerequisites**
+
 - Clear goals (solve specific problem)
 - Immediate feedback (test cases)
 - Challenge matched to skill (not too easy/hard)
@@ -1257,6 +1277,7 @@ STEP 5: VALIDATE
 ### Advanced Patterns
 
 #### Pattern 1: Multiple Recursion Branches
+
 ```python
 def count_paths(grid, r, c):
     """Count paths from top-left to (r, c)"""
@@ -1273,6 +1294,7 @@ def count_paths(grid, r, c):
 ```
 
 #### Pattern 2: State Restoration (Backtracking)
+
 ```python
 def permutations(nums):
     result = []
@@ -1298,6 +1320,7 @@ def permutations(nums):
 ```
 
 #### Pattern 3: DP with Path Reconstruction
+
 ```python
 def min_cost_path(grid):
     """Find minimum cost path with the path itself"""
@@ -1333,33 +1356,39 @@ def min_cost_path(grid):
 ## Summary: Your Learning Path
 
 ### Phase 1: Foundation (Weeks 1-2)
+
 - Master basic recursion (factorial, fibonacci, sum)
 - Understand call stack deeply
 - Implement in all 5 languages
 
 ### Phase 2: Patterns (Weeks 3-4)
+
 - Multiple branches (tree traversal)
 - Accumulator pattern
 - Tail recursion
 
 ### Phase 3: Backtracking (Weeks 5-6)
+
 - N-Queens, Sudoku
 - Subset sum, permutations
 - State management mastery
 
 ### Phase 4: Dynamic Programming (Weeks 7-10)
+
 - 1D DP (fibonacci, climbing stairs)
 - 2D DP (LCS, edit distance, knapsack)
 - Path reconstruction
 - Space optimization
 
 ### Phase 5: Advanced (Weeks 11-12)
+
 - Tree DP
 - Digit DP
 - State compression
 - Optimization techniques
 
 ### Daily Practice Structure
+
 ```
 15 min: Review previous problem
 45 min: New problem (multiple approaches)
@@ -1381,12 +1410,14 @@ I'll create a comprehensive guide to recursion, backtracking, and dynamic progra
 ## Critical Concepts Covered:
 
 **Memory-Level Understanding:**
+
 - The call stack grows downward with each recursive call
 - Each frame holds parameters, local variables, return addresses, and saved registers
 - Stack overflow happens when depth × frame_size exceeds stack limit (typically 1-8MB)
 - Return values flow through CPU registers (RAX on x86-64)
 
 **The Three Pillars:**
+
 1. **Recursion** = Self-referential problem reduction
 2. **Backtracking** = Recursive exploration with choice undo
 3. **Dynamic Programming** = Recursion + memoization to eliminate redundant computation
@@ -1394,16 +1425,19 @@ I'll create a comprehensive guide to recursion, backtracking, and dynamic progra
 ## Mental Models for Mastery:
 
 **The "Trust Principle":** When writing recursive code, assume smaller subproblems are solved correctly. Focus only on:
+
 - What happens at THIS level?
 - How do I combine results?
 - When do I stop (base case)?
 
 **The "Phases of Recursion":**
+
 - **Descending Phase:** Building up the call stack, making the problem smaller
 - **Base Case:** The turning point where recursion stops
 - **Ascending Phase:** Unwinding the stack, combining results
 
 **DP Decision Framework:**
+
 ```
 Overlapping subproblems? 
   ↓ YES
@@ -1447,6 +1481,7 @@ Start with the **Phase 1 problems** in the guide. Implement factorial and fibona
 **Key question to ask yourself after each problem:** "If I had to solve a similar but slightly different version of this problem, what would change and what would stay the same?" This builds pattern recognition.
 
 Would you like me to:
+
 1. Create practice problems with solutions for each phase?
 2. Dive deeper into any specific topic (like DP state transitions or backtracking pruning)?
 3. Provide a visual debugger/tracer for watching recursion in action?
