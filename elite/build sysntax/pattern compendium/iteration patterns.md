@@ -1146,6 +1146,7 @@ while fast < len(arr):
 ## 💡 Psychological Principle: Interleaving
 
 Don't practice all array patterns, then all dict patterns. Instead:
+
 - Day 1: Array index iteration (all languages)
 - Day 2: Dict iteration (all languages)
 - Day 3: Array reverse iteration (all languages)

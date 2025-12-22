@@ -1,47 +1,7 @@
 # Comprehensive Guide to Backtracking Implementation
 
-## What's Covered:
-
-### **Core Content:**
-
-- Introduction and fundamental concepts
-- General algorithm template and pseudocode
-- Complete implementations of 9 classic problems in both Python and Rust
-
-### **Classic Problems Implemented:**
-
-1. **N-Queens Problem** - Board placement with constraints
-2. **Sudoku Solver** - Constraint satisfaction with multiple rules
-3. **Word Search** - Path finding with visited state tracking
-4. **Combination Sum** - Subset selection with repetition allowed
-5. **Permutations** - All arrangements of elements
-6. **Graph Coloring** - Constraint satisfaction on graphs
-7. **Subset Sum** - Classic NP-complete problem
-8. **Hamiltonian Path** - Graph traversal problem
-9. **Crossword Puzzle Solver** - Complex constraint satisfaction
-
-### **Advanced Topics:**
-
-- **Performance Optimization**: Constraint ordering, variable ordering heuristics, forward checking, memoization
-- **Advanced Patterns**: Branch and bound, constraint propagation, randomized backtracking, parallel processing
-- **Memory Optimization**: In-place modifications, memory-bounded algorithms
-- **Rust-Specific Patterns**: Zero-copy state management, shared state with Rc/RefCell
-- **Testing & Debugging**: Unit testing frameworks, debug visualization, performance testing
-
-### **Key Features:**
-
-- **Complete working code** in both Python and Rust
-- **Detailed explanations** of each algorithm's approach
-- **Optimization techniques** for better performance
-- **Real-world examples** with usage demonstrations
-- **Best practices** and when to use/avoid backtracking
-- **Memory and performance considerations**
-
-This guide serves as both a learning resource and a practical reference for implementing backtracking algorithms. Each example includes complete, runnable code with comprehensive explanations of the underlying principles and optimization strategies.
-
-## Comprehensive Guide to Backtracking Implementation
-
 ## Table of Contents
+
 1. [Introduction to Backtracking](#introduction)
 2. [Core Concepts](#core-concepts)
 3. [General Algorithm Template](#algorithm-template)
@@ -2624,3 +2584,44 @@ Use data structures to track constraints efficiently (sets, bitmasks).
 - Search space too large without effective pruning
 
 This covers the essential concepts, patterns, and real-world applications of backtracking in Go.
+
+# Comprehensive Guide to Backtracking Implementation
+
+## What's Covered:
+
+### **Core Content:**
+
+- Introduction and fundamental concepts
+- General algorithm template and pseudocode
+- Complete implementations of 9 classic problems in both Python and Rust
+
+### **Classic Problems Implemented:**
+
+1. **N-Queens Problem** - Board placement with constraints
+2. **Sudoku Solver** - Constraint satisfaction with multiple rules
+3. **Word Search** - Path finding with visited state tracking
+4. **Combination Sum** - Subset selection with repetition allowed
+5. **Permutations** - All arrangements of elements
+6. **Graph Coloring** - Constraint satisfaction on graphs
+7. **Subset Sum** - Classic NP-complete problem
+8. **Hamiltonian Path** - Graph traversal problem
+9. **Crossword Puzzle Solver** - Complex constraint satisfaction
+
+### **Advanced Topics:**
+
+- **Performance Optimization**: Constraint ordering, variable ordering heuristics, forward checking, memoization
+- **Advanced Patterns**: Branch and bound, constraint propagation, randomized backtracking, parallel processing
+- **Memory Optimization**: In-place modifications, memory-bounded algorithms
+- **Rust-Specific Patterns**: Zero-copy state management, shared state with Rc/RefCell
+- **Testing & Debugging**: Unit testing frameworks, debug visualization, performance testing
+
+### **Key Features:**
+
+- **Complete working code** in both Python and Rust
+- **Detailed explanations** of each algorithm's approach
+- **Optimization techniques** for better performance
+- **Real-world examples** with usage demonstrations
+- **Best practices** and when to use/avoid backtracking
+- **Memory and performance considerations**
+
+This guide serves as both a learning resource and a practical reference for implementing backtracking algorithms. Each example includes complete, runnable code with comprehensive explanations of the underlying principles and optimization strategies.

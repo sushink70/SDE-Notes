@@ -1,8 +1,5 @@
 # Prompt Engg
 
-my bottleneck
-- 
-
 - list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams. 
 
 ==========important===========
