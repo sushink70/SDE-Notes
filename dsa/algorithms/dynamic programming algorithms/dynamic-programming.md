@@ -1,4 +1,5 @@
 # 🏔️ The Complete Dynamic Programming Mastery Guide
+
 ## From First Principles to Top 1% Understanding
 
 ---
@@ -21,7 +22,9 @@
 ## 1️⃣ **WHAT IS DYNAMIC PROGRAMMING?**
 
 ### **Definition**
+
 Dynamic Programming (DP) is an **optimization technique** that solves complex problems by:
+
 1. Breaking them into **overlapping subproblems**
 2. Solving each subproblem **once**
 3. **Storing** the results
@@ -31,10 +34,10 @@ Dynamic Programming (DP) is an **optimization technique** that solves complex pr
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│         THE DP EQUATION OF ENLIGHTENMENT                     │
-│                                                              │
+│         THE DP EQUATION OF ENLIGHTENMENT                    │
+│                                                             │
 │   Overlapping Subproblems + Optimal Substructure = DP       │
-│                                                              │
+│                                                             │
 │   "Those who cannot remember the past are                   │
 │    condemned to recompute it." - DP Proverb                 │
 └─────────────────────────────────────────────────────────────┘
@@ -50,11 +53,11 @@ Dynamic Programming (DP) is an **optimization technique** that solves complex pr
 │  Problem breaks down into subproblems that are REUSED        │
 │  multiple times.                                             │
 │                                                              │
-│  Example: fib(5) needs fib(3) twice                         │
+│  Example: fib(5) needs fib(3) twice                          │
 │                                                              │
-│  Contrast with DIVIDE & CONQUER:                            │
-│  - Merge Sort: Each subarray sorted once (no overlap)       │
-│  - Quick Sort: Each partition processed once                │
+│  Contrast with DIVIDE & CONQUER:                             │
+│  - Merge Sort: Each subarray sorted once (no overlap)        │
+│  - Quick Sort: Each partition processed once                 │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 
@@ -65,10 +68,10 @@ Dynamic Programming (DP) is an **optimization technique** that solves complex pr
 │  Optimal solution can be constructed from optimal            │
 │  solutions of subproblems.                                   │
 │                                                              │
-│  Example: Shortest path A→C through B =                     │
-│           Shortest(A→B) + Shortest(B→C)                     │
+│  Example: Shortest path A→C through B =                      │
+│           Shortest(A→B) + Shortest(B→C)                      │
 │                                                              │
-│  If optimal substructure doesn't hold, DP won't work!       │
+│  If optimal substructure doesn't hold, DP won't work!        │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -99,30 +102,30 @@ break down"                 to largest"
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                    MEMOIZATION (TOP-DOWN)                       │
+│                    MEMOIZATION (TOP-DOWN)                      │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
-│  Start: "I need fib(5)"                                       │
-│  Think: "To get fib(5), I need fib(4) and fib(3)"           │
-│  Action: Recursively ask for needed values                    │
-│  Store: Cache results as you compute them                     │
+│  Start: "I need fib(5)"                                        │
+│  Think: "To get fib(5), I need fib(4) and fib(3)"              │
+│  Action: Recursively ask for needed values                     │
+│  Store: Cache results as you compute them                      │
 │                                                                │
-│  Direction: Problem → Subproblems (recursive descent)         │
-│  Philosophy: "Lazy evaluation" - compute only what's needed   │
+│  Direction: Problem → Subproblems (recursive descent)          │
+│  Philosophy: "Lazy evaluation" - compute only what's needed    │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────────────┐
-│                    TABULATION (BOTTOM-UP)                       │
+│                    TABULATION (BOTTOM-UP)                      │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
-│  Start: "I know fib(0)=0 and fib(1)=1"                       │
-│  Think: "I can build fib(2), then fib(3), ... up to fib(5)" │
-│  Action: Iteratively build table of all values                │
-│  Store: Table/array holds all computed results                │
+│  Start: "I know fib(0)=0 and fib(1)=1"                         │
+│  Think: "I can build fib(2), then fib(3), ... up to fib(5)"    │
+│  Action: Iteratively build table of all values                 │
+│  Store: Table/array holds all computed results                 │
 │                                                                │
-│  Direction: Base cases → Final answer (iterative ascent)      │
-│  Philosophy: "Eager evaluation" - compute everything upfront  │
+│  Direction: Base cases → Final answer (iterative ascent)       │
+│  Philosophy: "Eager evaluation" - compute everything upfront   │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -132,17 +135,18 @@ break down"                 to largest"
 ## 3️⃣ **TOP-DOWN: MEMOIZATION DEEP DIVE**
 
 ### **Concept: Memoization**
+
 From Latin "memorandum" (to be remembered). Cache function results keyed by their inputs.
 
 ### **The Memoization Pattern**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              MEMOIZATION TEMPLATE                            │
+│              MEMOIZATION TEMPLATE                           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. CREATE cache/memo (usually dict/hashmap)               │
-│  2. CHECK if answer already in cache → return it           │
+│  1. CREATE cache/memo (usually dict/hashmap)                │
+│  2. CHECK if answer already in cache → return it            │
 │  3. COMPUTE answer recursively                              │
 │  4. STORE answer in cache                                   │
 │  5. RETURN answer                                           │
@@ -178,6 +182,7 @@ From Latin "memorandum" (to be remembered). Cache function results keyed by thei
 ### **Fibonacci: Memoization - All Three Languages**
 
 #### **Python (Dict-based)**
+
 ```python
 def fib_memo(n, memo=None):
     """
@@ -213,6 +218,7 @@ def fib_memo_decorator(n):
 ```
 
 #### **Rust (HashMap-based)**
+
 ```rust
 use std::collections::HashMap;
 
@@ -248,6 +254,7 @@ fn main() {
 ```
 
 #### **Go (Map-based)**
+
 ```go
 package main
 
@@ -321,20 +328,21 @@ Total recursive calls: 9 (vs 15 without memo!)
 ## 4️⃣ **BOTTOM-UP: TABULATION DEEP DIVE**
 
 ### **Concept: Tabulation**
+
 Build a table (array/list) by solving subproblems in order from smallest to largest, using previously computed values.
 
 ### **The Tabulation Pattern**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              TABULATION TEMPLATE                             │
+│              TABULATION TEMPLATE                            │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  1. CREATE table (array/list) of size n+1                  │
+│  1. CREATE table (array/list) of size n+1                   │
 │  2. INITIALIZE base cases in table                          │
-│  3. ITERATE from smallest to largest subproblem            │
-│  4. FILL each table[i] using previously computed values    │
-│  5. RETURN table[n] (final answer)                         │
+│  3. ITERATE from smallest to largest subproblem             │
+│  4. FILL each table[i] using previously computed values     │
+│  5. RETURN table[n] (final answer)                          │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -368,6 +376,7 @@ Return table[5] = 5 ✓
 ### **Fibonacci: Tabulation - All Three Languages**
 
 #### **Python (List-based)**
+
 ```python
 def fib_tab(n):
     """
@@ -412,6 +421,7 @@ def fib_tab_optimized(n):
 ```
 
 #### **Rust (Vector-based)**
+
 ```rust
 fn fib_tab(n: usize) -> i64 {
     // BOTTOM-UP with tabulation
@@ -455,6 +465,7 @@ fn fib_tab_optimized(n: usize) -> i64 {
 ```
 
 #### **Go (Slice-based)**
+
 ```go
 func fibTab(n int) int {
     // BOTTOM-UP with tabulation
@@ -701,25 +712,25 @@ def fib_optimized(n):
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                    USE MEMOIZATION IF:                        │
+│                    USE MEMOIZATION IF:                       │
 ├──────────────────────────────────────────────────────────────┤
 │ ✓ Problem naturally suggests recursion                       │
-│ ✓ Not all subproblems need to be solved                     │
+│ ✓ Not all subproblems need to be solved                      │
 │ ✓ Dependencies are complex or unclear                        │
-│ ✓ You want to code it quickly (mirrors problem statement)   │
-│ ✓ Input space is sparse (not computing everything)          │
+│ ✓ You want to code it quickly (mirrors problem statement)    │
+│ ✓ Input space is sparse (not computing everything)           │
 │                                                              │
 │ Examples: Some tree problems, graph problems with pruning    │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│                    USE TABULATION IF:                         │
+│                    USE TABULATION IF:                        │
 ├──────────────────────────────────────────────────────────────┤
 │ ✓ Clear ordering of subproblems exists                       │
-│ ✓ All (or most) subproblems will be solved anyway           │
+│ ✓ All (or most) subproblems will be solved anyway            │
 │ ✓ You need maximum performance                               │
-│ ✓ Stack overflow is a concern (large n)                     │
-│ ✓ Space can be optimized (sliding window pattern)           │
+│ ✓ Stack overflow is a concern (large n)                      │
+│ ✓ Space can be optimized (sliding window pattern)            │
 │                                                              │
 │ Examples: Fibonacci, Climbing Stairs, Coin Change            │
 └──────────────────────────────────────────────────────────────┘
@@ -730,10 +741,12 @@ def fib_optimized(n):
 ## 7️⃣ **CLASSIC DP PROBLEM: CLIMBING STAIRS**
 
 ### **Problem Statement**
+
 You're climbing stairs. You can take 1 or 2 steps at a time.
 How many distinct ways can you climb to the top with n steps?
 
 ### **Analysis**
+
 ```
 Example: n = 3
 
@@ -874,6 +887,7 @@ Step 4: dp[5] = dp[4] + dp[3] = 5 + 3 = 8
 ## 8️⃣ **CLASSIC DP PROBLEM: MIN COST CLIMBING STAIRS**
 
 ### **Problem**
+
 Each step has a cost. You start at index 0 or 1. 
 Find minimum cost to reach the top (past last step).
 
@@ -889,6 +903,7 @@ Answer: 15
 ```
 
 ### **Key Insight**
+
 ```
 dp[i] = minimum cost to reach step i
 dp[i] = cost[i] + min(dp[i-1], dp[i-2])
@@ -899,6 +914,7 @@ dp[i] = cost[i] + min(dp[i-1], dp[i-2])
 ### **Solution: Both Approaches**
 
 #### **Memoization**
+
 ```python
 def min_cost_memo(cost, i, memo):
     """
@@ -930,6 +946,7 @@ def min_cost_climbing_stairs(cost):
 ```
 
 #### **Tabulation**
+
 ```python
 def min_cost_tab(cost):
     """
@@ -959,6 +976,7 @@ def min_cost_tab(cost):
 ```
 
 #### **Space-Optimized**
+
 ```python
 def min_cost_optimized(cost):
     """
@@ -1022,28 +1040,28 @@ Path: Start at 1 (pay 15) → Jump to top
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│         5-STEP DP PROBLEM-SOLVING FRAMEWORK                   │
+│         5-STEP DP PROBLEM-SOLVING FRAMEWORK                  │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│  STEP 1: IDENTIFY if it's a DP problem                      │
-│    ❓ Ask: "Are there overlapping subproblems?"             │
+│  STEP 1: IDENTIFY if it's a DP problem                       │
+│    ❓ Ask: "Are there overlapping subproblems?"              │
 │    ❓ Ask: "Does optimal solution use optimal subproblems?"  │
 │                                                              │
-│  STEP 2: DEFINE the state                                   │
-│    📝 What does dp[i] represent?                            │
-│    📝 What are the dimensions? (1D, 2D, 3D array?)          │
+│  STEP 2: DEFINE the state                                    │
+│    📝 What does dp[i] represent?                             │
+│    📝 What are the dimensions? (1D, 2D, 3D array?)           │
 │                                                              │
-│  STEP 3: FIND the recurrence relation                       │
-│    🔄 How does dp[i] relate to previous values?             │
+│  STEP 3: FIND the recurrence relation                        │
+│    🔄 How does dp[i] relate to previous values?              │
 │    🔄 Write the mathematical formula                         │
 │                                                              │
-│  STEP 4: IDENTIFY base cases                                │
-│    🎯 What are the smallest subproblems?                    │
-│    🎯 What can you solve directly?                          │
+│  STEP 4: IDENTIFY base cases                                 │
+│    🎯 What are the smallest subproblems?                     │
+│    🎯 What can you solve directly?                           │
 │                                                              │
-│  STEP 5: DETERMINE the order of computation                 │
-│    📊 Top-down (memo) or bottom-up (tab)?                   │
-│    📊 Can space be optimized?                               │
+│  STEP 5: DETERMINE the order of computation                  │
+│    📊 Top-down (memo) or bottom-up (tab)?                    │
+│    📊 Can space be optimized?                                │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -1052,19 +1070,19 @@ Path: Start at 1 (pay 15) → Jump to top
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                   DP PROBLEM TAXONOMY                         │
+│                   DP PROBLEM TAXONOMY                        │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
 │  1. LINEAR DP (1D)                                           │
 │     - Fibonacci, Climbing Stairs                             │
 │     - House Robber                                           │
 │     - Decode Ways                                            │
-│     Pattern: dp[i] depends on dp[i-1], dp[i-2], etc.        │
+│     Pattern: dp[i] depends on dp[i-1], dp[i-2], etc.         │
 │                                                              │
 │  2. 2D GRID DP                                               │
 │     - Unique Paths                                           │
 │     - Minimum Path Sum                                       │
-│     Pattern: dp[i][j] depends on dp[i-1][j], dp[i][j-1]     │
+│     Pattern: dp[i][j] depends on dp[i-1][j], dp[i][j-1]      │
 │                                                              │
 │  3. SEQUENCE DP (2D)                                         │
 │     - Longest Common Subsequence (LCS)                       │
@@ -1093,36 +1111,36 @@ Path: Start at 1 (pay 15) → Jump to top
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│            EXPERT DP THOUGHT PROCESS                          │
+│            EXPERT DP THOUGHT PROCESS                         │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│  🧠 PHASE 1: PATTERN MATCHING (First 30 seconds)            │
+│  🧠 PHASE 1: PATTERN MATCHING (First 30 seconds)             │
 │     "Have I seen something like this before?"                │
 │     - Fibonacci pattern? (add last 2)                        │
 │     - Choice problem? (take/skip, buy/sell)                  │
 │     - Sequence matching? (2 strings/arrays)                  │
 │     - Grid traversal? (paths, minimum cost)                  │
 │                                                              │
-│  🔍 PHASE 2: STATE DEFINITION (Next 1-2 minutes)            │
+│  🔍 PHASE 2: STATE DEFINITION (Next 1-2 minutes)             │
 │     "What information do I need to track?"                   │
 │     - Position/index?                                        │
 │     - Remaining capacity/budget?                             │
 │     - Previous choice?                                       │
 │     - Minimum dimensions needed?                             │
 │                                                              │
-│  ⚡ PHASE 3: TRANSITION LOGIC (Next 2-3 minutes)            │
+│  ⚡ PHASE 3: TRANSITION LOGIC (Next 2-3 minutes)              │
 │     "How do states connect?"                                 │
-│     - Draw small example (n=3 or n=4)                       │
+│     - Draw small example (n=3 or n=4)                        │
 │     - Find pattern manually                                  │
 │     - Generalize to formula                                  │
 │                                                              │
-│  ✅ PHASE 4: VALIDATION (Next 1-2 minutes)                  │
+│  ✅ PHASE 4: VALIDATION (Next 1-2 minutes)                   │
 │     "Does my logic cover all cases?"                         │
 │     - Test on base cases                                     │
 │     - Check boundary conditions                              │
 │     - Verify with small example                              │
 │                                                              │
-│  💻 PHASE 5: IMPLEMENTATION (Rest of time)                  │
+│  💻 PHASE 5: IMPLEMENTATION (Rest of time)                   │
 │     "Code with confidence"                                   │
 │     - Start with memoization (easier)                        │
 │     - Convert to tabulation if needed                        │
@@ -1137,25 +1155,25 @@ Path: Start at 1 (pay 15) → Jump to top
 As you solve more problems, these patterns become CHUNKS in your mind:
 
 ┌─────────────────────────────────────────────────────────┐
-│  BEGINNER (0-10 problems)                                │
-│  Sees: "This problem has recursion and subproblems"      │
+│  BEGINNER (0-10 problems)                               │
+│  Sees: "This problem has recursion and subproblems"     │
 │  Thinks: "Maybe DP? Let me try memoization..."          │
-│  Time: 30-45 minutes per problem                         │
+│  Time: 30-45 minutes per problem                        │
 └─────────────────────────────────────────────────────────┘
                         ↓ Practice
 ┌─────────────────────────────────────────────────────────┐
-│  INTERMEDIATE (10-50 problems)                           │
-│  Sees: "dp[i] = dp[i-1] + dp[i-2] pattern"             │
+│  INTERMEDIATE (10-50 problems)                          │
+│  Sees: "dp[i] = dp[i-1] + dp[i-2] pattern"              │
 │  Thinks: "Fibonacci-like, I know this!"                 │
-│  Time: 15-20 minutes per problem                         │
+│  Time: 15-20 minutes per problem                        │
 └─────────────────────────────────────────────────────────┘
                         ↓ Practice
 ┌─────────────────────────────────────────────────────────┐
-│  EXPERT (50+ problems)                                   │
-│  Sees: Problem statement                                 │
+│  EXPERT (50+ problems)                                  │
+│  Sees: Problem statement                                │
 │  Thinks: Instantly categorizes (Linear? 2D? Knapsack?)  │
-│  Time: 5-10 minutes per problem                          │
-│  Has internalized dozens of patterns                     │
+│  Time: 5-10 minutes per problem                         │
+│  Has internalized dozens of patterns                    │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1173,11 +1191,11 @@ Fibonacci: dp[i] = dp[i-1] + dp[i-2]
                   Only need last 2!
 
 ┌──────────────────────────────────────────────────────────┐
-│  FROM:  [dp[0], dp[1], dp[2], ..., dp[n]]               │
+│  FROM:  [dp[0], dp[1], dp[2], ..., dp[n]]                │
 │         └────────────── O(n) space ──────────────┘       │
 │                                                          │
 │  TO:    prev2, prev1                                     │
-│         └──── O(1) space ────┘                          │
+│         └──── O(1) space ────┘                           │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -1225,6 +1243,7 @@ STATE SPACE: O(n × amount) → O(amount)
 ## 📚 **PRACTICE ROADMAP: FROM BEGINNER TO TOP 1%**
 
 ### **Level 1: Foundation (Problems 1-10)**
+
 ```
 1. Fibonacci Number (the classic)
 2. Climbing Stairs
@@ -1241,6 +1260,7 @@ Goal: Master 1D linear DP, understand both approaches
 ```
 
 ### **Level 2: Intermediate (Problems 11-30)**
+
 ```
 11. Longest Increasing Subsequence
 12. Coin Change (unbounded knapsack)
@@ -1258,6 +1278,7 @@ Goal: Master 2D DP, knapsack patterns, complex transitions
 ```
 
 ### **Level 3: Advanced (Problems 31-60)**
+
 ```
 31. Longest Common Subsequence (LCS)
 32. Edit Distance
@@ -1278,24 +1299,24 @@ Goal: Master sequence DP, interval DP, state machine DP
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│           THE MONK'S DP PRACTICE METHOD                   │
+│           THE MONK'S DP PRACTICE METHOD                  │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
-│  DAY 1-3: Solve ONE problem                       │
+│  DAY 1-3: Solve ONE problem                              │
 │    - 45 min: Understand deeply                           │
 │    - Implement both memo AND tab versions                │
 │    - Optimize space if possible                          │
 │    - Write detailed comments                             │
 │                                                          │
 │  DAY 4: Review Day                                       │
-│    - Redo 3 problems from scratch (no looking!)         │
+│    - Redo 3 problems from scratch (no looking!)          │
 │    - Compare your new code to original                   │
 │    - Note what improved, what you forgot                 │
 │                                                          │
-│  DAY 5-7: Repeat cycle with new problems                │
+│  DAY 5-7: Repeat cycle with new problems                 │
 │                                                          │
 │  WEEKLY REVIEW:                                          │
-│    - Solve 5 random previous problems (timed: 15 min)  │
+│    - Solve 5 random previous problems (timed: 15 min)    │
 │    - Identify weak patterns                              │
 │    - Deep dive into those patterns                       │
 │                                                          │
@@ -1307,6 +1328,7 @@ Goal: Master sequence DP, interval DP, state machine DP
 ## 🎯 **COMPLETE EXAMPLE: COIN CHANGE PROBLEM**
 
 ### **Problem Statement**
+
 You have coins of different denominations and a total amount.
 Find the **minimum number** of coins needed to make that amount.
 If impossible, return -1.
@@ -1321,6 +1343,7 @@ Answer: 3 coins (5 + 5 + 1)
 ### **Step-by-Step Analysis**
 
 #### **Step 1: Identify DP Properties**
+
 ```
 ✓ Overlapping Subproblems?
   - To make amount=11, we need min_coins(10) or min_coins(9) or min_coins(6)
@@ -1335,6 +1358,7 @@ YES → This is a DP problem!
 ```
 
 #### **Step 2: Define State**
+
 ```
 dp[i] = minimum number of coins needed to make amount i
 
@@ -1347,6 +1371,7 @@ dp[11] = ?   (what we want!)
 ```
 
 #### **Step 3: Recurrence Relation**
+
 ```
 For each coin c in coins:
   dp[i] = min(dp[i], 1 + dp[i - c])
@@ -1533,21 +1558,21 @@ func min(a, b int) int {
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  DELIBERATE PRACTICE FOR DP                               │
+│  DELIBERATE PRACTICE FOR DP                              │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │  ❌ WRONG: Solve 100 problems superficially              │
-│  ✓ RIGHT: Solve 30 problems DEEPLY                      │
+│  ✓ RIGHT: Solve 30 problems DEEPLY                       │
 │                                                          │
 │  For each problem:                                       │
-│  1. Solve without looking (struggle = growth)           │
-│  2. Implement BOTH memo and tab                         │
+│  1. Solve without looking (struggle = growth)            │
+│  2. Implement BOTH memo and tab                          │
 │  3. Optimize space                                       │
-│  4. Explain to rubber duck (or imaginary student)       │
-│  5. Wait 3 days, solve again from scratch               │
-│  6. Compare: What did you forget? What improved?        │
+│  4. Explain to rubber duck (or imaginary student)        │
+│  5. Wait 3 days, solve again from scratch                │
+│  6. Compare: What did you forget? What improved?         │
 │                                                          │
-│  The 3-day gap is CRUCIAL for memory consolidation      │
+│  The 3-day gap is CRUCIAL for memory consolidation       │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -1598,29 +1623,29 @@ Having multiple models helps you approach from different angles!
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│         ACHIEVING FLOW IN DP PRACTICE                     │
+│         ACHIEVING FLOW IN DP PRACTICE                    │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │  CONDITIONS FOR FLOW:                                    │
 │                                                          │
-│  1. Clear goals: "Solve this, implement both ways"      │
-│  2. Immediate feedback: Code runs or doesn't            │
-│  3. Challenge-skill balance: Not too hard, not too easy │
+│  1. Clear goals: "Solve this, implement both ways"       │
+│  2. Immediate feedback: Code runs or doesn't             │
+│  3. Challenge-skill balance: Not too hard, not too easy  │
 │                                                          │
 │  FLOW ZONE:                                              │
 │     High Challenge                                       │
 │          ↑                                               │
 │          │        ANXIETY                                │
 │          │                                               │
-│          │   FLOW  ←  Sweet spot!                       │
+│          │   FLOW  ←  Sweet spot!                        │
 │          │                                               │
 │          │        BOREDOM                                │
-│          └──────────────────→                           │
+│          └──────────────────→                            │
 │              High Skill                                  │
 │                                                          │
 │  PRACTICE TIP:                                           │
-│  If bored → Pick harder problems                        │
-│  If anxious → Review fundamentals, pick easier problems │
+│  If bored → Pick harder problems                         │
+│  If anxious → Review fundamentals, pick easier problems  │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -1712,42 +1737,42 @@ You'll get here after mastering the basics!
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│         FROM BEGINNER TO TOP 1% - YOUR PATH               │
+│         FROM BEGINNER TO TOP 1% - YOUR PATH              │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
-│  LEVEL 1: FOUNDATION (Week 1-2)                         │
-│  □ Understand what DP is conceptually                   │
-│  □ Implement Fibonacci both ways                        │
-│  □ Solve 10 basic 1D problems                          │
-│  □ Can explain memoization to a friend                  │
+│  LEVEL 1: FOUNDATION (Week 1-2)                          │
+│  □ Understand what DP is conceptually                    │
+│  □ Implement Fibonacci both ways                         │
+│  □ Solve 10 basic 1D problems                            │
+│  □ Can explain memoization to a friend                   │
 │                                                          │
-│  LEVEL 2: COMPETENCE (Week 3-6)                         │
-│  □ Recognize Fibonacci-like patterns instantly          │
-│  □ Solve 2D grid problems                               │
-│  □ Understand knapsack pattern                          │
-│  □ Can optimize space in most problems                  │
-│  □ Solved 30 problems total                             │
+│  LEVEL 2: COMPETENCE (Week 3-6)                          │
+│  □ Recognize Fibonacci-like patterns instantly           │
+│  □ Solve 2D grid problems                                │
+│  □ Understand knapsack pattern                           │
+│  □ Can optimize space in most problems                   │
+│  □ Solved 30 problems total                              │
 │                                                          │
-│  LEVEL 3: PROFICIENCY (Week 7-12)                       │
-│  □ Solve LeetCode Medium in 15-20 min                  │
-│  □ Master sequence DP (LCS, Edit Distance)              │
-│  □ Understand state machine DP                          │
-│  □ Can derive recurrence from scratch                   │
-│  □ Solved 50 problems total                             │
+│  LEVEL 3: PROFICIENCY (Week 7-12)                        │
+│  □ Solve LeetCode Medium in 15-20 min                    │
+│  □ Master sequence DP (LCS, Edit Distance)               │
+│  □ Understand state machine DP                           │
+│  □ Can derive recurrence from scratch                    │
+│  □ Solved 50 problems total                              │
 │                                                          │
-│  LEVEL 4: EXPERTISE (Month 4-6)                         │
-│  □ Recognize problem type in 30 seconds                 │
-│  □ Solve LeetCode Hard systematically                   │
-│  □ Know 10+ DP patterns by heart                        │
-│  □ Can teach DP to others                               │
-│  □ Solved 100+ problems total                           │
+│  LEVEL 4: EXPERTISE (Month 4-6)                          │
+│  □ Recognize problem type in 30 seconds                  │
+│  □ Solve LeetCode Hard systematically                    │
+│  □ Know 10+ DP patterns by heart                         │
+│  □ Can teach DP to others                                │
+│  □ Solved 100+ problems total                            │
 │                                                          │
-│  LEVEL 5: MASTERY (Month 7-12)                          │
-│  □ Top 1% on competitive coding platforms               │
-│  □ Can solve novel DP problems in contests              │
-│  □ Deep intuition for state design                      │
-│  □ Contribute to DP discussions/explanations            │
-│  □ DP is second nature                                  │
+│  LEVEL 5: MASTERY (Month 7-12)                           │
+│  □ Top 1% on competitive coding platforms                │
+│  □ Can solve novel DP problems in contests               │
+│  □ Deep intuition for state design                       │
+│  □ Contribute to DP discussions/explanations             │
+│  □ DP is second nature                                   │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -1758,7 +1783,7 @@ You'll get here after mastering the basics!
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│              THE MASTER'S MINDSET                         │
+│              THE MASTER'S MINDSET                        │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │  "Dynamic Programming is not about memorizing            │
@@ -1766,15 +1791,15 @@ You'll get here after mastering the basics!
 │   SEE problems differently."                             │
 │                                                          │
 │  When you see a problem, ask:                            │
-│    • Can I break this into smaller versions?            │
-│    • Will I solve the same small version multiple times?│
-│    • Can I build up from the smallest case?             │
+│    • Can I break this into smaller versions?             │
+│    • Will I solve the same small version multiple times? │
+│    • Can I build up from the smallest case?              │
 │                                                          │
-│  If YES to all three → DP is your weapon.               │
+│  If YES to all three → DP is your weapon.                │
 │                                                          │
 │  Remember:                                               │
-│  - Memoization: "Lazy but clever" (compute when needed) │
-│  - Tabulation: "Organized and efficient" (plan ahead)   │
+│  - Memoization: "Lazy but clever" (compute when needed)  │
+│  - Tabulation: "Organized and efficient" (plan ahead)    │
 │                                                          │
 │  Both reach the summit. Choose your path wisely.         │
 │                                                          │
@@ -1795,26 +1820,26 @@ You'll get here after mastering the basics!
 
 ```
 ╔══════════════════════════════════════════════════════════╗
-║           MEMOIZATION vs TABULATION                       ║
+║           MEMOIZATION vs TABULATION                      ║
 ╠══════════════════════════════════════════════════════════╣
 ║                                                          ║
-║  MEMOIZATION (Top-Down)      TABULATION (Bottom-Up)     ║
-║  ═══════════════════          ═══════════════════       ║
+║  MEMOIZATION (Top-Down)      TABULATION (Bottom-Up)      ║
+║  ═══════════════════          ═══════════════════        ║
 ║                                                          ║
 ║  Recursive                    Iterative                  ║
-║  Cache (dict/map)            Table (array)              ║
-║  Solve big → small           Solve small → big          ║
-║  Lazy evaluation             Eager evaluation           ║
-║  Natural to write            Requires planning          ║
-║  O(n) space + stack          O(n) or O(1) space        ║
-║  Risk stack overflow         No stack risk              ║
-║  Slightly slower             Slightly faster            ║
+║  Cache (dict/map)            Table (array)               ║
+║  Solve big → small           Solve small → big           ║
+║  Lazy evaluation             Eager evaluation            ║
+║  Natural to write            Requires planning           ║
+║  O(n) space + stack          O(n) or O(1) space          ║
+║  Risk stack overflow         No stack risk               ║
+║  Slightly slower             Slightly faster             ║
 ║                                                          ║
-║  WHEN TO USE:                WHEN TO USE:               ║
-║  • Complex dependencies      • Clear order exists       ║
-║  • Not all sub-problems      • Need all values          ║
-║    needed                    • Want max performance     ║
-║  • Quick to implement        • Space optimization       ║
+║  WHEN TO USE:                WHEN TO USE:                ║
+║  • Complex dependencies      • Clear order exists        ║
+║  • Not all sub-problems      • Need all values           ║
+║    needed                    • Want max performance      ║
+║  • Quick to implement        • Space optimization        ║
 ║                                                          ║
 ║  BOTH solve same problems! Choose based on situation.    ║
 ║                                                          ║

@@ -2,6 +2,9 @@
 
 - list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams. 
 
+ascii Visualization
+Algorithm Flow & Flowcharts
+Decision Tree 
 ==========important===========
 provide what are the common patterns compendium to access and manipulate, etc... array data structures. provide all things without missing anything even I missed to mention here. provide a comprehensive guide. this will help me to do problem solving easily.
 ==============================

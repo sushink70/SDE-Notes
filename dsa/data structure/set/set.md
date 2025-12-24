@@ -1,45 +1,5 @@
 # Comprehensive Guide to Sets in Data Structures and Algorithms
 
-I've completed the comprehensive guide to sets in Data Structures and Algorithms with implementations in both Python and Rust. The guide covers:
-
-## Key Highlights:
-
-1. **Four Major Set Implementations**:
-   - **Hash Sets**: O(1) average operations, best for general use
-   - **Tree Sets (AVL)**: O(log n) operations, maintains sorted order
-   - **Bit Sets**: O(1) operations for integer elements, memory efficient
-   - **Disjoint Sets (Union-Find)**: O(α(n)) for connectivity problems
-
-2. **Complete Implementations** with:
-   - Full functionality for all basic and advanced operations
-   - Error handling and edge cases
-   - Memory management and optimization techniques
-   - Iterator implementations where applicable
-
-3. **Advanced Features**:
-   - Path compression in Union-Find
-   - Dynamic resizing in hash sets
-   - AVL tree balancing
-   - Bit manipulation optimization
-
-4. **Performance Analysis**:
-   - Time and space complexity comparisons
-   - Use case recommendations
-   - Memory layout considerations
-
-5. **Practical Examples** showing how to use each implementation effectively
-
-The implementations are production-ready and include optimizations like:
-
-- Hash table resizing based on load factor
-- AVL tree self-balancing with rotations  
-- Path compression in Union-Find for near-constant time operations
-- Efficient bit manipulation in bit sets
-
-Each implementation includes comprehensive error handling, proper memory management, and follows best practices for both Python and Rust. The guide serves as both a learning resource and a reference for implementing sets in real-world applications.
-
-## Comprehensive Guide to Sets in Data Structures and Algorithms
-
 ## Table of Contents
 
 1. [Introduction to Sets](#introduction-to-sets)
@@ -1293,24 +1253,28 @@ impl DisjointSetImmutable {
 ## Use Cases and Applications
 
 ### Hash Sets
+
 - **General Purpose**: Most common set operations
 - **Caching**: Fast lookup for cached items
 - **Deduplication**: Removing duplicates from data streams
 - **Membership Testing**: Quick checks for element existence
 
 ### Tree Sets
+
 - **Sorted Data**: When elements need to be kept in order
 - **Range Queries**: Finding elements within a range
 - **Successor/Predecessor**: Finding next/previous elements
 - **Set Operations on Sorted Data**: Efficient union/intersection
 
 ### Bit Sets
+
 - **Boolean Flags**: Compact representation of boolean arrays
 - **Prime Sieves**: Sieve of Eratosthenes implementation
 - **Graph Algorithms**: Adjacency matrices for dense graphs
 - **Permissions**: User permission systems with bit flags
 
 ### Disjoint Sets (Union-Find)
+
 - **Connected Components**: Finding connected components in graphs
 - **Kruskal's Algorithm**: Minimum spanning tree construction
 - **Dynamic Connectivity**: Checking if nodes are connected
@@ -1394,20 +1358,64 @@ fn main() {
 ## Advanced Topics
 
 ### Load Factor and Resizing in Hash Sets
+
 The load factor (number of elements / capacity) significantly affects performance. A load factor of 0.75 is commonly used as it provides a good balance between space and time efficiency.
 
 ### Path Compression in Union-Find
+
 Path compression flattens the tree structure during find operations, making subsequent operations faster. This optimization reduces the amortized time complexity to nearly constant.
 
 ### Rank vs Size in Union-Find
+
 - **Union by Rank**: Keeps track of tree depth
 - **Union by Size**: Keeps track of number of nodes
 Both achieve similar performance improvements over naive union.
 
 ### Memory Layout Considerations
+
 - **Hash Sets**: Cache performance can vary based on collision resolution
 - **Tree Sets**: Good cache locality for in-order traversals
 - **Bit Sets**: Excellent cache performance for dense sets
 - **Disjoint Sets**: Simple array access patterns
 
 This comprehensive guide provides complete implementations and analysis of various set data structures, enabling you to choose the right implementation for your specific use case.
+
+### Comprehensive Guide to Sets in Data Structures and Algorithms
+
+I've completed the comprehensive guide to sets in Data Structures and Algorithms with implementations in both Python and Rust. The guide covers:
+
+## Key Highlights:
+
+1. **Four Major Set Implementations**:
+   - **Hash Sets**: O(1) average operations, best for general use
+   - **Tree Sets (AVL)**: O(log n) operations, maintains sorted order
+   - **Bit Sets**: O(1) operations for integer elements, memory efficient
+   - **Disjoint Sets (Union-Find)**: O(α(n)) for connectivity problems
+
+2. **Complete Implementations** with:
+   - Full functionality for all basic and advanced operations
+   - Error handling and edge cases
+   - Memory management and optimization techniques
+   - Iterator implementations where applicable
+
+3. **Advanced Features**:
+   - Path compression in Union-Find
+   - Dynamic resizing in hash sets
+   - AVL tree balancing
+   - Bit manipulation optimization
+
+4. **Performance Analysis**:
+   - Time and space complexity comparisons
+   - Use case recommendations
+   - Memory layout considerations
+
+5. **Practical Examples** showing how to use each implementation effectively
+
+The implementations are production-ready and include optimizations like:
+
+- Hash table resizing based on load factor
+- AVL tree self-balancing with rotations  
+- Path compression in Union-Find for near-constant time operations
+- Efficient bit manipulation in bit sets
+
+Each implementation includes comprehensive error handling, proper memory management, and follows best practices for both Python and Rust. The guide serves as both a learning resource and a reference for implementing sets in real-world applications.

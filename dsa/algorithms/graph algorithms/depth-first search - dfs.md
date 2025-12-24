@@ -101,14 +101,17 @@ Stack: [A,C,F]
 ## Key Characteristics
 
 **Time Complexity**: O(V + E) where V = vertices, E = edges
+
 - Visit each vertex once: O(V)
 - Explore each edge once: O(E)
 
 **Space Complexity**: O(V)
+
 - Recursion stack or explicit stack: O(V) in worst case (linear path)
 - Visited set: O(V)
 
 **Properties**:
+
 1. **Not shortest path**: DFS doesn't guarantee the shortest path in unweighted graphs
 2. **Memory efficient**: Only stores vertices on current path (vs BFS storing entire level)
 3. **Backtracking-friendly**: Natural fit for problems requiring exhaustive search
@@ -217,6 +220,7 @@ fn main() {
 ```
 
 **Rust-Specific Insights**:
+
 - Use `HashSet` for O(1) visited checks (ownership-friendly)
 - `HashMap<i32, Vec<i32>>` for adjacency list—idiomatic and efficient
 - Option handling with `if let` for safe neighbor access
@@ -295,6 +299,7 @@ func main() {
 ```
 
 **Go-Specific Insights**:
+
 - `map[int][]int` for graph—clean and efficient
 - Slice manipulation for stack (`append` and slice truncation)
 - Pass `result` as pointer to avoid unnecessary copies
@@ -363,6 +368,7 @@ if __name__ == "__main__":
 ```
 
 **Python-Specific Insights**:
+
 - `defaultdict(list)` eliminates key checks
 - `set` for O(1) membership testing
 - Built-in `reversed()` for neighbor ordering
@@ -491,6 +497,7 @@ int main() {
 ```
 
 **C-Specific Insights**:
+
 - Manual memory management with `malloc`
 - Adjacency list with linked list nodes
 - Array-based stack for iterative version
@@ -586,6 +593,7 @@ int main() {
 ```
 
 **C++-Specific Insights**:
+
 - `unordered_map` and `unordered_set` for O(1) operations
 - STL `stack` for iterative version
 - Range-based for loops for clean iteration
@@ -611,6 +619,7 @@ DFS Best For:                    BFS Best For:
 ### The DFS Thinking Framework
 
 **Before coding, ask**:
+
 1. **What am I searching for?** (path, cycle, component, all solutions)
 2. **What defines "visited"?** (node-level, path-level, state-level)
 3. **When do I backtrack?** (dead end, found solution, explored all)
@@ -640,50 +649,60 @@ DFS Best For:                    BFS Best For:
 ## Real-World Use Cases
 
 **1. Web Crawling & Link Analysis**
+
 - Traverse website structure starting from root page
 - Discover deep content before broad scanning
 - Memory-efficient for deep websites
 
 **2. Maze Solving & Pathfinding**
+
 - Navigate game levels, robotics navigation
 - Explore one direction fully before trying alternatives
 - Natural backtracking when hitting dead ends
 
 **3. Topological Sorting (Task Scheduling)**
+
 - Order tasks with dependencies (build systems, course prerequisites)
 - DFS with post-order recording gives valid topological order
 
 **4. Cycle Detection in Dependencies**
+
 - Detect circular dependencies in module imports
 - Find deadlocks in resource allocation graphs
 - Validate DAG (Directed Acyclic Graph) structures
 
 **5. Connected Components Analysis**
+
 - Social network community detection
 - Image segmentation (connected pixel regions)
 - Network connectivity analysis
 
 **6. File System Traversal**
+
 - Directory tree exploration (depth-first is natural for hierarchies)
 - Finding files recursively
 - Calculating directory sizes
 
 **7. Syntax Tree Parsing**
+
 - Compiler design (AST traversal)
 - Expression evaluation
 - Code analysis and transformation
 
 **8. Game AI & Decision Trees**
+
 - Chess/game tree exploration
 - Minimax algorithm uses DFS to evaluate positions
 - Puzzle solving (Sudoku, N-Queens)
 
 **9. Bioinformatics**
+
 - Protein structure analysis
 - Gene regulatory network traversal
 - Phylogenetic tree exploration
 
 **10. Network Security**
+
 - Vulnerability scanning (exploit chains)
 - Attack graph analysis
 - Threat propagation modeling
@@ -693,21 +712,25 @@ DFS Best For:                    BFS Best For:
 ## Cognitive Principles for Mastery
 
 ### 1. **Chunking Pattern**: Recognize DFS in three chunks
+
 - **Setup**: Initialize visited, result
 - **Recursion/Iteration**: Core traversal logic
 - **Post-processing**: Use collected data
 
 ### 2. **Deliberate Practice Strategy**
+
 - **Week 1-2**: Implement DFS in all 5 languages until muscle memory
 - **Week 3-4**: Solve 20 DFS problems, categorize by pattern
 - **Week 5+**: Hybrid problems (DFS + dynamic programming, DFS + greedy)
 
 ### 3. **Mental Simulation**
+
 - Before coding, trace algorithm by hand on paper
 - Draw the recursion tree
 - Predict stack depth and visited set size
 
 ### 4. **Meta-Learning Question**
+
 *"Why did I choose DFS over BFS?"* After each problem, articulate your reasoning. This builds decision-making intuition.
 
 ---
@@ -728,6 +751,7 @@ DFS Best For:                    BFS Best For:
 ## Next Steps in Your Journey
 
 **Foundation Building**:
+
 1. Implement DFS for: adjacency matrix, adjacency list, edge list
 2. Solve: number of islands, clone graph, course schedule
 

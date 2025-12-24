@@ -6,7 +6,7 @@
       "arr": "[3, 1, 4, 1, 5, 9, 2, 6]"
     },
     "return_value": "[1, 1, 2, 3, 4, 5, 6, 9]",
-    "duration_ms": 4.244735002430389,
+    "duration_ms": 2.5754540001798887,
     "depth": 0,
     "children": [
       {
@@ -16,7 +16,7 @@
           "arr": "[3, 1, 4, 1]"
         },
         "return_value": "[1, 1, 3, 4]",
-        "duration_ms": 1.7250829987460747,
+        "duration_ms": 1.1220500018680468,
         "depth": 1,
         "children": [
           {
@@ -26,7 +26,7 @@
               "arr": "[3, 1]"
             },
             "return_value": "[1, 3]",
-            "duration_ms": 0.5275380026432686,
+            "duration_ms": 0.3849480017379392,
             "depth": 2,
             "children": [
               {
@@ -36,7 +36,7 @@
                   "arr": "[3]"
                 },
                 "return_value": "[3]",
-                "duration_ms": 0.016707999748177826,
+                "duration_ms": 0.01614600114407949,
                 "depth": 3,
                 "children": []
               },
@@ -47,7 +47,7 @@
                   "arr": "[1]"
                 },
                 "return_value": "[1]",
-                "duration_ms": 0.02502999996067956,
+                "duration_ms": 0.015093999536475167,
                 "depth": 3,
                 "children": []
               },
@@ -59,7 +59,7 @@
                   "right": "[1]"
                 },
                 "return_value": "[1, 3]",
-                "duration_ms": 0.031476000003749505,
+                "duration_ms": 0.019973002054030076,
                 "depth": 3,
                 "children": []
               }
@@ -72,7 +72,7 @@
               "arr": "[4, 1]"
             },
             "return_value": "[1, 4]",
-            "duration_ms": 0.6633150005654898,
+            "duration_ms": 0.38370500260498375,
             "depth": 2,
             "children": [
               {
@@ -82,7 +82,7 @@
                   "arr": "[4]"
                 },
                 "return_value": "[4]",
-                "duration_ms": 0.0275249985861592,
+                "duration_ms": 0.015416000678669661,
                 "depth": 3,
                 "children": []
               },
@@ -93,7 +93,7 @@
                   "arr": "[1]"
                 },
                 "return_value": "[1]",
-                "duration_ms": 0.035257999115856364,
+                "duration_ms": 0.018927999917650595,
                 "depth": 3,
                 "children": []
               },
@@ -105,7 +105,7 @@
                   "right": "[1]"
                 },
                 "return_value": "[1, 4]",
-                "duration_ms": 0.03337599991937168,
+                "duration_ms": 0.019251998310210183,
                 "depth": 3,
                 "children": []
               }
@@ -119,7 +119,7 @@
               "right": "[1, 4]"
             },
             "return_value": "[1, 1, 3, 4]",
-            "duration_ms": 0.03370799822732806,
+            "duration_ms": 0.019568000425351784,
             "depth": 2,
             "children": []
           }
@@ -132,7 +132,7 @@
           "arr": "[5, 9, 2, 6]"
         },
         "return_value": "[2, 5, 6, 9]",
-        "duration_ms": 1.9478750000416767,
+        "duration_ms": 1.0982650019286666,
         "depth": 1,
         "children": [
           {
@@ -142,7 +142,7 @@
               "arr": "[5, 9]"
             },
             "return_value": "[5, 9]",
-            "duration_ms": 0.66250400050194,
+            "duration_ms": 0.3787929999816697,
             "depth": 2,
             "children": [
               {
@@ -152,7 +152,7 @@
                   "arr": "[5]"
                 },
                 "return_value": "[5]",
-                "duration_ms": 0.028245998692000285,
+                "duration_ms": 0.015748999430797994,
                 "depth": 3,
                 "children": []
               },
@@ -163,7 +163,7 @@
                   "arr": "[9]"
                 },
                 "return_value": "[9]",
-                "duration_ms": 0.03462399763520807,
+                "duration_ms": 0.015257999621098861,
                 "depth": 3,
                 "children": []
               },
@@ -175,7 +175,7 @@
                   "right": "[9]"
                 },
                 "return_value": "[5, 9]",
-                "duration_ms": 0.03287499930593185,
+                "duration_ms": 0.021323001419659704,
                 "depth": 3,
                 "children": []
               }
@@ -188,7 +188,7 @@
               "arr": "[2, 6]"
             },
             "return_value": "[2, 6]",
-            "duration_ms": 0.6962339975871146,
+            "duration_ms": 0.37358899862738326,
             "depth": 2,
             "children": [
               {
@@ -198,7 +198,7 @@
                   "arr": "[2]"
                 },
                 "return_value": "[2]",
-                "duration_ms": 0.027889000193681568,
+                "duration_ms": 0.015229998098220676,
                 "depth": 3,
                 "children": []
               },
@@ -209,7 +209,7 @@
                   "arr": "[6]"
                 },
                 "return_value": "[6]",
-                "duration_ms": 0.028312999347690493,
+                "duration_ms": 0.014965997252147645,
                 "depth": 3,
                 "children": []
               },
@@ -221,7 +221,7 @@
                   "right": "[6]"
                 },
                 "return_value": "[2, 6]",
-                "duration_ms": 0.031242998375091702,
+                "duration_ms": 0.01766800050972961,
                 "depth": 3,
                 "children": []
               }
@@ -235,7 +235,7 @@
               "right": "[2, 6]"
             },
             "return_value": "[2, 5, 6, 9]",
-            "duration_ms": 0.03197100159013644,
+            "duration_ms": 0.017851998563855886,
             "depth": 2,
             "children": []
           }
@@ -249,7 +249,7 @@
           "right": "[2, 5, 6, 9]"
         },
         "return_value": "[1, 1, 2, 3, 4, 5, 6, 9]",
-        "duration_ms": 0.033061001886380836,
+        "duration_ms": 0.019346000044606626,
         "depth": 1,
         "children": []
       }
