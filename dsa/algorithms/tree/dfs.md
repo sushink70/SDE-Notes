@@ -55,9 +55,11 @@ Graph (needs visited set):          Tree (no visited set needed):
 **Core Concept**: The "order" refers to WHEN you process the current node relative to its children.
 
 ### Pre-order Traversal: Root → Left → Right
+
 **"Process before exploring"**
 
 **Use Cases**:
+
 - Copying/cloning a tree
 - Prefix notation (Polish notation)
 - Creating a tree from serialized data
@@ -66,9 +68,11 @@ Graph (needs visited set):          Tree (no visited set needed):
 **Mental Model**: Visit the parent before visiting the children—like meeting the CEO before meeting department heads.
 
 ### In-order Traversal: Left → Root → Right
+
 **"Process between children"**
 
 **Use Cases**:
+
 - Binary Search Trees (gives sorted output!)
 - Expression trees (infix notation)
 - Validating BST properties
@@ -76,9 +80,11 @@ Graph (needs visited set):          Tree (no visited set needed):
 **Mental Model**: In a BST, this visits nodes in ascending order—like reading a sorted list.
 
 ### Post-order Traversal: Left → Right → Root
+
 **"Process after exploring"**
 
 **Use Cases**:
+
 - Deleting/freeing a tree (delete children before parent)
 - Calculating directory sizes (need child sizes first)
 - Postfix notation (Reverse Polish notation)
@@ -101,6 +107,7 @@ Graph (needs visited set):          Tree (no visited set needed):
 ```
 
 ### Pre-order: Root → Left → Right
+
 **Visit Order**: 1, 2, 4, 5, 3, 6, 7
 
 ```
@@ -124,6 +131,7 @@ Result: 1 → 2 → 4 → 5 → 3 → 6 → 7
 ```
 
 ### In-order: Left → Root → Right
+
 **Visit Order**: 4, 2, 5, 1, 6, 3, 7
 
 ```
@@ -152,6 +160,7 @@ Result: 4 → 2 → 5 → 1 → 6 → 3 → 7
 ```
 
 ### Post-order: Left → Right → Root
+
 **Visit Order**: 4, 5, 2, 6, 7, 3, 1
 
 ```
@@ -233,11 +242,13 @@ function traverse(node):
 ```
 
 **Pros**:
+
 - Clean, elegant code
 - Natural representation of tree structure
 - Easy to understand and modify
 
 **Cons**:
+
 - Stack overflow risk for very deep trees
 - Less control over execution
 - Harder to pause/resume
@@ -249,11 +260,13 @@ function traverse(node):
 **Post-order Strategy**: Two-stack method or visited tracking
 
 **Pros**:
+
 - No recursion (no stack overflow)
 - Full control over execution
 - Can pause/resume easily
 
 **Cons**:
+
 - More complex code
 - Requires manual stack management
 - Less intuitive
