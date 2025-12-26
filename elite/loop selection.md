@@ -1,10 +1,10 @@
 # Elite Loop Selection Guide
 
-*Mastering Loop Selection in Rust, Python, and Go*
+Mastering Loop Selection in Rust, Python, and Go
 
 ## 🎯 Decision Framework
 
-```
+```ascii
 START
   │
   ├─ Known iterations count? ──YES──> FOR loop
@@ -33,6 +33,7 @@ START
 ## 🔍 Pattern Recognition Guide
 
 ### Pattern 1: Index-Based Processing
+
 **When:** Need both index and value, array manipulation, sliding windows
 
 ```python
@@ -61,6 +62,7 @@ for i := 0; i < len(arr); i++ {
 ```
 
 **DSA Use Cases:**
+
 - Sliding window problems
 - Two-pointer techniques
 - In-place array modifications
@@ -69,6 +71,7 @@ for i := 0; i < len(arr); i++ {
 ---
 
 ### Pattern 2: Collection Traversal
+
 **When:** Only need values, read-only operations, functional transformations
 
 ```python
@@ -105,6 +108,7 @@ for i, name := range names {
 ```
 
 **DSA Use Cases:**
+
 - Tree/graph traversal
 - Linked list iteration
 - Hash map processing
@@ -113,6 +117,7 @@ for i, name := range names {
 ---
 
 ### Pattern 3: Condition-Based Loops
+
 **When:** Unknown iteration count, waiting for condition, binary search convergence
 
 ```python
@@ -150,6 +155,7 @@ for left < right {
 ```
 
 **DSA Use Cases:**
+
 - Binary search variants
 - Convergence algorithms
 - Game loops (until win/lose)
@@ -158,6 +164,7 @@ for left < right {
 ---
 
 ### Pattern 4: Infinite Loops with Exit Conditions
+
 **When:** Event loops, servers, "run until signal", multiple exit points
 
 ```python
@@ -205,6 +212,7 @@ for {
 ```
 
 **Real-World Use Cases:**
+
 - Web servers
 - Message queue consumers
 - Game loops
@@ -216,6 +224,7 @@ for {
 ## 🚀 Advanced Patterns
 
 ### Pattern 5: Nested Loop Optimization
+
 **Problem:** Find pair with target sum
 
 ```python
@@ -304,6 +313,7 @@ for i := 0; i < 10; i++ {
 ```
 
 **When to use:**
+
 - Data transformations
 - Lazy evaluation needed
 - Composable operations
@@ -332,6 +342,7 @@ for i in 0..vec.len() {
 ---
 
 ### 2. Loop Unrolling
+
 For tight, performance-critical loops:
 
 ```rust
@@ -364,6 +375,7 @@ def find_first(arr, predicate):
 ## 🎓 DSA Pattern Recognition
 
 ### Graph Traversal
+
 ```python
 # BFS - Queue-based iteration
 from collections import deque
@@ -401,6 +413,7 @@ fn bfs(graph: &HashMap<i32, Vec<i32>>, start: i32) {
 ```
 
 ### Backtracking
+
 ```python
 # Permutations - Recursive with implicit loop
 def permute(nums):
@@ -424,7 +437,7 @@ def permute(nums):
 
 ## 🎯 Real-World Decision Tree
 
-```
+```ascii
 Problem: "Process items from stream until done"
 ├─ Items come in batches? 
 │  └─ YES → WHILE receive batch: FOR item in batch
@@ -444,6 +457,7 @@ Problem: "Process items from stream until done"
 ## 📚 Common Mistakes to Avoid
 
 ### ❌ Wrong: Modifying collection while iterating
+
 ```python
 # Python - WRONG
 for item in items:
@@ -452,12 +466,14 @@ for item in items:
 ```
 
 ✅ **Correct:**
+
 ```python
 items = [x for x in items if not should_remove(x)]
 # Or: items[:] = [x for x in items if not should_remove(x)]
 ```
 
 ### ❌ Wrong: Unnecessary index usage
+
 ```python
 # WRONG - Unpythonic
 for i in range(len(names)):
@@ -465,12 +481,14 @@ for i in range(len(names)):
 ```
 
 ✅ **Correct:**
+
 ```python
 for name in names:
     print(name)
 ```
 
 ### ❌ Wrong: Infinite loop without exit
+
 ```go
 // Go - WRONG: No way to stop
 for {
@@ -508,6 +526,7 @@ for {
 > "The best loop is the one that clearly expresses intent."
 
 Choose loops in this priority:
+
 1. **Clarity** - Does it read naturally?
 2. **Correctness** - Does it handle edge cases?
 3. **Performance** - Only optimize when measured
@@ -516,13 +535,15 @@ Master these patterns, and you'll instinctively choose the right loop every time
 
 I'll create a comprehensive guide on loop selection that covers decision-making frameworks, patterns, and practical examples across Rust, Python, and Go.I've created a comprehensive guide that covers loop selection at an elite level. Here's what it includes:
 
-## Key Takeaways:
+## Key Takeaways
 
 **🎯 Decision Framework:**
+
 - Visual flowchart to instantly identify which loop type to use
 - Selection matrix comparing Python, Rust, and Go syntax side-by-side
 
 **📊 Six Core Patterns:**
+
 1. **Index-based** - For sliding windows, two-pointers, in-place modifications
 2. **Collection traversal** - For functional operations, tree/graph traversal
 3. **Condition-based** - For binary search, convergence algorithms
@@ -531,16 +552,19 @@ I'll create a comprehensive guide on loop selection that covers decision-making 
 6. **Iterator chains** - Functional composition and lazy evaluation
 
 **⚡ Performance Insights:**
+
 - Why iterators are often faster than index loops (Rust)
 - When to use loop unrolling
 - Short-circuit evaluation strategies
 
 **🎓 DSA Patterns:**
+
 - BFS/DFS implementations
 - Backtracking templates
 - Real-world problem recognition
 
 **Pro Tips:**
+
 - Rust: `iter()` borrows, `into_iter()` consumes
 - Go: `range` always returns index first (use `_` to ignore)
 - Python: `enumerate()` for index+value pairs
@@ -554,133 +578,6 @@ Perfect question, Sushin. This is exactly the kind of “elite engineer’s comp
 2. **The memory model & call semantics**: stack vs heap, value vs reference.  
 3. **Language-specific idioms**: Rust, Python, Go.  
 4. **Elite heuristics**: how top engineers think about loops in real-world systems.  
-
-# Elite Loop Selection Guide
-*Mastering Loop Selection & Nesting in Rust, Python, Go*
-
-## 🎯 Decision Framework
-
-```
-START
-  │
-  ├─ Known iterations count? ──YES──> FOR loop
-  │                           
-  ├─ Iterating collection? ────YES──> FOR-EACH / Iterator
-  │
-  ├─ Condition-based? ─────────YES──> WHILE loop
-  │
-  ├─ At least once? ───────────YES──> DO-WHILE / loop-break
-  │
-  └─ Event-driven/infinite? ───YES──> INFINITE loop + break
-```
-
-## 📊 Loop Type Selection Matrix
-
-| Scenario | Python | Rust | Go | When to Use |
-|----------|--------|------|-----|-------------|
-| **Fixed iterations** | `for i in range(n)` | `for i in 0..n` | `for i := 0; i < n; i++` | Count known upfront |
-| **Collection iteration** | `for item in items` | `for item in items.iter()` | `for _, item := range items` | Process each element |
-| **Condition-based** | `while condition` | `while condition` | `for condition` | Unknown iterations |
-| **Infinite with exit** | `while True` + `break` | `loop` + `break` | `for` + `break` | Event loops, servers |
-| **Iterator pattern** | `for x in iter` | `items.iter().for_each()` | Custom iterator | Lazy evaluation |
-
----
-
-## 🔍 Basic Pattern Recognition
-
-### Pattern 1: Index-Based Processing
-**When:** Need both index and value, array manipulation, sliding windows
-
-```python
-# Python
-for i in range(len(arr)):
-    if i > 0:
-        arr[i] += arr[i-1]  # Prefix sum
-```
-
-```rust
-// Rust
-for i in 0..arr.len() {
-    if i > 0 {
-        arr[i] += arr[i-1];
-    }
-}
-```
-
-```go
-// Go
-for i := 0; i < len(arr); i++ {
-    if i > 0 {
-        arr[i] += arr[i-1]
-    }
-}
-```
-
----
-
-### Pattern 2: Collection Traversal
-**When:** Only need values, read-only operations
-
-```python
-# Python
-for name in names:
-    print(name.upper())
-```
-
-```rust
-// Rust
-for name in &names {
-    println!("{}", name.to_uppercase());
-}
-```
-
-```go
-// Go
-for _, name := range names {
-    fmt.Println(strings.ToUpper(name))
-}
-```
-
----
-
-### Pattern 3: Condition-Based Loops
-**When:** Unknown iteration count, binary search convergence
-
-```python
-# Python
-while left < right:
-    mid = (left + right) // 2
-    if check(mid):
-        right = mid
-    else:
-        left = mid + 1
-```
-
-```rust
-// Rust
-while left < right {
-    let mid = (left + right) / 2;
-    if check(mid) {
-        right = mid;
-    } else {
-        left = mid + 1;
-    }
-}
-```
-
-```go
-// Go
-for left < right {
-    mid := (left + right) / 2
-    if check(mid) {
-        right = mid
-    } else {
-        left = mid + 1
-    }
-}
-```
-
----
 
 ## 🎭 NESTED LOOPS: Complete Guide
 
@@ -741,6 +638,7 @@ for i, row := range matrix {
 ```
 
 **DSA Applications:**
+
 - Matrix rotation/transposition
 - Dynamic programming (2D DP tables)
 - Graph adjacency matrix
@@ -828,6 +726,7 @@ for batch := range batchChannel {
 ```
 
 **Real-World Use Cases:**
+
 - REST API pagination (GitHub, AWS, etc.)
 - Database cursor pagination
 - Message queue batch consumers (SQS, RabbitMQ)
@@ -922,6 +821,7 @@ func processLevels(roots []*TreeNode) {
 ```
 
 **DSA Applications:**
+
 - Multiple linked list operations
 - BFS on multiple trees
 - Flattening nested structures
@@ -1040,6 +940,7 @@ func parseProtocol(conn net.Conn) error {
 ```
 
 **Real-World Use Cases:**
+
 - Protocol parsers (HTTP, WebSocket)
 - Game loops (outer: game running, inner: current level)
 - Nested data validation
@@ -1174,7 +1075,7 @@ func eventLoop(ctx context.Context, taskChan <-chan Task) {
 
 ## 🎯 Nesting Decision Tree
 
-```
+```ascii
 Question: Do I need nested loops?
 
 ├─ Processing 2D/3D data?
@@ -1199,7 +1100,7 @@ Question: Do I need nested loops?
 
 ### 1. Time Complexity of Nested Loops
 
-```
+```ascii
 FOR (n) + FOR (m)           = O(n + m)  - Sequential
 FOR (n) { FOR (m) }         = O(n × m)  - Nested
 FOR (n) { WHILE (cond) }    = O(n × k)  - k = avg iterations
@@ -1389,6 +1290,7 @@ fn spiral_order(matrix: Vec<Vec<i32>>) -> Vec<i32> {
 ## 🎓 Common DSA Patterns with Nested Loops
 
 ### 1. All Pairs (O(n²))
+
 ```python
 # Find all pairs with sum
 def find_pairs(arr, target):
@@ -1401,6 +1303,7 @@ def find_pairs(arr, target):
 ```
 
 ### 2. Subarray Problems
+
 ```python
 # All subarrays
 def all_subarrays(arr):
@@ -1412,6 +1315,7 @@ def all_subarrays(arr):
 ```
 
 ### 3. Matrix Chain Multiplication (3 nested)
+
 ```python
 # Classic DP with O(n³)
 def matrix_chain_order(dims):
@@ -1448,6 +1352,7 @@ def matrix_chain_order(dims):
 ## 🎯 When NOT to Use Nested Loops
 
 Replace nested loops when:
+
 - O(n²) becomes a bottleneck → Use hash maps (O(n))
 - Two sorted arrays → Use two pointers (O(n))
 - Range queries → Use prefix sums or segment trees
@@ -1456,11 +1361,12 @@ Replace nested loops when:
 
 ---
 
-## 🎬 Final Wisdom
+## 🎬 Final Wisdom_
 
 > "Nested loops are powerful but expensive. Master them, then learn when to avoid them."
 
 Priority:
+
 1. **Correctness** - Handle edge cases at each level
 2. **Clarity** - Keep nesting depth ≤ 3
 3. **Performance** - Profile and optimize hot paths
@@ -1470,30 +1376,36 @@ Perfect! I've completely rewritten the guide with **extensive nested loop covera
 ## 🎭 Five Nested Loop Patterns:
 
 ### **1. FOR inside FOR** - Matrix/Grid Operations
+
+- **Most common:** 2D array/matrix traversal, grid problems
 - 2D array traversal
 - Dynamic programming tables
 - Image processing
 - Examples: Matrix rotation, Conway's Game of Life
 
 ### **2. FOR inside WHILE** - Batch Processing
+
 - **Most practical for real-world:** API pagination, database cursors, message queues
 - Stream processing with variable batches
 - File reading in chunks
 - Examples: GitHub API pagination, AWS SQS batch consumers
 
 ### **3. WHILE inside FOR** - Variable Sub-iterations
+
 - Linked list operations (merge K lists)
 - State machines per item
 - Pointer chasing
 - Skip list navigation
 
 ### **4. WHILE inside WHILE** - Nested Conditions
+
 - Game loops (outer: game running, inner: current round)
 - Protocol parsers (HTTP, WebSocket)
 - Bidirectional search algorithms
 - Network packet parsing
 
 ### **5. Mixed Nesting** - Complex Algorithms
+
 - Sudoku solver (3-level FOR with backtracking)
 - Dijkstra's algorithm (WHILE + FOR)
 - Event loops with async tasks (LOOP + WHILE + FOR)
@@ -1501,21 +1413,25 @@ Perfect! I've completely rewritten the guide with **extensive nested loop covera
 ## 🔥 Key Additions:
 
 **Breaking Out of Nested Loops:**
+
 - Python: Exceptions, flags, or function returns
 - Rust: Labeled breaks (`'outer: loop`)
 - Go: Labeled breaks (`OuterLoop:`)
 
 **Advanced Patterns:**
+
 - Diagonal matrix traversal
 - Spiral matrix traversal
 - All pairs/subarrays patterns
 
 **Performance Section:**
+
 - Time complexity analysis of nested combinations
 - When to avoid nested loops (hash maps, two-pointers)
 - Deep nesting anti-patterns
 
 **Real-World Examples:**
+
 - REST API pagination with batch processing
 - Network protocol parsers
 - Event loops with goroutines
@@ -1525,7 +1441,7 @@ The guide now covers **every practical nested loop scenario** you'll encounter i
 
 ---
 
-# 🧭 1. The Decision Framework: Which Loop to Use?
+## 🧭 1. The Decision Framework: Which Loop to Use?
 
 Think of loops as **weapons in your arsenal**. Each has a domain:
 
@@ -1539,7 +1455,7 @@ Think of loops as **weapons in your arsenal**. Each has a domain:
 
 ---
 
-# 🧠 2. Memory Model & Call Semantics
+## 🧠 2. Memory Model & Call Semantics
 
 Elite engineers don’t just pick loops—they **map them to memory behavior**:
 
@@ -1554,9 +1470,10 @@ Elite engineers don’t just pick loops—they **map them to memory behavior**:
 
 ---
 
-# ⚙️ 3. Language-Specific Idioms
+## ⚙️ 3. Language-Specific Idioms
 
 ### **Rust**
+
 ```rust
 // Count-controlled
 for i in 0..10 {
@@ -1581,6 +1498,7 @@ loop {
 ---
 
 ### **Python**
+
 ```python
 # Count-controlled
 for i in range(10):
@@ -1603,6 +1521,7 @@ while True:
 ---
 
 ### **Go**
+
 ```go
 // Count-controlled
 for i := 0; i < 10; i++ {
@@ -1626,7 +1545,7 @@ for {
 
 ---
 
-# 🏆 4. Elite Heuristics
+## 🏆 4. Elite Heuristics
 
 Here’s how **top-tier engineers** decide:
 
@@ -1651,7 +1570,7 @@ Here’s how **top-tier engineers** decide:
 
 ---
 
-# 🌌 Fantasy Anchor (for you, Sushin)
+## 🌌 Fantasy Anchor (for you, Sushin)
 
 Imagine loops as **celestial orbits**:
 
@@ -1663,6 +1582,7 @@ Imagine loops as **celestial orbits**:
 ---
 
 ✅ **Summary for elite engineers**:  
+
 - Always start with **intent**: fixed count, condition, or event-driven.  
 - Map to **memory semantics**: stack vs heap, value vs reference.  
 - Use **language idioms**: Rust iterators, Python comprehensions, Go’s single `for`.  

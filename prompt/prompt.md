@@ -5,6 +5,12 @@
 ascii Visualization
 Algorithm Flow & Flowcharts
 Decision Tree 
+
+Practical Takeaway: We use probabilistic or time-bounded algorithms (Paxos, Raft, etc.)
+
+CAP Theorem 
+
+
 ==========important===========
 provide what are the common patterns compendium to access and manipulate, etc... array data structures. provide all things without missing anything even I missed to mention here. provide a comprehensive guide. this will help me to do problem solving easily.
 ==============================
