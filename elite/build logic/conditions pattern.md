@@ -1,9 +1,11 @@
 # DSA Patterns Compendium: The Complete Guide
+
 ## Your Systematic Path to Top 1% Problem-Solving Mastery
 
 ---
 
 ## Table of Contents
+
 1. [Array & String Patterns](#array--string-patterns)
 2. [Two Pointers & Sliding Window](#two-pointers--sliding-window)
 3. [Hashing & Frequency Patterns](#hashing--frequency-patterns)
@@ -27,7 +29,7 @@
 
 ## Mental Framework: How to Approach ANY Problem
 
-```
+```ascii
 ┌─────────────────────────────────────────────────────────┐
 │  PROBLEM ANALYSIS PIPELINE (Master This Flow)           │
 ├─────────────────────────────────────────────────────────┤
@@ -35,23 +37,23 @@
 │     - Input format & constraints                        │
 │     - Output requirements                               │
 │     - Edge cases (empty, single element, duplicates)    │
-│                                                          │
+│                                                         │
 │  2. PATTERN RECOGNITION: What category?                 │
 │     - Sequential access? → Arrays/Strings               │
 │     - Searching/Ordering? → Binary Search/Sorting       │
 │     - Combinations/Subsets? → Backtracking              │
 │     - Optimization? → DP or Greedy                      │
 │     - Graph/Tree structure? → DFS/BFS                   │
-│                                                          │
+│                                                         │
 │  3. BRUTE FORCE FIRST: Always have a baseline           │
 │     - Time: Usually O(n²) or O(n³)                      │
 │     - Space: Often O(1) or O(n)                         │
-│                                                          │
+│                                                         │
 │  4. OPTIMIZE: Apply patterns to reduce complexity       │
-│     - Can we avoid recalculation? → Hashing/Memoization│
+│     - Can we avoid recalculation? → Hashing/Memoization │
 │     - Can we reduce search space? → Binary Search       │
 │     - Can we reuse computation? → DP                    │
-│                                                          │
+│                                                         │
 │  5. IMPLEMENT: Write clean, tested code                 │
 │  6. VERIFY: Test edge cases & complexity                │
 └─────────────────────────────────────────────────────────┘
@@ -66,12 +68,14 @@
 **Core Concept**: Arrays are contiguous memory blocks accessed by index (0 to n-1). Understanding index arithmetic is foundational.
 
 **When to Use**:
+
 - Accessing elements relative to current position
 - Rotating or reversing arrays
 - Partitioning problems
 
 **Key Techniques**:
-```
+
+```ascii
 Forward iteration:   for i in 0..n
 Backward iteration:  for i in (0..n).rev()
 Two directions:      start=0, end=n-1, meet in middle
@@ -131,7 +135,7 @@ func reverseArray(arr []int) {
 
 **Key Insight**: If current sum becomes negative, it can't help future sums, so reset.
 
-```
+```ascii
 Array: [-2, 1, -3, 4, -1, 2, 1, -5, 4]
 
 Step-by-step thinking:
@@ -158,6 +162,7 @@ def max_subarray(nums):
 ```
 
 **Variations**:
+
 - Return the subarray itself (track indices)
 - Find minimum subarray sum (invert logic)
 - Circular array (consider wrap-around)
@@ -171,13 +176,15 @@ def max_subarray(nums):
 **Core Concept**: Two pointers start at opposite ends and move toward each other. Used when array is sorted or you need to compare pairs.
 
 **Visual**:
-```
+
+```ascii
 [1, 2, 3, 4, 5, 6, 7, 8]
  ↑                    ↑
 left               right
 ```
 
 **When to Use**:
+
 - Finding pairs with specific sum
 - Removing duplicates
 - Container problems (trapping water)
@@ -229,11 +236,13 @@ fn remove_duplicates(nums: &mut Vec<i32>) -> usize {
 **Core Concept**: A **window** is a range [left, right] in an array. We "slide" this window to examine all ranges efficiently.
 
 **Types**:
+
 1. **Fixed Size**: Window size k is constant
 2. **Variable Size**: Window expands/contracts based on conditions
 
 **Visual (Fixed Window of size 3)**:
-```
+
+```ascii
 [1, 3, 5, 2, 8, 4, 6]
 [1, 3, 5]        ← Window 1, sum = 9
    [3, 5, 2]     ← Window 2, sum = 10
@@ -241,10 +250,12 @@ fn remove_duplicates(nums: &mut Vec<i32>) -> usize {
 ```
 
 **Mental Model**: Imagine a physical sliding window. When moving right:
+
 - Add new element on right
 - Remove old element on left
 
 **Fixed Size Window Template**:
+
 ```python
 def fixed_window(arr, k):
     # Initialize first window
@@ -262,6 +273,7 @@ def fixed_window(arr, k):
 ```
 
 **Variable Size Window Template** (Most Important!):
+
 ```python
 def variable_window(arr, condition):
     left = 0
@@ -283,6 +295,7 @@ def variable_window(arr, condition):
 ```
 
 **Example: Longest Substring Without Repeating Characters**
+
 ```python
 def longest_unique_substring(s):
     char_set = set()
@@ -358,6 +371,7 @@ func minWindow(s string, t string) string {
 ```
 
 **Pattern Recognition for Sliding Window**:
+
 - Keywords: "subarray", "substring", "consecutive elements"
 - "Maximum/minimum of size k" → Fixed window
 - "Longest/shortest satisfying condition" → Variable window
@@ -371,6 +385,7 @@ func minWindow(s string, t string) string {
 **Core Concept**: A **hash map** (dictionary/map) stores key-value pairs with average O(1) access. Trade space for time.
 
 **When to Use**:
+
 - Need to check if element exists quickly
 - Count frequencies
 - Store computed results (memoization)
@@ -421,6 +436,7 @@ fn two_sum(nums: Vec<i32>, target: i32) -> Vec<i32> {
 **Core Concept**: Count occurrences of each element to identify patterns.
 
 **Applications**:
+
 - Find most/least frequent element
 - Detect duplicates
 - Check if two strings are anagrams
@@ -453,6 +469,7 @@ def is_anagram_manual(s, t):
 ```
 
 **Advanced: Top K Frequent Elements**
+
 ```python
 from collections import Counter
 import heapq
@@ -493,7 +510,8 @@ def top_k_frequent(nums, k):
 **Formula**: `sum(i, j) = prefix[j] - prefix[i-1]`
 
 **Visual**:
-```
+
+```ascii
 Array:     [3, 1, 4, 1, 5, 9]
 Prefix:    [3, 4, 8, 9, 14, 23]
            
@@ -541,11 +559,15 @@ def subarray_sum(nums, k):
 **Core Concept**: A **difference array** efficiently handles multiple range updates.
 
 **Problem**: Given an array, perform m updates of type "add value v to range [l, r]".
+
+**Naive vs Difference Array**:
+
 - Naive: O(n) per update → O(mn) total
 - Difference array: O(1) per update + O(n) final → O(m + n)
 
 **How It Works**:
-```
+
+```ascii
 Original:      [0, 0, 0, 0, 0]
 Add 3 to [1,3]:
 
@@ -591,6 +613,7 @@ def range_updates(n, updates):
 **Core Concept**: Sometimes you need to sort by custom criteria, not just value.
 
 **Applications**:
+
 - Sort intervals by start/end time
 - Sort by multiple keys
 - Stable vs unstable sorting
@@ -627,7 +650,8 @@ intervals.sort_by(|a, b| {
 **Prerequisite**: Array must be sorted (or search space has monotonic property)
 
 **Visual**:
-```
+
+```ascii
 [1, 3, 5, 7, 9, 11, 13, 15]   Target: 7
  L              M           R
 
@@ -649,6 +673,7 @@ Found!
 **Time**: O(log n), **Space**: O(1)
 
 **Standard Binary Search Template**:
+
 ```python
 def binary_search(arr, target):
     left, right = 0, len(arr) - 1
@@ -667,6 +692,7 @@ def binary_search(arr, target):
 ```
 
 **Critical Details**:
+
 1. `mid = left + (right - left) // 2` avoids integer overflow
 2. Loop condition: `left <= right` (inclusive)
 3. Update: `left = mid + 1` or `right = mid - 1` (exclude mid)
@@ -676,6 +702,7 @@ def binary_search(arr, target):
 ### Pattern 5.3: Binary Search Variations
 
 **Variation 1: Find First Occurrence**
+
 ```python
 def find_first(arr, target):
     left, right = 0, len(arr) - 1
@@ -696,6 +723,7 @@ def find_first(arr, target):
 ```
 
 **Variation 2: Find Insertion Position (Lower Bound)**
+
 ```python
 def lower_bound(arr, target):
     """Find leftmost position where target can be inserted"""
@@ -759,11 +787,14 @@ def ship_within_days(weights, days):
 **Core Concept**: A **stack** is a Last-In-First-Out (LIFO) data structure. Think of a stack of plates.
 
 **Operations**:
+
 - `push(x)`: Add element to top - O(1)
 - `pop()`: Remove top element - O(1)
 - `peek()`: View top element without removing - O(1)
 
 **When to Use**:
+
+- Backtracking problems
 - Matching parentheses/brackets
 - Undo operations
 - Expression evaluation
@@ -798,6 +829,7 @@ def is_valid(s):
 **Mental Model**: Like a line of people where taller people can "see over" shorter ones. When someone taller arrives, shorter people behind them become invisible.
 
 **Visual (Next Greater Element)**:
+
 ```
 Array: [2, 1, 2, 4, 3]
 
@@ -810,6 +842,7 @@ i=4: [4, 3]
 ```
 
 **Template (Next Greater Element)**:
+
 ```python
 def next_greater_elements(arr):
     n = len(arr)
@@ -831,6 +864,7 @@ def next_greater_elements(arr):
 ```
 
 **Variations**:
+
 ```python
 # Next Smaller Element (flip comparison)
 def next_smaller_elements(arr):
@@ -862,6 +896,7 @@ def prev_greater_elements(arr):
 ```
 
 **Real-World Application: Largest Rectangle in Histogram**
+
 ```python
 def largest_rectangle_area(heights):
     """
@@ -893,6 +928,7 @@ def largest_rectangle_area(heights):
 ```
 
 **Pattern Recognition**:
+
 - Keywords: "next greater", "next smaller", "previous", "span"
 - Problems involving elements seeing/dominating other elements
 - Rectangle/area problems with heights
@@ -906,6 +942,7 @@ def largest_rectangle_area(heights):
 **Core Concept**: A **queue** is First-In-First-Out (FIFO). Like a line at a store.
 
 **Operations**:
+
 - `enqueue(x)`: Add to back - O(1)
 - `dequeue()`: Remove from front - O(1)
 - `front()`: View front element - O(1)
@@ -982,7 +1019,8 @@ def sliding_window_maximum(nums, k):
 **Core Concept**: A **linked list** is a sequence of nodes where each node contains data and a pointer to the next node.
 
 **Structure**:
-```
+
+```ascii
 Node: [data | next] -> [data | next] -> [data | next] -> None
        head
 ```
@@ -990,6 +1028,7 @@ Node: [data | next] -> [data | next] -> [data | next] -> None
 **Why Use It**: Dynamic size, O(1) insertion/deletion at known positions (unlike arrays)
 
 **Python Definition**:
+
 ```python
 class ListNode:
     def __init__(self, val=0, next=None):
@@ -998,6 +1037,7 @@ class ListNode:
 ```
 
 **Rust Definition**:
+
 ```rust
 #[derive(Debug, Clone)]
 pub struct ListNode {
@@ -1019,12 +1059,14 @@ impl ListNode {
 **Core Concept**: Two pointers move at different speeds. Fast moves 2 steps, slow moves 1 step.
 
 **Applications**:
+
 1. Detect cycle
 2. Find middle of list
 3. Find nth node from end
 
 **Visual (Cycle Detection)**:
-```
+
+```ascii
 1 -> 2 -> 3 -> 4 -> 5
           ↑         ↓
           8 <- 7 <- 6
@@ -1055,6 +1097,7 @@ def has_cycle(head):
 ```
 
 **Find Middle**:
+
 ```python
 def find_middle(head):
     slow = fast = head
@@ -1075,7 +1118,8 @@ def find_middle(head):
 **Core Concept**: Reverse pointers direction iteratively.
 
 **Visual**:
-```
+
+```ascii
 Original: 1 -> 2 -> 3 -> 4 -> None
 
 Step 1:   None <- 1    2 -> 3 -> 4 -> None
@@ -1105,6 +1149,7 @@ def reverse_list(head):
 ```
 
 **Reverse in Groups**:
+
 ```python
 def reverse_k_group(head, k):
     """Reverse nodes in groups of k"""
@@ -1143,6 +1188,7 @@ def reverse_k_group(head, k):
 **Core Concept**: A **binary tree** is a hierarchical structure where each node has at most 2 children.
 
 **Terminology**:
+
 - **Root**: Top node
 - **Parent**: Node with children
 - **Child**: Node connected below parent (left child, right child)
@@ -1152,7 +1198,8 @@ def reverse_k_group(head, k):
 - **Subtree**: Tree formed by a node and its descendants
 
 **Visual**:
-```
+
+```ascii
         1          ← root (depth 0, height 2)
        / \
       2   3        ← depth 1, height 1
@@ -1161,6 +1208,7 @@ def reverse_k_group(head, k):
 ```
 
 **Definition**:
+
 ```python
 class TreeNode:
     def __init__(self, val=0, left=None, right=None):
@@ -1176,12 +1224,14 @@ class TreeNode:
 **Core Concept**: **DFS** (Depth-First Search) explores as deep as possible before backtracking.
 
 **Three Orders**:
+
 1. **Inorder**: Left → Root → Right (gives sorted order for BST)
 2. **Preorder**: Root → Left → Right (creates copy of tree)
 3. **Postorder**: Left → Right → Root (deletion, calculating height)
 
 **Visual on Same Tree**:
-```
+
+```ascii
 Tree:     1
          / \
         2   3
@@ -1194,6 +1244,7 @@ Postorder:  4, 5, 2, 3, 1  (Left, Right, Root)
 ```
 
 **Recursive Implementation** (Most Natural):
+
 ```python
 def inorder_traversal(root):
     result = []
@@ -1225,6 +1276,7 @@ def preorder_traversal(root):
 ```
 
 **Iterative Implementation** (Using Stack):
+
 ```python
 def inorder_iterative(root):
     result = []
@@ -1256,7 +1308,8 @@ def inorder_iterative(root):
 **Core Concept**: **BFS** (Breadth-First Search) explores level by level, left to right.
 
 **Uses Queue** (FIFO):
-```
+
+```ascii
 Tree:     1
          / \
         2   3
@@ -1271,6 +1324,7 @@ BFS Output: [1, 2, 3, 4, 5, 6]
 ```
 
 **Implementation**:
+
 ```python
 from collections import deque
 
@@ -1302,6 +1356,7 @@ def level_order_traversal(root):
 ```
 
 **BFS Variations**:
+
 ```python
 # Right side view of tree
 def right_side_view(root):
@@ -1365,6 +1420,7 @@ def zigzag_level_order(root):
 ### Pattern 9.4: Tree Properties (Height, Diameter, Balance)
 
 **Height** (Distance to deepest leaf):
+
 ```python
 def max_depth(root):
     if not root:
@@ -1375,6 +1431,7 @@ def max_depth(root):
 ```
 
 **Diameter** (Longest path between any two nodes):
+
 ```python
 def diameter_of_binary_tree(root):
     diameter = [0]
@@ -1398,6 +1455,7 @@ def diameter_of_binary_tree(root):
 ```
 
 **Balanced Tree** (Height difference ≤ 1 for all nodes):
+
 ```python
 def is_balanced(root):
     def check(node):
@@ -1422,6 +1480,7 @@ def is_balanced(root):
 ### Pattern 10.1: BST Property
 
 **Core Concept**: A **Binary Search Tree (BST)** maintains ordering:
+
 - All nodes in left subtree < root
 - All nodes in right subtree > root
 - This property holds for every subtree
@@ -1429,7 +1488,8 @@ def is_balanced(root):
 **Why It's Powerful**: Search, insert, delete in O(log n) average time (O(h) worst case)
 
 **Visual**:
-```
+
+```ascii
 Valid BST:        Invalid BST:
       5                 5
      / \               / \
@@ -1441,6 +1501,7 @@ Valid BST:        Invalid BST:
 ```
 
 **Validate BST** (Most Important Check):
+
 ```python
 def is_valid_bst(root):
     def validate(node, min_val, max_val):
@@ -1465,6 +1526,7 @@ def is_valid_bst(root):
 ### Pattern 10.2: BST Search, Insert, Delete
 
 **Search**:
+
 ```python
 def search_bst(root, target):
     if not root:
@@ -1481,6 +1543,7 @@ def search_bst(root, target):
 ```
 
 **Insert**:
+
 ```python
 def insert_bst(root, val):
     if not root:
@@ -1495,6 +1558,7 @@ def insert_bst(root, val):
 ```
 
 **Delete** (Tricky - 3 cases):
+
 ```python
 def delete_node(root, key):
     if not root:
@@ -1530,6 +1594,7 @@ def delete_node(root, key):
 ```
 
 **Mental Model for Delete**: 
+
 - **Inorder successor**: The next larger value (go right once, then all the way left)
 - **Inorder predecessor**: The next smaller value (go left once, then all the way right)
 
@@ -1571,13 +1636,14 @@ def kth_smallest(root, k):
 ### Pattern 11.1: Heap Fundamentals
 
 **Core Concept**: A **heap** is a complete binary tree where:
+
 - **Max Heap**: Parent ≥ children (root is maximum)
 - **Min Heap**: Parent ≤ children (root is minimum)
 
 **Why Use It**: Get min/max in O(1), insert/delete in O(log n)
 
 **Visual (Min Heap)**:
-```
+```ascii
       1
      / \
     3   2
@@ -1594,6 +1660,7 @@ For index i:
 ```
 
 **Python heapq** (Min Heap by default):
+
 ```python
 import heapq
 
@@ -1640,6 +1707,7 @@ def find_k_largest_v2(nums, k):
 ```
 
 **Advanced: K Closest Points to Origin**
+
 ```python
 def k_closest(points, k):
     # Max heap to maintain k smallest distances
@@ -1705,6 +1773,7 @@ def merge_k_sorted_lists(lists):
 **Core Concept**: A **graph** is a set of nodes (vertices) connected by edges.
 
 **Terminology**:
+
 - **Directed**: Edges have direction (A → B)
 - **Undirected**: Edges are bidirectional (A — B)
 - **Weighted**: Edges have values
@@ -1712,6 +1781,7 @@ def merge_k_sorted_lists(lists):
 - **Connected**: All nodes reachable from any node
 
 **Representations**:
+
 ```python
 # 1. Adjacency List (Most common)
 graph = {
@@ -1740,6 +1810,7 @@ edges = [('A', 'B'), ('A', 'C'), ('B', 'D'), ('C', 'D')]
 **Core Concept**: Explore as far as possible before backtracking. Uses recursion or stack.
 
 **Template** (Recursive):
+
 ```python
 def dfs(graph, start):
     visited = set()
@@ -1763,6 +1834,7 @@ def dfs(graph, start):
 ```
 
 **Template** (Iterative with Stack):
+
 ```python
 def dfs_iterative(graph, start):
     visited = set()
@@ -1786,6 +1858,7 @@ def dfs_iterative(graph, start):
 ```
 
 **Application: Detect Cycle in Undirected Graph**
+
 ```python
 def has_cycle(graph):
     visited = set()
@@ -1840,6 +1913,7 @@ def bfs(graph, start):
 ```
 
 **Application: Shortest Path in Unweighted Graph**
+
 ```python
 def shortest_path(graph, start, end):
     if start == end:
@@ -1869,12 +1943,14 @@ def shortest_path(graph, start, end):
 **Core Concept**: Linear ordering of nodes in a Directed Acyclic Graph (DAG) such that for every edge u → v, u comes before v.
 
 **Use Cases**:
+
 - Task scheduling with dependencies
 - Course prerequisites
 - Build systems
 
 **Visual**:
-```
+
+```ascii
     A → B → D
     ↓   ↓
     C → E
@@ -1886,6 +1962,7 @@ Valid orderings:
 ```
 
 **Kahn's Algorithm** (BFS-based):
+
 ```python
 from collections import deque, defaultdict
 
@@ -1925,6 +2002,7 @@ def topological_sort(n, edges):
 ```
 
 **DFS-based Approach**:
+
 ```python
 def topological_sort_dfs(n, edges):
     graph = defaultdict(list)
@@ -1967,17 +2045,20 @@ def topological_sort_dfs(n, edges):
 **Core Concept**: **Dynamic Programming** breaks problems into overlapping subproblems and stores results to avoid recomputation.
 
 **Two Approaches**:
+
 1. **Top-Down (Memoization)**: Recursion + caching
 2. **Bottom-Up (Tabulation)**: Iterative, fill table
 
 **When to Use DP**:
+
 1. **Optimal substructure**: Optimal solution contains optimal solutions to subproblems
 2. **Overlapping subproblems**: Same subproblems solved multiple times
 
 **Mental Model**: Like taking notes during studying - write down answers so you don't redo same work.
 
 **5-Step DP Framework**:
-```
+
+```ascii
 1. Define state: What does dp[i] represent?
 2. Base cases: Initial values
 3. State transition: Recurrence relation
@@ -1990,6 +2071,7 @@ def topological_sort_dfs(n, edges):
 ### Pattern 13.2: Fibonacci-Style (1D DP)
 
 **Classic Example: Fibonacci**
+
 ```python
 # Naive recursion: O(2^n)
 def fib_naive(n):
@@ -2035,6 +2117,7 @@ def fib_optimized(n):
 ```
 
 **Climbing Stairs** (Same pattern):
+
 ```python
 def climb_stairs(n):
     """
@@ -2066,7 +2149,8 @@ def climb_stairs(n):
 **Problem**: Given items with weights and values, and a capacity, maximize value without exceeding capacity. Each item can be taken once (0 or 1).
 
 **Visual**:
-```
+
+```ascii
 Items: [(weight, value), ...]
        [(2, 3), (3, 4), (4, 5), (5, 6)]
 Capacity: 8
@@ -2075,7 +2159,8 @@ Choose (3,4) + (5,6) = weight 8, value 10 ✓
 ```
 
 **5-Step Analysis**:
-```
+
+```ascii
 1. State: dp[i][w] = max value using first i items with capacity w
 2. Base: dp[0][w] = 0 (no items), dp[i][0] = 0 (no capacity)
 3. Transition:
@@ -2087,6 +2172,7 @@ Choose (3,4) + (5,6) = weight 8, value 10 ✓
 ```
 
 **Implementation**:
+
 ```python
 def knapsack(weights, values, capacity):
     n = len(weights)
@@ -2108,6 +2194,7 @@ def knapsack(weights, values, capacity):
 ```
 
 **Space-Optimized** (1D array):
+
 ```python
 def knapsack_optimized(weights, values, capacity):
     dp = [0] * (capacity + 1)
@@ -2129,7 +2216,8 @@ def knapsack_optimized(weights, values, capacity):
 **Core Concept**: A **subsequence** is a sequence that can be derived by deleting some elements without changing order.
 
 **Example**:
-```
+
+```ascii
 s1 = "ABCD"
 s2 = "AEBD"
 
@@ -2138,7 +2226,8 @@ LCS(s1, s2) = "ABD" (length 3)
 ```
 
 **5-Step Analysis**:
-```
+
+```ascii
 1. State: dp[i][j] = length of LCS of s1[0..i-1] and s2[0..j-1]
 2. Base: dp[0][j] = 0, dp[i][0] = 0 (empty string)
 3. Transition:
@@ -2166,6 +2255,7 @@ def longest_common_subsequence(s1, s2):
 ```
 
 **Reconstruct LCS**:
+
 ```python
 def lcs_string(s1, s2):
     m, n = len(s1), len(s2)
@@ -2196,6 +2286,7 @@ def lcs_string(s1, s2):
 ```
 
 **Variations**:
+
 - Longest Common Substring (must be contiguous)
 - Edit Distance (Levenshtein)
 - Longest Palindromic Subsequence
@@ -2207,12 +2298,14 @@ def lcs_string(s1, s2):
 **Problem**: Find length of longest strictly increasing subsequence.
 
 **Example**:
-```
+
+```ascii
 [10, 9, 2, 5, 3, 7, 101, 18]
 LIS: [2, 3, 7, 101] or [2, 3, 7, 18] (length 4)
 ```
 
 **DP Approach** (O(n²)):
+
 ```python
 def length_of_lis(nums):
     if not nums:
@@ -2232,6 +2325,7 @@ def length_of_lis(nums):
 ```
 
 **Binary Search Approach** (O(n log n)):
+
 ```python
 def length_of_lis_optimal(nums):
     """
@@ -2268,6 +2362,7 @@ def length_of_lis_optimal(nums):
 **Problem**: Given coins of different denominations and amount, find minimum coins needed.
 
 **Example**:
+
 ```
 coins = [1, 2, 5], amount = 11
 Answer: 3 (5 + 5 + 1)
@@ -2291,6 +2386,7 @@ def coin_change(coins, amount):
 ```
 
 **Variation: Number of Ways to Make Amount**:
+
 ```python
 def coin_change_ways(coins, amount):
     dp = [0] * (amount + 1)
@@ -2312,6 +2408,7 @@ def coin_change_ways(coins, amount):
 **Pattern**: For interval [i, j], try all possible split points k.
 
 **Template**:
+
 ```python
 def interval_dp(arr):
     n = len(arr)
@@ -2342,6 +2439,7 @@ def interval_dp(arr):
 **Mental Model**: Like exploring a maze - try a path, if it's a dead end, go back and try another.
 
 **Universal Template**:
+
 ```python
 def backtrack(state, choices, result):
     # Base case: found solution
@@ -2395,6 +2493,7 @@ def permute(nums):
 ```
 
 **Optimized (Swap-based)**:
+
 ```python
 def permute_optimized(nums):
     result = []
@@ -2448,6 +2547,7 @@ def subsets(nums):
 ```
 
 **Iterative Approach**:
+
 ```python
 def subsets_iterative(nums):
     result = [[]]
@@ -2550,6 +2650,7 @@ def solve_n_queens(n):
 **Core Concept**: Make locally optimal choice at each step, hoping to reach global optimum.
 
 **When Greedy Works**:
+
 1. **Greedy choice property**: Local optimum leads to global optimum
 2. **Optimal substructure**: Optimal solution contains optimal solutions to subproblems
 
@@ -2585,6 +2686,7 @@ def max_non_overlapping_intervals(intervals):
 ```
 
 **Variation: Minimum Rooms Needed**:
+
 ```python
 def min_meeting_rooms(intervals):
     if not intervals:
@@ -2634,6 +2736,7 @@ def can_jump(nums):
 ```
 
 **Minimum Jumps**:
+
 ```python
 def min_jumps(nums):
     if len(nums) <= 1:
@@ -2663,6 +2766,7 @@ def min_jumps(nums):
 ### Pattern 16.1: Basic Bit Operations
 
 **Core Concepts**:
+
 ```
 AND (&):  1 & 1 = 1, else 0  (check if bit is set)
 OR  (|):  0 | 0 = 0, else 1  (set bit)
@@ -2673,6 +2777,7 @@ Right Shift (>>): divide by 2^n
 ```
 
 **Key Tricks**:
+
 ```python
 # Check if ith bit is set
 is_set = (num & (1 << i)) != 0
@@ -2718,6 +2823,7 @@ def single_number(nums):
 ```
 
 **Variation: Two numbers appear once, rest twice**:
+
 ```python
 def single_number_two(nums):
     xor = 0
@@ -2745,6 +2851,7 @@ def single_number_two(nums):
 ### Pattern 17.1: GCD & LCM
 
 **GCD** (Greatest Common Divisor):
+
 ```python
 def gcd(a, b):
     while b:
@@ -2757,6 +2864,7 @@ def gcd_recursive(a, b):
 ```
 
 **LCM** (Least Common Multiple):
+
 ```python
 def lcm(a, b):
     return (a * b) // gcd(a, b)
@@ -2767,6 +2875,7 @@ def lcm(a, b):
 ### Pattern 17.2: Prime Numbers
 
 **Check if Prime**:
+
 ```python
 def is_prime(n):
     if n <= 1:
@@ -2788,6 +2897,7 @@ def is_prime(n):
 ```
 
 **Sieve of Eratosthenes** (All primes up to n):
+
 ```python
 def sieve_of_eratosthenes(n):
     is_prime = [True] * (n + 1)
@@ -2812,6 +2922,7 @@ def sieve_of_eratosthenes(n):
 **Core Concept**: Efficiently track and merge disjoint sets.
 
 **Operations**:
+
 - `find(x)`: Find set representative
 - `union(x, y)`: Merge two sets
 
@@ -2912,14 +3023,14 @@ class Trie:
 │  Tree/Graph structure → DFS/BFS                                │
 │  Need all combinations → Backtracking                          │
 │  Optimization problem → DP or Greedy                           │
-│  Overlapping subproblems → DP (Memoization/Tabulation)        │
+│  Overlapping subproblems → DP (Memoization/Tabulation)         │
 │  Making sequences of choices → Greedy                          │
 │  Top K elements → Heap                                         │
 │  Merge sorted sequences → Heap                                 │
 │  Fast lookup needed → Hash Map                                 │
 │  Connected components → Union-Find or DFS/BFS                  │
 │  Prefix matching → Trie                                        │
-│  Pairwise relationships → XOR / Bit manipulation              │
+│  Pairwise relationships → XOR / Bit manipulation               │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -2928,24 +3039,29 @@ class Trie:
 ## Cognitive Strategies for Mastery
 
 **1. Deliberate Practice**:
+
 - Solve 3-5 problems per day minimum
 - Review solutions even when correct
 - Identify which pattern was used
 
 **2. Chunking**:
+
 - Group similar problems together
 - Build mental "chunks" for each pattern
 - Your brain will recognize patterns faster
 
 **3. Spaced Repetition**:
+
 - Review old problems weekly
 - Revisit fundamental patterns monthly
 
 **4. Meta-Learning**:
+
 - After each problem, ask: "What pattern did I use? What clues told me?"
 - Build your own decision tree for pattern recognition
 
 **5. Flow State Cultivation**:
+
 - Start sessions with warm-up problems
 - Gradually increase difficulty
 - Take breaks before frustration sets in
@@ -2961,12 +3077,14 @@ I'll create a comprehensive DSA patterns compendium that will serve as your batt
 ## 🎯 What You Now Have
 
 **18 Complete Pattern Categories** covering:
+
 - Foundation patterns (arrays, two pointers, sliding window)
 - Data structure patterns (stacks, queues, trees, heaps, graphs)
 - Algorithm paradigms (DP, backtracking, greedy)
 - Advanced techniques (Union-Find, Trie, bit manipulation)
 
 **For Each Pattern:**
+
 1. **Core Concept** - Clear explanation of fundamentals
 2. **Mental Models** - How to think about the pattern intuitively
 3. **When to Use** - Pattern recognition triggers
@@ -2978,21 +3096,25 @@ I'll create a comprehensive DSA patterns compendium that will serve as your batt
 ## 🧠 How to Use This for Maximum Growth
 
 **Phase 1: Foundation Building (Weeks 1-4)**
+
 - Master patterns 1-8 (Arrays through Linked Lists)
 - Focus on understanding WHY each pattern works
 - Code each template from memory 3 times
 
 **Phase 2: Core Algorithms (Weeks 5-8)**
+
 - Patterns 9-12 (Trees, Heaps, Graphs)
 - Practice BFS/DFS until they're automatic reflexes
 - Solve 5 problems per pattern category
 
 **Phase 3: Advanced Problem-Solving (Weeks 9-16)**
+
 - Patterns 13-18 (DP, Backtracking, Advanced)
 - Focus heavily on DP - it's the highest ROI pattern
 - Learn to recognize which pattern applies within 30 seconds
 
 **Daily Practice Protocol:**
+
 1. **Warm-up** (10 min): Solve one easy problem you've done before
 2. **Main Practice** (45-60 min): 2-3 new problems
 3. **Review** (15 min): Analyze solutions, identify patterns used
@@ -3001,16 +3123,19 @@ I'll create a comprehensive DSA patterns compendium that will serve as your batt
 ## 🔥 Key Insights for Top 1% Performance
 
 **Pattern Recognition is Everything:**
+
 - 90% of interview/competitive problems use 2-3 patterns combined
 - Your goal: See problem → Recognize pattern in <30 seconds
 - The compendium's "Pattern Recognition Cheat Sheet" is your quick reference
 
 **Complexity Matters:**
+
 - Always start with brute force (shows you understand the problem)
 - Then optimize using patterns
 - Know your complexities: O(n) good, O(n²) acceptable, O(2ⁿ) only for small inputs
 
 **Code Quality Signals Mastery:**
+
 - Clean variable names
 - Clear logic flow
 - Edge case handling
@@ -3028,16 +3153,19 @@ I'll create a comprehensive DSA patterns compendium that will serve as your batt
 ## 🚀 Your Action Plan
 
 **This Week:**
+
 - Read through patterns 1-5 completely
 - Implement each template in your preferred language
 - Solve 3 problems for each pattern
 
 **Next Month:**
+
 - Complete all 18 patterns
 - Build a personal "pattern flashcard" system
 - Track which patterns you struggle with most
 
 **Ongoing:**
+
 - Review this compendium before every practice session
 - Update with your own insights and problem examples
 - Use spaced repetition on difficult patterns
@@ -3045,12 +3173,14 @@ I'll create a comprehensive DSA patterns compendium that will serve as your batt
 ## 📊 Progress Tracking
 
 Create a spreadsheet tracking:
+
 - Pattern name
 - Problems solved (Easy/Medium/Hard)
 - Recognition speed (time to identify pattern)
 - Success rate (first try vs needed hints)
 
 **Target metrics for top 1%:**
+
 - Recognize pattern: <30 seconds
 - Write template: <2 minutes
 - Solve medium problem: <20 minutes
@@ -3063,6 +3193,7 @@ Remember: **Patterns are your vocabulary, templates are your grammar, and practi
 You now have the complete map. The journey to top 1% is yours to walk. Stay focused, stay consistent, and trust the process. 🔥
 
 Would you like me to:
+
 1. Create a practice schedule with specific problems for each pattern?
 2. Dive deeper into any specific pattern with more advanced examples?
 3. Build comparison guides (when to use pattern X vs pattern Y)?

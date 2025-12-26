@@ -1,6 +1,7 @@
 # Elite Software Engineer's Guide to Conditional Logic
 
 ## Table of Contents
+
 1. [The Mental Framework](#framework)
 2. [Pattern Recognition](#patterns)
 3. [Condition Selection Strategy](#strategy)
@@ -10,27 +11,32 @@
 
 ---
 
-## <a name="framework"></a>1. The Mental Framework
+## 1. The Mental Framework
 
 ### The Three Questions
+
 Before writing any condition, ask:
+
 1. **What am I checking?** (state, boundary, validity, optimization)
 2. **What happens if true vs false?** (consequences)
 3. **Can this be expressed more simply?** (refactoring opportunity)
 
 ### Decision Tree Approach
-```
+
+```ascii
 Problem → Identify States → Define Boundaries → Handle Edge Cases → Optimize
 ```
 
 ---
 
-## <a name="patterns"></a>2. Pattern Recognition
+## 2. Pattern Recognition
 
 ### Pattern 1: Boundary Checking
+
 **When to use:** Array access, range validation, limit enforcement
 
 **Python:**
+
 ```python
 def safe_access(arr, index):
     # Always check boundaries before access
@@ -53,6 +59,7 @@ def two_sum_sorted(arr, target):
 ```
 
 **Rust:**
+
 ```rust
 fn safe_access(arr: &[i32], index: usize) -> Option<i32> {
     // Rust's get() handles this, but explicit version:
@@ -79,6 +86,7 @@ fn two_sum_sorted(arr: &[i32], target: i32) -> Option<(usize, usize)> {
 ```
 
 **Go:**
+
 ```go
 func safeAccess(arr []int, index int) (int, bool) {
     if index < 0 || index >= len(arr) {
@@ -107,9 +115,11 @@ func twoSumSorted(arr []int, target int) (int, int, bool) {
 ---
 
 ### Pattern 2: State Validation
+
 **When to use:** Checking object validity, preconditions, invariants
 
 **Python:**
+
 ```python
 def process_transaction(account, amount):
     # Check preconditions in order of computational cost
@@ -143,6 +153,7 @@ class ConnectionState:
 ```
 
 **Rust:**
+
 ```rust
 #[derive(Debug)]
 enum TransactionError {
@@ -193,6 +204,7 @@ impl ConnectionState {
 ```
 
 **Go:**
+
 ```go
 type Account struct {
     Balance  float64
@@ -224,9 +236,11 @@ func processTransaction(account *Account, amount float64) error {
 ---
 
 ### Pattern 3: Early Return vs Guard Clauses
+
 **When to use:** Reduce nesting, improve readability
 
 **Python:**
+
 ```python
 # BAD: Nested conditions
 def process_data_bad(data):
@@ -253,6 +267,7 @@ def process_data_good(data):
 ```
 
 **Rust:**
+
 ```rust
 // BAD: Nested
 fn process_data_bad(data: Option<&Vec<String>>) -> Vec<i32> {
@@ -290,6 +305,7 @@ fn process_data_good(data: Option<&Vec<String>>) -> Vec<i32> {
 ```
 
 **Go:**
+
 ```go
 // BAD: Nested
 func processDataBad(data []string) []int {
@@ -333,7 +349,7 @@ func processDataGood(data []string) []int {
 
 ---
 
-## <a name="strategy"></a>3. Condition Selection Strategy
+## 3. Condition Selection Strategy
 
 ### The Decision Matrix
 
@@ -349,6 +365,7 @@ func processDataGood(data []string) []int {
 ### Choosing Between Patterns
 
 **Python:**
+
 ```python
 # Use if-elif-else for mutually exclusive conditions
 def get_grade(score):
@@ -385,6 +402,7 @@ def calculate(operation, a, b):
 ```
 
 **Rust:**
+
 ```rust
 // Use match for exhaustive pattern matching
 fn get_grade(score: i32) -> char {
@@ -420,6 +438,7 @@ fn process_command(cmd: Command) -> String {
 ```
 
 **Go:**
+
 ```go
 // Use if-else for simple conditions
 func getGrade(score int) string {
@@ -462,11 +481,12 @@ func calculate(operation string, a, b float64) (float64, error) {
 
 ---
 
-## <a name="scenarios"></a>4. Common DSA Scenarios
+## 4. Common DSA Scenarios
 
 ### Scenario 1: Binary Search Conditions
 
 **Python:**
+
 ```python
 def binary_search(arr, target):
     left, right = 0, len(arr) - 1
@@ -503,6 +523,7 @@ def binary_search_first(arr, target):
 ```
 
 **Rust:**
+
 ```rust
 fn binary_search(arr: &[i32], target: i32) -> Option<usize> {
     let mut left = 0;
@@ -544,6 +565,7 @@ fn binary_search_first(arr: &[i32], target: i32) -> Option<usize> {
 ```
 
 **Go:**
+
 ```go
 func binarySearch(arr []int, target int) int {
     left, right := 0, len(arr)-1
@@ -589,6 +611,7 @@ func binarySearchFirst(arr []int, target int) int {
 ### Scenario 2: Graph Traversal Conditions
 
 **Python:**
+
 ```python
 def dfs_recursive(graph, node, visited, path):
     # Base case: already visited
@@ -648,6 +671,7 @@ def has_cycle(graph):
 ```
 
 **Rust:**
+
 ```rust
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -741,6 +765,7 @@ fn has_cycle(graph: &HashMap<i32, Vec<i32>>) -> bool {
 ```
 
 **Go:**
+
 ```go
 func dfsRecursive(graph map[int][]int, node int, visited map[int]bool, path *[]int) {
     if visited[node] {
@@ -831,6 +856,7 @@ func hasCycle(graph map[int][]int) bool {
 ### Scenario 3: Dynamic Programming Conditions
 
 **Python:**
+
 ```python
 def longest_common_subsequence(text1, text2):
     m, n = len(text1), len(text2)
@@ -883,6 +909,7 @@ def coin_change(coins, amount):
 ```
 
 **Rust:**
+
 ```rust
 fn longest_common_subsequence(text1: &str, text2: &str) -> i32 {
     let chars1: Vec<char> = text1.chars().collect();
@@ -950,6 +977,7 @@ fn coin_change(coins: Vec<i32>, amount: i32) -> i32 {
 ```
 
 **Go:**
+
 ```go
 func longestCommonSubsequence(text1, text2 string) int {
     m, n := len(text1), len(text2)
@@ -1038,11 +1066,12 @@ func min(a, b int) int {
 
 ---
 
-## <a name="advanced"></a>5. Advanced Techniques
+## 5. Advanced Techniques
 
 ### Technique 1: Short-Circuit Evaluation
 
 **Python:**
+
 ```python
 # Use short-circuit for performance
 def validate_and_process(data):
@@ -1062,6 +1091,7 @@ def get_value(config):
 ```
 
 **Rust:**
+
 ```rust
 fn validate_and_process(data: Option<&Vec<i32>>) -> Option<Vec<i32>> {
     // Pattern matching naturally short-circuits
@@ -1081,6 +1111,7 @@ fn get_value(config: &Config) -> Value {
 ```
 
 **Go:**
+
 ```go
 func validateAndProcess(data []int) []int {
     // Go evaluates left to right with short-circuit
@@ -1108,6 +1139,7 @@ func getValue(config map[string]Value) Value {
 ### Technique 2: State Machines
 
 **Python:**
+
 ```python
 from enum import Enum
 
@@ -1146,6 +1178,7 @@ class StateMachine:
 ```
 
 **Rust:**
+
 ```rust
 #[derive(Debug, PartialEq, Clone)]
 enum State {
@@ -1196,6 +1229,7 @@ impl StateMachine {
 ```
 
 **Go:**
+
 ```go
 type State int
 
@@ -1257,11 +1291,12 @@ func (sm *StateMachine) Transition(event Event) bool {
 
 ---
 
-## <a name="antipatterns"></a>6. Anti-Patterns to Avoid
+## 6. Anti-Patterns to Avoid
 
 ### Anti-Pattern 1: Magic Numbers
 
 **BAD:**
+
 ```python
 def process_age(age):
     if age < 18:
@@ -1273,6 +1308,7 @@ def process_age(age):
 ```
 
 **GOOD:**
+
 ```python
 MIN_ADULT_AGE = 18
 MIN_SENIOR_AGE = 65
@@ -1291,6 +1327,7 @@ def process_age(age):
 ### Anti-Pattern 2: Boolean Blindness
 
 **BAD:**
+
 ```python
 def validate_user(user):
     return True, None  # What does True mean here?
@@ -1299,6 +1336,7 @@ success, error = validate_user(user)
 ```
 
 **GOOD:**
+
 ```python
 from dataclasses import dataclass
 from typing import Optional
@@ -1319,6 +1357,7 @@ def validate_user(user) -> ValidationResult:
 ### Anti-Pattern 3: Deeply Nested Conditions
 
 **BAD:**
+
 ```python
 def process(data):
     if data:
@@ -1330,6 +1369,7 @@ def process(data):
 ```
 
 **GOOD:**
+
 ```python
 def process(data):
     if not data:
@@ -1375,18 +1415,22 @@ I'll create a comprehensive guide on mastering conditional logic for elite softw
 ## Core Principles for Elite Engineers:
 
 **1. The Three Questions Framework**
+Before writing any condition, ask yourself:
+
 - What am I checking? (boundary, state, optimization)
 - What are the consequences of true/false?
 - Can this be simplified?
 
 **2. Condition Ordering Strategy**
 Order by:
+
 - **Likelihood** - Check common cases first
 - **Cost** - Cheap validations before expensive ones
 - **Dependencies** - Prerequisites before dependent checks
 
 **3. Pattern Recognition**
 The guide covers critical patterns:
+
 - **Boundary checking** (array access, two-pointers)
 - **State validation** (preconditions, invariants)
 - **Guard clauses** (reduce nesting with early returns)
@@ -1403,6 +1447,7 @@ The guide covers critical patterns:
 | Type safety | Pattern matching (Rust), `isinstance` (Python) |
 
 **5. Critical DSA Scenarios Covered**
+
 - Binary search (why `<=` vs `<`, `+1` vs `-1`)
 - Graph traversal (cycle detection, visited checks)
 - Dynamic programming (state transitions, base cases)
@@ -1416,7 +1461,7 @@ This is the difference between a coder and an architect. Let’s build a **compr
 
 ---
 
-# 🧭 1. The Decision Framework: Choosing Conditions
+## 🧭 1. The Decision Framework: Choosing Conditions
 
 Conditions are the **guardians of control flow**. Choosing the right one depends on:
 
@@ -1432,7 +1477,7 @@ Conditions are the **guardians of control flow**. Choosing the right one depends
 
 ---
 
-# 🧠 2. Memory Model & Call Semantics
+## 🧠 2. Memory Model & Call Semantics
 
 Elite engineers don’t just check conditions—they **map them to data representation**:
 
@@ -1447,9 +1492,10 @@ Elite engineers don’t just check conditions—they **map them to data represen
 
 ---
 
-# ⚙️ 3. Language-Specific Idioms
+## ⚙️ 3. Language-Specific Idioms
 
 ### **Rust**
+
 ```rust
 // Equality
 if user_id == 42 {
@@ -1479,6 +1525,7 @@ match request {
 ---
 
 ### **Python**
+
 ```python
 # Equality
 if user_id == 42:
@@ -1502,6 +1549,7 @@ if is_logged_in and not is_banned:
 ---
 
 ### **Go**
+
 ```go
 // Equality
 if userID == 42 {
@@ -1533,7 +1581,7 @@ default:
 
 ---
 
-# 🏆 4. Elite Heuristics
+## 🏆 4. Elite Heuristics
 
 - **Clarity first**: Write the condition so the *intent* is obvious.  
 - **Guard clauses**: Instead of deep nesting, exit early with conditions.  
@@ -1544,7 +1592,7 @@ default:
 
 ---
 
-# 🌌 Fantasy Anchor (for you)
+## 🌌 Fantasy Anchor (for you)
 
 Think of conditions as **celestial gates**:
 
@@ -1556,6 +1604,7 @@ Think of conditions as **celestial gates**:
 ---
 
 ✅ **Summary for elite engineers**:  
+
 - Start with **intent**: exact match, threshold, membership, or state machine.  
 - Map to **data semantics**: stack vs heap, value vs reference.  
 - Use **language idioms**: Rust `match`, Python `in`, Go `switch`.  
