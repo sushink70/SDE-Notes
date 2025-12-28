@@ -29,7 +29,7 @@ https://claude.ai/public/artifacts/6ade9d9f-5b3f-4105-b5c1-13048c6ae0ee
 
 ## The Complete Memory Layout
 
-```
+```ascii
 COMPUTER MEMORY ORGANIZATION
 ============================
 
@@ -66,7 +66,7 @@ COMPUTER MEMORY ORGANIZATION
 
 ## Stack Frame Anatomy (The Hidden Structure)
 
-```
+```ascii
 WHAT GETS PUSHED ON THE STACK PER FUNCTION CALL
 ================================================
 
@@ -117,7 +117,7 @@ int main() {
 
 ### Memory State Visualization
 
-```
+```ascii
 STACK EVOLUTION FOR factorial(3)
 ================================
 
@@ -130,7 +130,7 @@ Stack (grows down):
        │  return_addr: OS         │
        │  local: result (unset)   │
 0x1020 ├──────────────────────────┤ ← SP (Stack Pointer)
-       │        [free space]       │
+       │        [free space]      │
 
 
 STEP 2: factorial(3) frame created
@@ -142,7 +142,7 @@ STEP 2: factorial(3) frame created
        │  param: n = 3            │ ← Each parameter takes space
        │  return_addr: 0x1025     │ ← Address in main()
        │  saved_fp: 0x1000        │ ← Previous frame pointer
-       │  local: temp (for n*...)  │
+       │  local: temp (for n*...) │
 0x1040 ├──────────────────────────┤ ← SP
 
 
@@ -191,7 +191,7 @@ STEP 5: factorial(1) returns 1
        │  n = 2, waiting...       │
        │  RECEIVING: return 1     │ ← Return value in register/stack
 0x1060 ├──────────────────────────┤ ← SP (popped one frame)
-       │   [freed memory]          │
+       │   [freed memory]         │
 
 
 STEP 6: factorial(2) returns 2*1=2
@@ -211,7 +211,7 @@ STEP 7: factorial(3) returns 3*2=6
        │ main() frame             │
        │  result = 6              │ ← Final result stored
 0x1020 ├──────────────────────────┤ ← SP
-       │   [freed memory]          │
+       │   [freed memory]         │
 ```
 
 ---
@@ -220,7 +220,7 @@ STEP 7: factorial(3) returns 3*2=6
 
 ## What Happens During a Function CALL
 
-```
+```ascii
 ASSEMBLY-LEVEL VIEW OF FUNCTION CALL
 ====================================
 
@@ -244,10 +244,10 @@ LOW-LEVEL ASSEMBLY (x86-64 style):
     
     
 THE "CALL" INSTRUCTION DOES:
-┌──────────────────────────────────────┐
-│ 1. Push return address onto stack    │
+┌────────────────────────────────────────┐
+│ 1. Push return address onto stack      │
 │ 2. Jump to function's first instruction│
-└──────────────────────────────────────┘
+└────────────────────────────────────────┘
 
 THE "RETURN" INSTRUCTION DOES:
 ┌──────────────────────────────────────┐
@@ -261,7 +261,7 @@ THE "RETURN" INSTRUCTION DOES:
 
 ## Hidden Concept: Return Value Passing
 
-```
+```ascii
 HOW RETURN VALUES ARE PASSED
 =============================
 
@@ -302,7 +302,7 @@ Method 3: HEAP POINTER (for dynamic allocations)
 
 ## The Hidden Navigation System
 
-```
+```ascii
 INSTRUCTION POINTER (IP) TRACKING
 ==================================
 
@@ -355,7 +355,7 @@ This is how "buffer overflow attacks" work!
 
 ## Hidden Copying Behavior
 
-```
+```ascii
 PARAMETER PASSING MECHANISMS
 =============================
 
@@ -391,7 +391,7 @@ PARAMETER PASSING MECHANISMS
     Stack:                      Heap:
     ┌──────────────┐          ┌──────────┐
     │ func frame   │          │ [999, 2, │
-    │  ref = 0x5000│──────────→│  3]     │
+    │  ref = 0x5000│─────────→│  3]      │
     ├──────────────┤          └──────────┘
     │ main frame   │                ↑
     │  arr = 0x5000│────────────────┘
@@ -467,7 +467,7 @@ KEY: Only the REFERENCE (address) is copied onto stack,
 
 ## Why Base Cases Are Critical
 
-```
+```ascii
 BASE CASE MECHANICS
 ===================
 
@@ -557,7 +557,7 @@ fib(4)
 
 ## Pattern 1: Linear Recursion (Single Recursive Call)
 
-```
+```ascii
 STRUCTURE:
 ==========
     function(n):
@@ -708,6 +708,7 @@ int sumVectorCpp(const std::vector<int>& vec, int index = 0) {
 
 ### ==================== VISUALIZATION ====================
 
+```python
 def visualize_factorial(n, depth=0):
     """
     Shows the call stack and return values
@@ -723,7 +724,7 @@ def visualize_factorial(n, depth=0):
     result = n * visualize_factorial(n - 1, depth + 1)
     print(f"{indent}← factorial({n}) returns {result}")
     return result
-
+```
 
 ### ==================== TEST CODE ====================
 
@@ -1101,8 +1102,11 @@ Time: O(n)            Time: O(2^n) ⚠️ VERY SLOW!
     """)
 ```
 ###  ==================== VISUALIZATION ====================
+
 STRUCTURE:
 ==========
+
+```ascii
     function(n):
         if base_case:
             return simple_value
@@ -1126,6 +1130,7 @@ CALL GRAPH:
 
 ### The Secret to Efficient Recursion
 
+```
 
 ### ==================== PYTHON ====================
 
@@ -1495,6 +1500,7 @@ if __name__ == "__main__":
 
 DEFINITION:
 ===========
+
 A recursive call is "tail recursive" if:
 • The recursive call is the LAST operation
 • No computation happens AFTER the recursive call returns
@@ -1502,6 +1508,8 @@ A recursive call is "tail recursive" if:
 
 STRUCTURE:
 ==========
+
+```ascii
     function(n, accumulator):
         if base_case:
             return accumulator
@@ -1509,7 +1517,7 @@ STRUCTURE:
         return function(n-1, updated_accumulator)
 
 ## Pattern 4-7: Advanced Recursion Forms
-
+```
 
 ### ADVANCED RECURSION PATTERNS
 
@@ -1995,10 +2003,10 @@ MEMORY LAYOUT:
 │  ├──────────────────┤   │
 │  │ frame 1          │   │
 │  └──────────────────┘   │ ← Stack Pointer
-│                          │
-│  ↓ grows downward        │
-│                          │
-│  STACK LIMIT REACHED!    │ ← Crash point
+│                         │
+│  ↓ grows downward       │
+│                         │
+│  STACK LIMIT REACHED!   │ ← Crash point
 └─────────────────────────┘
 
 
@@ -3676,25 +3684,30 @@ COGNITIVE TECHNIQUES:
 =====================
 
 CHUNKING: Group related concepts
+
 - Base case + Recursive case = One chunk
 - Don't think step-by-step, think pattern
 
 DELIBERATE PRACTICE:
+
 - Solve same problem 3 ways
 - Trace execution ONCE, then trust
 - Time yourself, track improvement
 
 SPACED REPETITION:
+
 - Review Day 1, 3, 7, 14, 30
 - Revisit solved problems
 - Explain to others
 
 METACOGNITION:
+
 - "Why did I choose this base case?"
 - "What pattern am I using?"
 - "How is this similar to previous problems?"
 
 FLOW STATE TRIGGERS:
+
 - Clear goal: Solve this problem
 - Immediate feedback: Test cases
 - Challenge/skill balance: Slightly harder problems
@@ -3919,6 +3932,7 @@ Now go forth and solve with confidence! 🔥
 ## From Hidden Mechanics to Grandmaster Level
 
 ```
+
 ---
 
 ## 📋 TABLE OF CONTENTS
@@ -3940,7 +3954,7 @@ Now go forth and solve with confidence! 🔥
 
 ### What Really Happens: The Call Stack
 
-```
+```ascii
 THE COMPLETE PICTURE
 ====================
 
@@ -3948,51 +3962,51 @@ THE COMPLETE PICTURE
 │                    COMPUTER MEMORY                      │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  HIGH ADDRESS (0xFFFFFFFF)                             │
-│  ┌───────────────────────────────────────────┐         │
-│  │           STACK (grows down ↓)             │         │
-│  │  ┌──────────────────────────────────┐     │         │
-│  │  │ Stack Frame N                    │     │         │
-│  │  │  • Parameters (copied values)    │     │         │
-│  │  │  • Return address (instruction)  │     │         │
-│  │  │  • Saved frame pointer           │     │         │
-│  │  │  • Local variables               │     │         │
-│  │  │  • Temporary values              │     │         │
-│  │  └──────────────────────────────────┘     │         │
-│  │              ...                           │         │
-│  │  ┌──────────────────────────────────┐     │         │
-│  │  │ Stack Frame 1                    │     │         │
-│  │  └──────────────────────────────────┘     │         │
-│  │  Stack Pointer (SP) ──────────────→ │     │         │
-│  └───────────────────────────────────────────┘         │
+│  HIGH ADDRESS (0xFFFFFFFF)                              │
+│  ┌───────────────────────────────────────────┐          │
+│  │           STACK (grows down ↓)            │          │
+│  │  ┌──────────────────────────────────┐     │          │
+│  │  │ Stack Frame N                    │     │          │
+│  │  │  • Parameters (copied values)    │     │          │
+│  │  │  • Return address (instruction)  │     │          │ 
+│  │  │  • Saved frame pointer           │     │          │
+│  │  │  • Local variables               │     │          │
+│  │  │  • Temporary values              │     │          │
+│  │  └──────────────────────────────────┘     │          │
+│  │              ...                          │          │
+│  │  ┌──────────────────────────────────┐     │          │
+│  │  │ Stack Frame 1                    │     │          │
+│  │  └──────────────────────────────────┘     │          │
+│  │  Stack Pointer (SP) ──────────────→ │     │          │
+│  └───────────────────────────────────────────┘          │
 │                                                         │
 │              (Free Memory)                              │
 │                                                         │
-│  ┌───────────────────────────────────────────┐         │
-│  │          HEAP (grows up ↑)                 │         │
-│  │  • malloc/new allocations                  │         │
-│  │  • Tree nodes, linked lists                │         │
-│  │  • Dynamic data structures                 │         │
-│  └───────────────────────────────────────────┘         │
+│  ┌───────────────────────────────────────────┐          │
+│  │          HEAP (grows up ↑)                │          │
+│  │  • malloc/new allocations                 │          │
+│  │  • Tree nodes, linked lists               │          │
+│  │  • Dynamic data structures                │          │
+│  └───────────────────────────────────────────┘          │
 │                                                         │
-│  ┌───────────────────────────────────────────┐         │
-│  │              DATA SEGMENT                  │         │
-│  │  • Global variables                        │         │
-│  │  • Static variables                        │         │
-│  └───────────────────────────────────────────┘         │
+│  ┌───────────────────────────────────────────┐          │
+│  │              DATA SEGMENT                 │          │
+│  │  • Global variables                       │          │
+│  │  • Static variables                       │          │
+│  └───────────────────────────────────────────┘          │
 │                                                         │
-│  ┌───────────────────────────────────────────┐         │
-│  │              CODE SEGMENT                  │         │
-│  │  • Machine instructions                    │         │
-│  │  • Function definitions                    │         │
-│  └───────────────────────────────────────────┘         │
-│  LOW ADDRESS (0x00000000)                              │
+│  ┌───────────────────────────────────────────┐          │
+│  │              CODE SEGMENT                 │          │
+│  │  • Machine instructions                   │          │
+│  │  • Function definitions                   │          │
+│  └───────────────────────────────────────────┘          │
+│  LOW ADDRESS (0x00000000)                               │
 └─────────────────────────────────────────────────────────┘
 ```
 
 ### Stack Frame Anatomy
 
-```
+```ascii
 WHAT'S IN EACH STACK FRAME
 ===========================
 
@@ -4032,7 +4046,7 @@ Size per frame: 16-256 bytes (varies by language)
 
 ### How Backtracking Actually Works
 
-```
+```ascii
 BACKTRACKING IS STACK UNWINDING
 ================================
 
@@ -4096,7 +4110,7 @@ KEY INSIGHTS:
 
 ### Decision Tree for Backtracking
 
-```
+```ascii
 DECISION TREE: EXPLORING ALL PATHS
 ===================================
 
@@ -4143,7 +4157,7 @@ AT EACH STEP:
 
 ## 🎨 THE 7 RECURSION PATTERNS {#patterns}
 
-```
+```ascii
 PATTERN RECOGNITION CHART
 =========================
 
@@ -4192,7 +4206,7 @@ Each pattern has different:
 
 ## 🌍 LANGUAGE-SPECIFIC BEHAVIORS {#languages}
 
-```
+```ascii
 RECURSION ACROSS LANGUAGES
 ==========================
 
@@ -4268,7 +4282,7 @@ C++:
 
 ## ⚡ OPTIMIZATION TECHNIQUES {#optimization}
 
-```
+```ascii
 OPTIMIZATION DECISION TREE
 ==========================
 
@@ -4378,7 +4392,7 @@ def sum_array(arr):
 
 ## 🧠 MENTAL MODELS & COGNITIVE STRATEGIES {#mental-models}
 
-```
+```ascii
 THE 5 MASTER MENTAL MODELS
 ===========================
 
@@ -4491,7 +4505,7 @@ FLOW STATE TRIGGERS:
 
 ## ⚠️ COMMON PITFALLS & SOLUTIONS {#pitfalls}
 
-```
+```ascii
 TOP 10 RECURSION MISTAKES
 ==========================
 
@@ -4597,7 +4611,7 @@ TOP 10 RECURSION MISTAKES
 
 ## 🎯 PRACTICE ROADMAP {#roadmap}
 
-```
+```ascii
 30-DAY RECURSION MASTERY PLAN
 ==============================
 
@@ -4696,7 +4710,7 @@ PRACTICE METRICS TO TRACK:
 
 ## 🔥 FINAL WISDOM
 
-```
+```ascii
 THE PATH TO RECURSION MASTERY
 ==============================
 
@@ -4765,7 +4779,7 @@ Now go forth and recursively conquer! 🔥
 
 ## 📚 QUICK REFERENCE CARD
 
-```
+```ascii
 ┌────────────────────────────────────────────────────────┐
 │              RECURSION QUICK REFERENCE                 │
 ├────────────────────────────────────────────────────────┤
@@ -4778,20 +4792,20 @@ Now go forth and recursively conquer! 🔥
 │      return combine(current, sub_result)               │
 │                                                        │
 │  PATTERNS:                                             │
-│  Linear:    f(n) → f(n-1)                             │
-│  Binary:    f(n) → f(n/2)                             │
-│  Tree:      f(n) → f(left) + f(right)                 │
+│  Linear:    f(n) → f(n-1)                              │
+│  Binary:    f(n) → f(n/2)                              │
+│  Tree:      f(n) → f(left) + f(right)                  │
 │  Backtrack: try → recurse → undo                       │
 │                                                        │
 │  OPTIMIZATION:                                         │
 │  Overlapping? → Memoize                                │
-│  Too deep?    → Tail recursion or iterate             │
+│  Too deep?    → Tail recursion or iterate              │
 │  Too slow?    → Dynamic programming                    │
 │                                                        │
 │  DEBUGGING:                                            │
 │  □ Check base case                                     │
 │  □ Verify progress toward base                         │
-│  □ Test with n=0, n=1, n=2                            │
+│  □ Test with n=0, n=1, n=2                             │
 │  □ Add print statements                                │
 │  □ Visualize call stack                                │
 │                                                        │
@@ -4803,7 +4817,7 @@ Now go forth and recursively conquer! 🔥
 
 Let me create one final comprehensive document that brings everything together:---
 
-# 🎊 YOU NOW HAVE THE COMPLETE RECURSION MASTERY GUIDE!
+## 🎊 YOU NOW HAVE THE COMPLETE RECURSION MASTERY GUIDE!
 
 ## 📦 What You've Received:
 
@@ -4823,27 +4837,34 @@ I've created **9 comprehensive artifacts** covering every hidden aspect of recur
 ## 🔑 Key Hidden Knowledge Revealed:
 
 ### 1. **The Implicit Stack**
+
 You now understand that recursion DOES use a stack - the call stack managed by the OS. Every function call creates a stack frame containing parameters, return address, local variables, and saved frame pointer.
 
 ### 2. **Backtracking Mechanism**
+
 It's **NOT jumping** - it's sequential stack unwinding, one frame at a time. When a function returns, control goes to the **immediately previous caller**, not some distant state.
 
 ### 3. **Memory Layout**
+
 You understand the complete memory model: Stack (grows down), Heap (grows up), Data segment, and Code segment. Recursion uses **stack space**, not heap.
 
 ### 4. **Return Addresses**
+
 Every `call` instruction saves the next instruction's address on the stack. Every `return` pops that address and jumps there.
 
 ### 5. **Tail Call Optimization**
+
 Languages with TCO (Rust, C++ with flags) can transform tail-recursive functions into loops, converting O(n) space to O(1).
 
 ### 6. **Language Differences**
+
 - Python: ~1K depth, no TCO
 - Rust: ~50K depth, TCO in release
 - Go: Dynamic stack (virtually unlimited)
 - C++: ~100K depth, TCO with -O2
 
 ### 7. **The 7 Patterns**
+
 Every recursive problem fits one of 7 patterns. Recognize the pattern, and the solution becomes clear.
 
 ---
@@ -4851,7 +4872,8 @@ Every recursive problem fits one of 7 patterns. Recognize the pattern, and the s
 ## 🎯 Your Next Steps (Monk's Training Path):
 
 ### **Week 1-2: Master the Basics**
-```
+
+```ascii
 □ Run all code artifacts
 □ Trace execution by hand (once!)
 □ Implement in your preferred language
@@ -4860,7 +4882,8 @@ Every recursive problem fits one of 7 patterns. Recognize the pattern, and the s
 ```
 
 ### **Week 3-4: Pattern Recognition**
-```
+
+```ascii
 □ Look at new problems and identify pattern
 □ Solve without looking at solutions first
 □ Time yourself (aim for < 15 min per problem)
@@ -4868,7 +4891,8 @@ Every recursive problem fits one of 7 patterns. Recognize the pattern, and the s
 ```
 
 ### **Week 5-8: Advanced Mastery**
-```
+
+```ascii
 □ Implement backtracking problems
 □ Add memoization to optimize
 □ Convert recursive solutions to iterative
@@ -4876,7 +4900,8 @@ Every recursive problem fits one of 7 patterns. Recognize the pattern, and the s
 ```
 
 ### **Month 3+: Become the Teacher**
-```
+
+```ascii
 □ Teach recursion to someone else
 □ Write blog posts explaining concepts
 □ Contribute to open source with elegant recursive solutions

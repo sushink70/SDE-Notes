@@ -10,6 +10,55 @@ Practical Takeaway: We use probabilistic or time-bounded algorithms (Paxos, Raft
 
 CAP Theorem 
 
+code to Decision Tree 
+code to Algorithm Flow & Flowcharts
+
+how serverless works? 
+
+Array & String Patterns
+Two Pointers & Sliding Window
+Hashing & Frequency Patterns
+Prefix Sum & Difference Arrays
+Sorting & Binary Search
+Stack & Monotonic Stack
+Queue & Deque Patterns
+Linked List Patterns
+Tree Traversal Patterns
+Binary Search Tree Patterns
+Heap & Priority Queue
+Graph Traversal (DFS/BFS)
+Dynamic Programming Patterns
+Backtracking & Recursion
+Greedy Algorithms
+Bit Manipulation
+Mathematical & Number Theory
+Advanced Patterns
+
+looking forward for advanced real world algorithms. so check the postgresql github and its developer documentation and provide what are the algorithms, technologies, concepts, core concepts are used to build postgresql? no need code, only information.
+
+Network & Streaming
+TCP Congestion Control: Dynamic window sizing for packet transmission
+Video Buffering: Maintain buffer of N frames, slide as playback progresses
+Rate Limiting: Track API requests in sliding time windows
+Network Throughput Monitoring: Moving average of bandwidth usage
+Data Processing
+Moving Averages: Stock prices, sensor data smoothing
+Anomaly Detection: Statistical outlier detection in time-series
+Log Analysis: Find patterns in continuous log streams
+Real-time Analytics: Compute metrics over recent data windows
+Text & NLP
+Autocomplete Suggestions: Recent search history window
+Spam Detection: Sliding window over email content features
+Text Compression: LZ77/LZ78 algorithms use sliding dictionary windows
+DNA Sequence Analysis: Finding motifs in genomic sequences
+Computer Vision
+Image Convolution: Sliding kernel over pixel matrix
+Object Detection: Sliding window classifiers (though mostly replaced by CNNs)
+Video Frame Analysis: Process consecutive frame sequences
+System Optimization
+Cache Management: LRU/LFU with sliding access windows
+Resource Allocation: CPU/Memory scheduling with time-slice windows
+Load Balancing: Distribute requests based on recent load metrics
 
 ==========important===========
 provide what are the common patterns compendium to access and manipulate, etc... array data structures. provide all things without missing anything even I missed to mention here. provide a comprehensive guide. this will help me to do problem solving easily.
