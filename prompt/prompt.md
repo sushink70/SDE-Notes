@@ -17,6 +17,309 @@ how serverless works?
 
 OrderedDict/LinkedHashSet 
 
+Floyd-Warshall
+If you literally mean *every* algorithm ever created, that is impossible—there are thousands, constantly evolving.
+However, what **is useful and meaningful** is a comprehensive, structured catalog of the major algorithm families and the most important algorithms in each category. This is what computer science textbooks, university curricula, and industry engineering practices reference.
+
+Below is a **well-organized master list** covering classical, modern, theoretical, and applied algorithms.
+
+---
+
+# ✅ Master List of Algorithms (Categorized)
+
+---
+
+## 1️⃣ **Sorting Algorithms**
+
+* Bubble Sort
+* Selection Sort
+* Insertion Sort
+* Merge Sort
+* Quick Sort
+* Heap Sort
+* Counting Sort
+* Radix Sort
+* Bucket Sort
+* Shell Sort
+* TimSort (Python’s sort)
+* IntroSort (C++ sort)
+
+---
+
+## 2️⃣ **Searching Algorithms**
+
+* Linear Search
+* Binary Search
+* Ternary Search
+* Interpolation Search
+* Exponential Search
+* Jump Search
+
+---
+
+## 3️⃣ **Graph Algorithms**
+
+### Traversal
+
+* Depth First Search (DFS)
+* Breadth First Search (BFS)
+
+### Shortest Path
+
+* Dijkstra’s Algorithm
+* Bellman–Ford
+* Floyd–Warshall
+* Johnson’s Algorithm
+* A* Search
+* Bidirectional Search
+
+### Minimum Spanning Tree
+
+* Kruskal’s Algorithm
+* Prim’s Algorithm
+* Boruvka’s Algorithm
+
+### Topology / Ordering / Structure
+
+* Topological Sort
+* Tarjan’s SCC
+* Kosaraju’s SCC
+* Kahn’s Algorithm
+* Euler Path / Circuit (Hierholzer)
+* Hamiltonian Path (NP-complete context)
+
+### Flow / Matching
+
+* Ford–Fulkerson
+* Edmonds–Karp
+* Dinic’s Algorithm
+* Push–Relabel
+* Bipartite Matching (Hopcroft–Karp)
+
+---
+
+## 4️⃣ **Dynamic Programming Algorithms**
+
+* Fibonacci DP
+* Longest Common Subsequence (LCS)
+* Longest Increasing Subsequence (LIS)
+* Edit Distance (Levenshtein)
+* Matrix Chain Multiplication
+* 0/1 Knapsack
+* Unbounded Knapsack
+* Coin Change
+* Partition Problem
+* Catalan problems (parentheses, BST count etc.)
+* Bellman Optimality Principle
+* Floyd-Warshall (also DP)
+* Optimal Binary Search Tree
+
+---
+
+## 5️⃣ **Greedy Algorithms**
+
+* Activity Selection
+* Huffman Coding
+* Fractional Knapsack
+* Job Sequencing
+* Kruskal / Prim (also greedy)
+* Dijkstra (also greedy with PQ)
+
+---
+
+## 6️⃣ **Divide & Conquer**
+
+* Merge Sort
+* Quick Sort
+* Binary Search
+* Fast Fourier Transform (FFT)
+* Karatsuba Multiplication
+* Closest Pair of Points
+
+---
+
+## 7️⃣ **String Algorithms**
+
+* Pattern Matching
+
+  * Naive Search
+  * Knuth–Morris–Pratt (KMP)
+  * Rabin–Karp
+  * Boyer–Moore
+
+* Advanced String Structures
+
+  * Z Algorithm
+  * Suffix Array
+  * Suffix Tree
+  * LCP Array
+  * Aho–Corasick (multi-pattern)
+
+* Palindrome / Substring
+
+  * Manacher’s Algorithm
+  * Longest Palindromic Substring
+
+---
+
+## 8️⃣ **Tree / Binary Tree / BST Algorithms**
+
+* Traversals (Preorder, Inorder, Postorder, Level order)
+* AVL Tree rotations
+* Red-Black Tree operations
+* Segment Tree
+* Fenwick Tree (Binary Indexed Tree)
+* Trie / Prefix Tree
+* B Tree / B+ Tree
+
+---
+
+## 9️⃣ **Hashing Algorithms**
+
+* Direct hashing
+* Open addressing
+* Chaining
+* Universal hashing
+* Rolling hash
+
+---
+
+## 🔟 **Mathematics & Number Theory Algorithms**
+
+* Euclidean GCD
+* Extended Euclid
+* Sieve of Eratosthenes
+* Segmented Sieve
+* Modular Exponentiation
+* Fast Power (Binary Exponentiation)
+* Fermat’s Little Theorem
+* Miller–Rabin Primality Test
+* Chinese Remainder Theorem
+
+---
+
+## 1️⃣1️⃣ **Computational Geometry**
+
+* Convex Hull (Graham Scan, Jarvis March)
+* Line Intersection
+* Sweep Line
+* Closest Pair of Points
+* Voronoi Diagrams
+* Delaunay Triangulation
+
+---
+
+## 1️⃣2️⃣ **Randomized Algorithms**
+
+* Randomized QuickSort
+* Randomized Select
+* Monte Carlo
+* Las Vegas Algorithms
+* Reservoir Sampling
+
+---
+
+## 1️⃣3️⃣ **Machine Learning Core Algorithms**
+
+* Gradient Descent
+* Linear Regression
+* Logistic Regression
+* K-Means
+* Decision Trees
+* Random Forest
+* SVM
+* Neural Network Backpropagation
+
+---
+
+## 1️⃣4️⃣ **Backtracking / Recursion Algorithms**
+
+* N-Queens
+* Sudoku Solver
+* Subset Generation
+* Permutations / Combinations
+* Hamiltonian Cycle (search)
+* Graph Coloring
+
+---
+
+## 1️⃣5️⃣ **Compression Algorithms**
+
+* Huffman Coding
+* LZW
+* Arithmetic Coding
+* DEFLATE
+
+---
+
+## 1️⃣6️⃣ **Cryptographic Algorithms**
+
+* RSA
+* Diffie–Hellman
+* AES
+* SHA Family
+* Elliptic Curve Cryptography
+
+---
+
+## 1️⃣7️⃣ **Operating System / Scheduling Algorithms**
+
+* FCFS
+* SJF
+* Round Robin
+* Priority Scheduling
+* Banker's Algorithm (Deadlock)
+
+---
+
+## 1️⃣8️⃣ **Parallel & Distributed Algorithms**
+
+* MapReduce
+* Paxos
+* Raft
+* Bully Election Algorithm
+
+---
+
+## 1️⃣9️⃣ **NP-Hard / NP-Complete (Optimization / Approximation)**
+
+* Traveling Salesman (TSP)
+* Knapsack (exact + approximate)
+* Vertex Cover approx
+* Set Cover approx
+
+---
+
+## 2️⃣0️⃣ **Misc Important Families**
+
+* Heuristics / Metaheuristics
+
+  * Genetic Algorithms
+  * Simulated Annealing
+
+* Game Algorithms
+
+  * Minimax
+  * Alpha–Beta pruning
+
+* Data Streaming Algorithms
+
+  * Count–Min Sketch
+  * HyperLogLog
+
+---
+
+If you tell me your intent, I can tailor a perfect subset:
+
+* preparing for coding interviews?
+* competitive programming?
+* algorithm design learning roadmap?
+* graph theory specialization?
+* DP mastery?
+* system design / large scale?
+
+Just let me know and I will convert this into a focused learning checklist with explanations, intuition diagrams, and practice problems.
+
 Array & String Patterns
 Two Pointers & Sliding Window
 Hashing & Frequency Patterns
