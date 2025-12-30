@@ -57,11 +57,13 @@ Think of it as a recursive problem-solving strategy:
 ### When to Use Divide and Conquer
 
 **Perfect for:**
+
 - Problems with optimal substructure (optimal solution contains optimal solutions to subproblems)
 - Problems that can be broken into independent subproblems
 - Problems where combining solutions is efficient
 
 **Not ideal for:**
+
 - Problems with overlapping subproblems (use Dynamic Programming instead)
 - Problems where division overhead exceeds benefits
 
@@ -145,40 +147,40 @@ Call Stack Evolution:
 
 Step 1: Initial Call
 ┌─────────────────────────────────────┐
-│ DnC([1,2,3,4,5,6,7,8])             │  ← Top
+│ DnC([1,2,3,4,5,6,7,8])              │  ← Top
 └─────────────────────────────────────┘
 
 Step 2: First Division
 ┌─────────────────────────────────────┐
-│ DnC([5,6,7,8])                     │
+│ DnC([5,6,7,8])                      │
 ├─────────────────────────────────────┤
-│ DnC([1,2,3,4])                     │
+│ DnC([1,2,3,4])                      │
 ├─────────────────────────────────────┤
-│ DnC([1,2,3,4,5,6,7,8])             │
+│ DnC([1,2,3,4,5,6,7,8])              │
 └─────────────────────────────────────┘
 
 Step 3: Deeper Recursion
 ┌─────────────────────────────────────┐
-│ DnC([7,8])                         │  ← Deepest
+│ DnC([7,8])                          │  ← Deepest
 ├─────────────────────────────────────┤
-│ DnC([5,6])                         │
+│ DnC([5,6])                          │
 ├─────────────────────────────────────┤
-│ DnC([5,6,7,8])                     │
+│ DnC([5,6,7,8])                      │
 ├─────────────────────────────────────┤
-│ DnC([1,2,3,4])                     │
+│ DnC([1,2,3,4])                      │
 ├─────────────────────────────────────┤
-│ DnC([1,2,3,4,5,6,7,8])             │
+│ DnC([1,2,3,4,5,6,7,8])              │
 └─────────────────────────────────────┘
 
 Step 4: Base Cases Hit, Start Combining
 ┌─────────────────────────────────────┐
-│ Combine([7], [8]) → [7,8]         │
+│ Combine([7], [8]) → [7,8]           │
 ├─────────────────────────────────────┤
-│ Combine([5], [6]) → [5,6]         │
+│ Combine([5], [6]) → [5,6]           │
 ├─────────────────────────────────────┤
-│ Combine([5,6], [7,8]) → [5,6,7,8] │
+│ Combine([5,6], [7,8]) → [5,6,7,8]   │
 ├─────────────────────────────────────┤
-│ ...continues upward...             │
+│ ...continues upward...              │
 └─────────────────────────────────────┘
 ```
 
@@ -858,36 +860,43 @@ Step 3: Check strip around midline
 ## 7. Real-World Applications
 
 ### High-Performance Computing
+
 - **Parallel Merge Sort**: Divide data across processor cores
 - **MapReduce Framework**: Divide data, process independently, combine results
 - **Fast Fourier Transform**: Signal processing, audio compression
 
 ### Computer Graphics
+
 - **Ray Tracing**: Recursively divide viewing frustum (space partitioning)
 - **Polygon Rendering**: Binary space partitioning (BSP trees)
 - **Image Processing**: Recursive filters, multi-resolution analysis
 
 ### Computational Geometry
+
 - **Closest Pair Problem**: Collision detection in games/robotics
 - **Convex Hull**: Shape analysis, pattern recognition
 - **Voronoi Diagrams**: Geographic information systems
 
 ### Data Structures
+
 - **Binary Search Trees**: Balanced tree operations (AVL, Red-Black)
 - **Segment Trees**: Range queries in O(log n)
 - **K-D Trees**: Multi-dimensional search (nearest neighbor)
 
 ### Numerical Computing
+
 - **Strassen's Algorithm**: Matrix multiplication (O(n^2.807))
 - **Karatsuba Multiplication**: Large integer arithmetic in cryptography
 - **Polynomial Evaluation**: Horner's method optimization
 
 ### Database Systems
+
 - **External Merge Sort**: Sorting data larger than memory
 - **B-Tree Operations**: Disk-based indexing
 - **Query Optimization**: Join operations
 
 ### Network & Distributed Systems
+
 - **Load Balancing**: Divide requests across servers
 - **Distributed Sorting**: Sort massive datasets (Hadoop, Spark)
 - **CDN Routing**: Recursive geographic partitioning
@@ -947,6 +956,7 @@ Is combining solutions expensive?
 ---
 
 This is your foundation. Now, build mastery through **deliberate practice**:
+
 - Implement these algorithms without references
 - Optimize for your specific languages' strengths
 - Solve variations (2D arrays, linked lists, custom objects)

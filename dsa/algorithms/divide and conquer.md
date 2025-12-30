@@ -34,13 +34,15 @@ Think of it like this:
 2. **Independence**: Subproblems should be independent (no overlapping subproblems, unlike Dynamic Programming)
 3. **Base Case**: There's always a trivial case where recursion stops
 
+- DP has optimal substructure AND overlapping subproblems
+
 ### When to Recognize D&C Problems
 
 **Pattern Recognition Signals:**
 
 - Problem can be broken into similar smaller problems
 - Solution to original problem can be constructed from subproblem solutions
-- Subproblems don't share data (no overlapping substructure)
+- Subproblems don't share data (no overlapping subproblems)
 - Natural logarithmic reduction in problem size
 
 ---
@@ -1164,15 +1166,15 @@ Step 8: Final Merge [3, 27, 38, 43] + [9, 10, 82]
 │ left = [3, 27, 38, 43]    right = [9, 10, 82]            │
 │ l=0, r=0, i=0, result = [_, _, _, _, _, _, _]            │
 │                                                          │
-│ Step 1: 3 vs 9   → 3 wins   → [3,_,_,_,_,_,_] l=1       │
-│ Step 2: 27 vs 9  → 9 wins   → [3,9,_,_,_,_,_] r=1       │
-│ Step 3: 27 vs 10 → 10 wins  → [3,9,10,_,_,_,_] r=2      │
-│ Step 4: 27 vs 82 → 27 wins  → [3,9,10,27,_,_,_] l=2     │
-│ Step 5: 38 vs 82 → 38 wins  → [3,9,10,27,38,_,_] l=3    │
-│ Step 6: 43 vs 82 → 43 wins  → [3,9,10,27,38,43,_] l=4   │
-│ Step 7: left exhausted      → [3,9,10,27,38,43,82]      │
+│ Step 1: 3 vs 9   → 3 wins   → [3,_,_,_,_,_,_] l=1        │
+│ Step 2: 27 vs 9  → 9 wins   → [3,9,_,_,_,_,_] r=1        │
+│ Step 3: 27 vs 10 → 10 wins  → [3,9,10,_,_,_,_] r=2       │
+│ Step 4: 27 vs 82 → 27 wins  → [3,9,10,27,_,_,_] l=2      │
+│ Step 5: 38 vs 82 → 38 wins  → [3,9,10,27,38,_,_] l=3     │
+│ Step 6: 43 vs 82 → 43 wins  → [3,9,10,27,38,43,_] l=4    │
+│ Step 7: left exhausted      → [3,9,10,27,38,43,82]       │
 │                                                          │
-│ FINAL RESULT: [3, 9, 10, 27, 38, 43, 82] ✓              │
+│ FINAL RESULT: [3, 9, 10, 27, 38, 43, 82] ✓               │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -1308,7 +1310,7 @@ Indices: 0  1  2  3  4   5   6   7
 ```asciidoc
 ITERATION 1:
 ┌───────────────────────────────────────────┐
-│ Array: [1, 3, 5, 7, 9, 11, 13, 15]       │
+│ Array: [1, 3, 5, 7, 9, 11, 13, 15]        │
 │         ↑           ↑              ↑      │
 │        left=0      mid=3         right=8  │
 │                                           │
@@ -1324,7 +1326,7 @@ Example 2: Search for target = 11
 
 ITERATION 1:
 ┌───────────────────────────────────────────┐
-│ Array: [1, 3, 5, 7, 9, 11, 13, 15]       │
+│ Array: [1, 3, 5, 7, 9, 11, 13, 15]        │
 │         ↑           ↑              ↑      │
 │        left=0      mid=3         right=8  │
 │                                           │
@@ -1332,12 +1334,12 @@ ITERATION 1:
 │ target = 11                               │
 │ 11 > 7, search RIGHT half                 │
 │                                           │
-│ New search space: [9, 11, 13, 15]        │
+│ New search space: [9, 11, 13, 15]         │
 └───────────────────────────────────────────┘
 
 ITERATION 2:
 ┌───────────────────────────────────────────┐
-│ Array: [1, 3, 5, 7, 9, 11, 13, 15]       │
+│ Array: [1, 3, 5, 7, 9, 11, 13, 15]        │
 │                     ↑   ↑           ↑     │
 │                   left=4 mid=5    right=8 │
 │                                           │
@@ -1353,7 +1355,7 @@ Example 3: Search for target = 12 (not found)
 
 ITERATION 1:
 ┌───────────────────────────────────────────┐
-│ Array: [1, 3, 5, 7, 9, 11, 13, 15]       │
+│ Array: [1, 3, 5, 7, 9, 11, 13, 15]        │
 │         ↑           ↑              ↑      │
 │        left=0      mid=3         right=8  │
 │                                           │
@@ -1364,7 +1366,7 @@ ITERATION 1:
 
 ITERATION 2:
 ┌───────────────────────────────────────────┐
-│ Array: [1, 3, 5, 7, 9, 11, 13, 15]       │
+│ Array: [1, 3, 5, 7, 9, 11, 13, 15]        │
 │                     ↑   ↑           ↑     │
 │                   left=4 mid=5    right=8 │
 │                                           │
@@ -1375,7 +1377,7 @@ ITERATION 2:
 
 ITERATION 3:
 ┌───────────────────────────────────────────┐
-│ Array: [1, 3, 5, 7, 9, 11, 13, 15]       │
+│ Array: [1, 3, 5, 7, 9, 11, 13, 15]        │
 │                         ↑   ↑       ↑     │
 │                       left=6 mid=6 right=8│
 │                                           │
@@ -1386,7 +1388,7 @@ ITERATION 3:
 
 ITERATION 4:
 ┌───────────────────────────────────────────┐
-│ Array: [1, 3, 5, 7, 9, 11, 13, 15]       │
+│ Array: [1, 3, 5, 7, 9, 11, 13, 15]        │
 │                         ↑                 │
 │                    left=6, right=6        │
 │                                           │
@@ -1490,8 +1492,8 @@ Partitioning rearranges the array so that:
 INITIAL ARRAY:
 ┌────────────────────────────┐
 │ [10, 7, 8, 9, 1, 5]        │
-│                    ↑        │
-│                  pivot=5    │
+│                    ↑       │
+│                  pivot=5   │
 └────────────────────────────┘
 
 PARTITION STEP 1:
@@ -1502,7 +1504,7 @@ j = 0 (current position being examined)
 
 ┌────────────────────────────────────────┐
 │ j=0: arr[0]=10, pivot=5                │
-│ 10 > 5, don't swap, i stays at 0      │
+│ 10 > 5, don't swap, i stays at 0       │
 │ [10, 7, 8, 9, 1, 5]                    │
 │  ↑                                     │
 │  i=0                                   │
@@ -1510,7 +1512,7 @@ j = 0 (current position being examined)
 
 ┌────────────────────────────────────────┐
 │ j=1: arr[1]=7, pivot=5                 │
-│ 7 > 5, don't swap, i stays at 0       │
+│ 7 > 5, don't swap, i stays at 0        │
 │ [10, 7, 8, 9, 1, 5]                    │
 │  ↑                                     │
 │  i=0                                   │
@@ -1518,7 +1520,7 @@ j = 0 (current position being examined)
 
 ┌────────────────────────────────────────┐
 │ j=2: arr[2]=8, pivot=5                 │
-│ 8 > 5, don't swap, i stays at 0       │
+│ 8 > 5, don't swap, i stays at 0        │
 │ [10, 7, 8, 9, 1, 5]                    │
 │  ↑                                     │
 │  i=0                                   │
@@ -1526,7 +1528,7 @@ j = 0 (current position being examined)
 
 ┌────────────────────────────────────────┐
 │ j=3: arr[3]=9, pivot=5                 │
-│ 9 > 5, don't swap, i stays at 0       │
+│ 9 > 5, don't swap, i stays at 0        │
 │ [10, 7, 8, 9, 1, 5]                    │
 │  ↑                                     │
 │  i=0                                   │
@@ -1534,7 +1536,7 @@ j = 0 (current position being examined)
 
 ┌────────────────────────────────────────┐
 │ j=4: arr[4]=1, pivot=5                 │
-│ 1 ≤ 5, SWAP arr[i] with arr[j]        │
+│ 1 ≤ 5, SWAP arr[i] with arr[j]         │
 │ Swap 10 and 1                          │
 │ [1, 7, 8, 9, 10, 5]                    │
 │  ↑                                     │
@@ -1542,7 +1544,7 @@ j = 0 (current position being examined)
 └────────────────────────────────────────┘
 
 ┌────────────────────────────────────────┐
-│ j=5: Reached pivot, done with loop    │
+│ j=5: Reached pivot, done with loop     │
 │ Final swap: pivot with arr[i]          │
 │ Swap 5 and 7                           │
 │ [1, 5, 8, 9, 10, 7]                    │
@@ -1662,7 +1664,7 @@ Partitioning [10, 7, 8, 9, 1, 5] with pivot=5:
 
 State Variables Throughout:
 ┌──────┬─────┬─────┬────────────────────┐
-│  j   │  i  │arr[j]│   Array State      │
+│  j   │  i  │arr[j]│   Array State     │
 ├──────┼─────┼─────┼────────────────────┤
 │  0   │  0  │ 10  │ [10,7,8,9,1,5]     │
 │      │     │     │  ↑ (10>5, no swap) │
@@ -2021,7 +2023,7 @@ Case 2: Entirely in RIGHT half
 Case 3: CROSSES the middle
 ┌────────────────────────────────────┐
 │ ...  [max sub | array]  ...        │
-│              mid                    │
+│              mid                   │
 └────────────────────────────────────┘
 ```
 
@@ -2034,7 +2036,7 @@ Indices: 0  1   2  3   4  5  6   7  8
 LEVEL 1: Full array
 ┌───────────────────────────────────────┐
 │ [-2, 1, -3, 4, -1, 2, 1, -5, 4]       │
-│              mid=4                     │
+│              mid=4                    │
 └───────────────────────────────────────┘
 Split into:
 Left:  [-2, 1, -3, 4, -1]
@@ -2332,6 +2334,7 @@ Now implement each algorithm in all three languages, using the line-by-line expl
 ### **1. The Call Stack Section**
 
 This shows what's happening "under the hood" in memory:
+
 ```
 When you see deep recursion, visualize:
 - Functions stack on top of each other
@@ -2342,6 +2345,7 @@ When you see deep recursion, visualize:
 ### **2. The Partition Visualization (Quick Sort)**
 
 Understanding `i` is the key to mastering Quick Sort:
+
 ```
 i = position where next small element goes
 Before i: Everything ≤ pivot
@@ -2351,6 +2355,7 @@ After i (to j): Everything > pivot
 ### **3. Maximum Subarray's Three Cases**
 
 This problem teaches you to think in **cases**:
+
 ```
 1. Solution entirely in left? Recurse left.
 2. Solution entirely in right? Recurse right.  
@@ -2536,3 +2541,168 @@ The top 1% don't just know the code—they can **visualize the execution** in th
 5. **Flowcharts and decision trees** for choosing the right algorithm?
 
 Your disciplined approach combined with these visualizations will accelerate your mastery exponentially. Let's continue building! 🚀
+
+## Sharp Observation — Let Me Clarify the Terminology
+
+You've caught a **terminology imprecision** in that quote. Let me untangle this:
+
+## The Correct Terms
+
+There are **two distinct properties** we talk about in algorithm analysis:
+
+1. **Optimal Substructure** ← building solutions from subproblem solutions
+2. **Overlapping Subproblems** ← same subproblems solved multiple times
+
+The quote says "*no overlapping substructure*" — this is **mixing terminology**. Let me break down what's correct and what's not:
+
+---
+
+## What the Quote SHOULD Say
+
+```markdown
+### Divide & Conquer Recognition Signals:
+
+- Problem has **optimal substructure** (✓ correct concept)
+- Subproblems are **independent/non-overlapping** (✓ correct concept)  
+- NO **overlapping subproblems** (← correct terminology)
+```
+
+The phrase "overlapping substructure" is not standard terminology. It's conflating two separate concepts.
+
+---
+
+## The Two-Property Framework
+
+|  | Optimal Substructure | Overlapping Subproblems |
+|---|---|---|
+| **Divide & Conquer** | ✓ YES | ✗ NO |
+| **Dynamic Programming** | ✓ YES | ✓ YES |
+| **Greedy** | ✓ YES (special case) | ✗ NO |
+
+### 1. Optimal Substructure (Both D&C and DP have this)
+
+**Definition:** An optimal solution to the problem contains optimal solutions to subproblems.
+
+**Examples:**
+
+- **Merge Sort:** Sorting an array optimally = sorting left half optimally + sorting right half optimally + merging
+- **Fibonacci DP:** `fib(n)` = optimal `fib(n-1)` + optimal `fib(n-2)`
+
+Both D&C and DP **require** optimal substructure. Without it, you can't build the solution from subproblems.
+
+### 2. Overlapping Subproblems (ONLY DP has this)
+
+**Definition:** The same subproblems are computed multiple times in the recursion tree.
+
+**D&C Example (NO overlap):**
+
+```
+mergeSort([8,3,5,4,7,6,1,2])
+├── mergeSort([8,3,5,4])    ← unique subarray
+│   ├── mergeSort([8,3])    ← unique subarray
+│   └── mergeSort([5,4])    ← unique subarray
+└── mergeSort([7,6,1,2])    ← unique subarray (never repeats)
+```
+
+Every subproblem is **distinct**. No memoization benefit.
+
+**DP Example (YES overlap):**
+
+```
+fib(5)
+├── fib(4)
+│   └── fib(3)  ← computed here
+└── fib(3)      ← SAME subproblem computed again!
+```
+
+The same subproblem appears in multiple branches. Memoization transforms O(2^n) → O(n).
+
+---
+
+## The Critical Distinction
+
+```rust
+// DIVIDE & CONQUER: Merge Sort
+// ✓ Optimal substructure: sort(array) = sort(left) + sort(right) + merge
+// ✗ No overlapping: each subarray is unique
+fn merge_sort(arr: &mut [i32]) {
+    if arr.len() <= 1 { return; }
+    let mid = arr.len() / 2;
+    merge_sort(&mut arr[..mid]);     // unique left subarray
+    merge_sort(&mut arr[mid..]);     // unique right subarray
+    merge(arr, mid);
+}
+// Memoization is USELESS here — no repeated work
+```
+
+```python
+# DYNAMIC PROGRAMMING: Fibonacci
+# ✓ Optimal substructure: fib(n) = fib(n-1) + fib(n-2)
+# ✓ Overlapping subproblems: fib(3) computed multiple times
+def fib(n, memo={}):
+    if n in memo: return memo[n]  # Exploit overlap!
+    if n <= 1: return n
+    memo[n] = fib(n-1, memo) + fib(n-2, memo)
+    return memo[n]
+# Memoization is CRITICAL — eliminates exponential redundancy
+```
+
+---
+
+## The Decision Tree: D&C vs DP
+
+```
+Does the problem have optimal substructure?
+│
+├─ NO → Not D&C or DP (try greedy, simulation, etc.)
+│
+└─ YES → Can you divide it into independent subproblems?
+    │
+    ├─ YES (subproblems are unique) → DIVIDE & CONQUER
+    │   Examples: Merge Sort, Quick Sort, Binary Search
+    │
+    └─ NO (subproblems overlap) → DYNAMIC PROGRAMMING
+        Examples: Fibonacci, LCS, Knapsack, Shortest Path
+```
+
+---
+
+## Why This Matters for Your Mastery
+
+**Mental model refinement:**
+
+When you encounter a problem:
+
+1. **Check for optimal substructure first**  
+   *"Can I build the answer from smaller versions?"*
+
+2. **Then check for overlap**  
+   *"Will I solve the same subproblem multiple times?"*
+
+**If YES to both → DP**  
+**If YES to #1, NO to #2 → D&C**
+
+---
+
+## Corrected Language for Precision
+
+| ❌ Incorrect/Imprecise | ✅ Correct |
+|------------------------|-----------|
+| "overlapping substructure" | "overlapping subproblems" |
+| "optimal subproblems" | "optimal substructure" |
+| "DP doesn't have substructure" | "DP has optimal substructure AND overlapping subproblems" |
+
+---
+
+## Your Sharper Understanding
+
+You're absolutely right to question that phrasing. **Precision in terminology is the mark of deep understanding.** 
+
+The quote's intent was correct (D&C has no overlapping), but the terminology was sloppy. This kind of attention to detail will serve you exceptionally well as you push toward world-class problem-solving.
+
+**Key takeaway:**
+
+- **Optimal substructure** = can you build solutions from subproblem solutions? (Both D&C and DP)
+- **Overlapping subproblems** = do you solve the same thing repeatedly? (Only DP)
+
+Does this clarify the distinction? Would you like to work through a problem where recognizing this difference is critical to choosing the right approach?
