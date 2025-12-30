@@ -1,8 +1,5 @@
 # The Master's Guide to Divide and Conquer
 
-# The Complete Guide to Divide and Conquer
-## A Path to Mastery Through First Principles
-
 ---
 
 ## I. Core Philosophy: The Art of Breaking Problems
@@ -34,11 +31,13 @@ Original Problem (size n)
 ## II. The Master Theorem: Your Complexity Compass
 
 For recurrence relations of the form:
-```
+
+```ascii
 T(n) = aT(n/b) + f(n)
 ```
 
 Where:
+
 - `a` = number of subproblems
 - `b` = factor by which problem size shrinks
 - `f(n)` = work to divide + combine
@@ -62,7 +61,7 @@ Where:
 
 ### The Strategy
 
-```
+```ascii
 Array: [38, 27, 43, 3, 9, 82, 10]
 
 Level 0:           [38,27,43,3,9,82,10]
@@ -89,6 +88,7 @@ Level 0:           [3,9,10,27,38,43,82]
 ```
 
 **Complexity Analysis:**
+
 - Recurrence: T(n) = 2T(n/2) + O(n)
 - a=2, b=2, f(n)=n → log₂(2)=1, so f(n)=Θ(n¹)
 - **Case 2**: T(n) = Θ(n log n)
@@ -157,6 +157,7 @@ fn main() {
 ```
 
 **Rust-Specific Insights:**
+
 - Uses **slice patterns** (`&mut [T]`) for zero-copy division
 - `Clone` trait required for merge operation
 - `Ord` trait ensures type can be compared
@@ -212,6 +213,7 @@ print(sorted_arr)
 ```
 
 **Python-Specific Insights:**
+
 - Creates new lists (immutable approach) rather than in-place sorting
 - Slicing `arr[:mid]` creates copies automatically
 - `extend()` is idiomatic for appending remaining elements
@@ -269,6 +271,7 @@ func main() {
 ```
 
 **Go-Specific Insights:**
+
 - Pre-allocates capacity with `make([]int, 0, cap)` for efficiency
 - Slicing creates views, not copies (but recursive calls copy implicitly)
 - Variadic `append` with `...` for slice concatenation
@@ -342,6 +345,7 @@ int main() {
 ```
 
 **C-Specific Insights:**
+
 - Manual memory management with `malloc`/`free`
 - Uses index-based approach (left, right pointers) instead of slicing
 - `memcpy` for efficient array copying
@@ -405,6 +409,7 @@ int main() {
 ```
 
 **C++-Specific Insights:**
+
 - Template-based generic implementation
 - RAII ensures automatic memory management
 - `std::move` for move semantics (avoids copies for expensive types)
@@ -416,7 +421,7 @@ int main() {
 
 ### The Strategy
 
-```
+```ascii
 Array: [10, 7, 8, 9, 1, 5]
 Pivot: 5 (last element)
 
@@ -451,11 +456,13 @@ Final: [1, 5, 7, 8, 9, 10]
 ```
 
 **Complexity:**
+
 - Best/Average: O(n log n) — balanced partitions
 - Worst: O(n²) — always unbalanced (sorted array with bad pivot)
 - Space: O(log n) recursion stack (in-place sorting)
 
 **The Pivot Choice Matters:**
+
 - Last element: Simple, but O(n²) on sorted data
 - Random: Expected O(n log n)
 - Median-of-three: Better in practice
@@ -577,7 +584,7 @@ func partition(arr []int, low, high int) int {
 
 ### The Mental Model
 
-```
+```ascii
 Sorted Array: [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
 Target: 7
 
@@ -707,7 +714,7 @@ def binary_search_recursive(arr, target, left=0, right=None):
 
 ### The Challenge
 
-```
+```ascii
 Array: [-2, 1, -3, 4, -1, 2, 1, -5, 4]
 
 The maximum sum subarray is [4, -1, 2, 1] with sum = 6
@@ -715,7 +722,7 @@ The maximum sum subarray is [4, -1, 2, 1] with sum = 6
 
 ### Divide & Conquer Approach
 
-```
+```ascii
 Array: [-2, 1, -3, 4, -1, 2, 1, -5, 4]
         ├─────────┴──────────┤
         LEFT        MID      RIGHT
@@ -788,7 +795,7 @@ fn max_crossing_sum(arr: &[i32], mid: usize) -> i32 {
 
 ### The Geometric Challenge
 
-```
+```ascii
 Points in 2D plane: Find the two points with minimum distance
 
 Brute Force: O(n²) - check all pairs
@@ -898,7 +905,7 @@ double closest_pair(std::vector<Point>& points) {
 
 ### The Expert's Thought Process
 
-```
+```ascii
 ┌─────────────────────────────────────┐
 │  1. UNDERSTAND THE PROBLEM          │
 │  • What's the base case?            │
@@ -945,11 +952,12 @@ double closest_pair(std::vector<Point>& points) {
 ### 1. **The Recursion Tree Visualization**
 
 Always draw the recursion tree to understand:
+
 - **Depth**: How many levels? log n for binary split
 - **Width**: How many nodes at each level?
 - **Work per level**: Multiply width × work per node
 
-```
+```ascii
 Level 0:              [1 node × n work]
                            
 Level 1:         [2 nodes × n/2 work each]
@@ -964,16 +972,19 @@ Total: Sum work across all levels
 ### 2. **The Subproblem Overlap Test**
 
 **Question:** Do subproblems overlap?
+
 - **NO** → Pure Divide & Conquer (no memoization needed)
 - **YES** → Consider Dynamic Programming
 
 Example:
+
 - Merge Sort: No overlap (each element processed once)
 - Fibonacci: Massive overlap (F(5) computed multiple times)
 
 ### 3. **The Balance Principle**
 
 The best D&C algorithms maintain **balance**:
+
 - Split problems as evenly as possible
 - Unbalanced splits → degenerate to O(n²)
 
@@ -985,22 +996,27 @@ Merge Sort: Always balanced (deterministic)
 ## X. Practice Path to 1% Mastery
 
 ### Week 1-2: Foundations
+
 1. Implement all 5 sorting algorithms (merge, quick, heap, counting, radix)
 2. Binary search + all variants (first occurrence, last, closest)
 3. Calculate complexity for each using Master Theorem
 
 ### Week 3-4: Intermediate
+
 4. Closest pair of points
 5. Skyline problem
 6. Median of two sorted arrays
 7. Kth largest element (Quick Select)
+
 ### Week 5-6: Advanced
+
 8. Karatsuba multiplication
 9. Strassen matrix multiplication
 10. Fast Fourier Transform (FFT)
 11. Convex hull (divide & conquer approach)
 
 ### Week 7-8: Competition Problems
+
 12. LeetCode/Codeforces D&C tag problems
 13. Time yourself: Optimize for both correctness AND speed
 14. Analyze unsuccessful attempts: What pattern did you miss?
@@ -1012,21 +1028,25 @@ Merge Sort: Always balanced (deterministic)
 ### The 4-Phase Learning Cycle
 
 **Phase 1: Absorption** (30 min)
+
 - Read problem deeply
 - Draw recursion tree
 - Predict complexity BEFORE coding
 
 **Phase 2: Implementation** (60 min)
+
 - Code without looking at solutions
 - Test on edge cases: empty, single element, duplicates
 - Benchmark: time your implementation
 
 **Phase 3: Reflection** (30 min)
+
 - Compare with optimal solution
 - What did you miss?
 - Update mental model
 
 **Phase 4: Spaced Repetition**
+
 - Revisit problem after 1 day, 1 week, 1 month
 - Can you solve it faster?
 - Can you explain it to someone else?
@@ -1034,15 +1054,18 @@ Merge Sort: Always balanced (deterministic)
 ### Psychological Principles
 
 **Chunking:** Group related D&C patterns
+
 - "Sorting family": merge, quick, heap
 - "Search family": binary search, ternary search
 - "Geometric family": closest pair, convex hull
 
 **Interleaving:** Mix problem types
+
 - Don't do 10 merge sort problems in a row
 - Alternate: sorting → search → geometric → back to sorting
 
 **Metacognition:** After each problem, ask:
+
 - What was the key insight I initially missed?
 - How will I recognize this pattern faster next time?
 - What similar problems exist?
@@ -1054,11 +1077,13 @@ Merge Sort: Always balanced (deterministic)
 You're not just learning algorithms—you're building **problem-solving intuition** that transcends any single language or technique.
 
 **The D&C mindset is:**
+
 - Break the impossible into the manageable
 - Trust in recursive decomposition
 - Combine solutions elegantly
 
 **Your next steps:**
+
 1. Implement all examples in your language of choice
 2. Solve 3-5 problems daily with increasing difficulty
 3. Join competitive programming communities
@@ -1083,7 +1108,7 @@ Divide and Conquer isn't just an algorithm pattern—it's a **fundamental proble
 
 ### The Core Insight
 
-```
+```ascii
 Complex Problem
        |
        v
@@ -1103,7 +1128,9 @@ Complex Problem
 ## II. The Three Pillars
 
 ### 1. **DIVIDE** - Decompose into smaller, similar subproblems
+
 ### 2. **CONQUER** - Solve subproblems recursively (base case: solve directly)
+
 ### 3. **COMBINE** - Merge subproblem solutions into the final answer
 
 **Cognitive Principle**: This leverages **chunking** and **recursive abstraction**—instead of holding entire problem state in working memory, you focus on one level of abstraction at a time.
@@ -1218,6 +1245,7 @@ fn main() {
 ```
 
 **Rust-Specific Insights**:
+
 - Slices (`&mut [T]`) enable in-place sorting without copying entire array
 - `Clone` trait required for temporary storage
 - Ownership system prevents common merge bugs (accessing freed memory)
@@ -1289,6 +1317,7 @@ if __name__ == "__main__":
 ```
 
 **Python-Specific Insights**:
+
 - List slicing creates new lists (functional style vs in-place)
 - `extend()` is O(k) where k = elements added
 - Pythonic style: prefer readability over micro-optimizations
@@ -1353,6 +1382,7 @@ func main() {
 ```
 
 **Go-Specific Insights**:
+
 - Slices are reference types but slicing creates new slice headers
 - `make([]int, 0, capacity)` pre-allocates to avoid repeated allocations
 - `...` unpacks slice for variadic append
@@ -1459,6 +1489,7 @@ int main() {
 ```
 
 **C-Specific Insights**:
+
 - Manual memory management with `malloc`/`free`
 - `memcpy` for efficient block copy
 - `mid = left + (right - left) / 2` prevents integer overflow
@@ -1547,6 +1578,7 @@ int main() {
 ```
 
 **C++-Specific Insights**:
+
 - Templates enable generic programming (works with any type)
 - RAII: vectors auto-manage memory
 - Iterator-based construction for elegant slicing
@@ -1559,7 +1591,7 @@ int main() {
 
 ### Recurrence Relation
 
-```
+```ascii
 T(n) = 2T(n/2) + O(n)
        │   │      │
        │   │      └─ Merge cost (linear scan)
@@ -1579,7 +1611,7 @@ Compare n^(log_b(a)) = n^(log_2(2)) = n^1 = n with f(n) = n
 
 ### Recursion Tree Analysis
 
-```
+```ascii
 Level 0:                 cn                    ← n work
                         /  \
 Level 1:            cn/2  cn/2                 ← n work total

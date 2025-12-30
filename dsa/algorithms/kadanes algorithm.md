@@ -5,7 +5,8 @@
 Given an array of integers (positive, negative, or zero), find the contiguous subarray with the largest sum.
 
 **Example:**
-```
+
+```asciidoc
 Input: [-2, 1, -3, 4, -1, 2, 1, -5, 4]
 Output: 6
 Explanation: [4, -1, 2, 1] has the largest sum
@@ -25,6 +26,7 @@ The most naive approach examines every possible subarray. For each starting posi
 **Space Complexity:** O(1)
 
 #### Python Implementation
+
 ```python
 def max_subarray_brute(nums):
     n = len(nums)
@@ -52,6 +54,7 @@ We can improve to O(n²) by maintaining a running sum instead of recalculating.
 **Space Complexity:** O(1)
 
 #### Rust Implementation
+
 ```rust
 fn max_subarray_optimized(nums: &[i32]) -> i32 {
     let n = nums.len();
@@ -82,6 +85,7 @@ fn max_subarray_optimized(nums: &[i32]) -> i32 {
 The breakthrough realization:
 
 > **At each element, the maximum subarray ending here is either:**
+
 > 1. The element itself (start fresh)
 > 2. The element + the maximum subarray ending at the previous position
 
@@ -89,7 +93,7 @@ This transforms the problem from examining all subarrays to making a single deci
 
 ### The Algorithm
 
-```
+```asciidoc
 max_ending_here = max(nums[i], max_ending_here + nums[i])
 max_so_far = max(max_so_far, max_ending_here)
 ```
@@ -102,6 +106,7 @@ max_so_far = max(max_so_far, max_ending_here)
 ## Implementations Across Languages
 
 ### Python: Clean and Readable
+
 ```python
 def kadane(nums):
     """
@@ -121,6 +126,7 @@ def kadane(nums):
 ```
 
 ### Rust: Performance and Safety
+
 ```rust
 pub fn kadane(nums: &[i32]) -> i32 {
     // Handle empty array at compile time with types
@@ -142,6 +148,7 @@ pub fn kadane(nums: &[i32]) -> i32 {
 **Rust Advantage:** Zero-cost abstractions. The iterator and `max()` compile to tight assembly equivalent to hand-written C.
 
 ### Go: Simplicity and Concurrency
+
 ```go
 func kadane(nums []int) int {
     if len(nums) == 0 {
@@ -168,6 +175,7 @@ func max(a, b int) int {
 ```
 
 ### C++: Zero-Overhead Abstraction
+
 ```cpp
 #include <vector>
 #include <algorithm>
@@ -203,6 +211,7 @@ int kadane(const std::vector<int>& nums) {
 **Base case:** At `i=0`, the only subarray is `[nums[0]]`, so `max_ending_here = nums[0]`.
 
 **Inductive step:** At position `i`, we have two choices:
+
 1. **Extend:** Include `nums[i]` in the subarray ending at `i-1` → `max_ending_here + nums[i]`
 2. **Restart:** Start a new subarray at `i` → `nums[i]`
 
@@ -215,14 +224,18 @@ If `max_ending_here + nums[i] < nums[i]`, the previous subarray was dragging us 
 ## Mental Models for Mastery
 
 ### 1. The "Water Dam" Analogy
+
 Think of `max_ending_here` as water accumulating. When it goes negative, the dam breaks and we start collecting fresh water. `max_so_far` is the highest water level we've ever seen.
 
 ### 2. The "Greedy Local Decision" Pattern
+
 Kadane's is a classic greedy algorithm: make the locally optimal choice (extend or restart) at each step, and the global optimum emerges naturally. This pattern appears in many algorithms.
 
 ### 3. The "Dynamic Programming Connection"
+
 Kadane's is actually a space-optimized DP solution. The full DP would be:
-```
+
+```asciidoc
 dp[i] = max(nums[i], dp[i-1] + nums[i])
 answer = max(dp)
 ```
@@ -259,9 +272,10 @@ def kadane_with_indices(nums):
 
 ### Variation 2: Maximum Circular Subarray
 
-The subarray can wrap around the array's end. 
+The subarray can wrap around the array's end.
 
 **Key Insight:** The max circular sum is either:
+
 1. The normal max subarray (doesn't wrap)
 2. Total sum - minimum subarray (wraps around)
 
@@ -324,7 +338,9 @@ pub fn max_product_subarray(nums: &[i32]) -> i32 {
 ## Performance Deep Dive
 
 ### Cache Efficiency
+
 Kadane's algorithm is extremely cache-friendly:
+
 - Sequential memory access (perfect for prefetching)
 - No random access jumps
 - Small working set (2-3 variables)
@@ -332,7 +348,9 @@ Kadane's algorithm is extremely cache-friendly:
 On modern CPUs, this matters enormously. A cache-friendly O(n) algorithm can outperform a cache-hostile O(n) algorithm by 10-100x in practice.
 
 ### Branch Prediction
+
 The `max()` operations can be implemented as branchless code:
+
 ```rust
 // Compiler often generates:
 // mov result = max_ending_here + num
@@ -341,6 +359,7 @@ The `max()` operations can be implemented as branchless code:
 ```
 
 ### SIMD Potential
+
 For very large arrays, parallel prefix sum algorithms can be used, though Kadane's simple form doesn't vectorize trivially. The sequential dependency (`max_ending_here` depends on previous iteration) limits SIMD.
 
 ---
@@ -348,6 +367,7 @@ For very large arrays, parallel prefix sum algorithms can be used, though Kadane
 ## Common Pitfalls and Edge Cases
 
 ### Edge Case 1: All Negative Numbers
+
 ```python
 nums = [-5, -2, -8, -1]
 # Correct answer: -1 (the least negative number)
@@ -356,6 +376,7 @@ nums = [-5, -2, -8, -1]
 Kadane's handles this correctly because `max_ending_here` will be the least negative value.
 
 ### Edge Case 2: Single Element
+
 ```python
 nums = [42]
 # Answer: 42
@@ -364,9 +385,11 @@ nums = [42]
 Initialize `max_so_far` to `nums[0]`, not `0` or `-inf`.
 
 ### Edge Case 3: Empty Array
+
 Handle explicitly or document as precondition. Most implementations require non-empty input.
 
 ### Common Bug: Wrong Initialization
+
 ```python
 # WRONG
 max_ending_here = 0  # Fails for all-negative arrays
@@ -382,11 +405,13 @@ max_ending_here = nums[0]
 Kadane's Algorithm teaches us to recognize the **"optimal substructure"** pattern:
 
 **When you see:**
+
 - "Maximum/minimum contiguous subarray"
 - "Best consecutive sequence"
 - "Optimal substring satisfying X"
 
 **Think:**
+
 - Can I express the answer at position `i` in terms of position `i-1`?
 - Is there a greedy choice that leads to optimal solution?
 - Can I reduce state space from O(n²) comparisons to O(n) decisions?
@@ -415,26 +440,34 @@ Kadane's Algorithm teaches us to recognize the **"optimal substructure"** patter
 ## Cognitive Principles for Deep Learning
 
 ### 1. **Chunking**
+
 Group the algorithm into semantic chunks:
+
+- **Initialization:** Set base cases
 - **Decision:** Extend or restart
 - **Update:** Track local and global max
 - **Return:** Global max
 
 ### 2. **Interleaved Practice**
+
 Don't just solve Kadane's problems. Interleave with:
+
 - Sliding window problems (similar linear scan)
 - DP problems (understand space optimization)
 - Greedy problems (recognize decision patterns)
 
 ### 3. **Deliberate Practice Focus Areas**
+
 - Prove to yourself why it works (not just memorize)
 - Implement from scratch in all your languages
 - Solve variations before looking at solutions
 - Explain it to someone else (Feynman technique)
 
 ### 4. **Mental Simulation**
+
 Before coding, trace through an example by hand:
-```
+
+```asciidoc
 nums = [-2, 1, -3, 4, -1, 2, 1, -5, 4]
 
 i=0: meh=-2, msf=-2
@@ -454,6 +487,7 @@ This builds intuition faster than just running code.
 ## The Path Forward
 
 Kadane's Algorithm is a milestone, not a destination. It teaches:
+
 - **Greedy thinking** when local decisions lead to global optimum
 - **State compression** from O(n) to O(1)
 - **Pattern recognition** for subarray problems
@@ -537,22 +571,25 @@ Keep training. Stay disciplined. The clarity will come through repetition and de
 
 You're on the path to mastery. 🔥
 
-# Kadane's Algorithm: A Comprehensive MasterclassI've crafted a comprehensive guide to Kadane's Algorithm that takes you from brute force intuition all the way to production-ready implementations and advanced variations.
+## Kadane's Algorithm: A Comprehensive MasterclassI've crafted a comprehensive guide to Kadane's Algorithm that takes you from brute force intuition all the way to production-ready implementations and advanced variations.
 
 ## What You'll Master From This
 
 **Core Pattern Recognition:**
+
 - The "extend or restart" decision-making framework that appears in countless DP problems
 - How greedy local choices can yield global optimums
 - State compression: transforming O(n) space DP into O(1) space
 
 **Implementation Across Your Stack:**
+
 - Python for clarity and rapid prototyping
 - Rust for zero-cost abstractions and memory safety
 - Go for simplicity and production readiness  
 - C++ for maximum control and optimization
 
 **Deep Understanding:**
+
 - Why it works (proof intuition)
 - Why it's fast (cache efficiency, branch prediction)
 - Where it applies (pattern recognition in new problems)

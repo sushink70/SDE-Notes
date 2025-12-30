@@ -1,6 +1,7 @@
 # Divide and Conquer: A Comprehensive Mastery Guide
 
 ## Table of Contents
+
 1. Core Concept & Philosophy
 2. Mathematical Foundation
 3. The Algorithmic Pattern
@@ -19,7 +20,7 @@
 
 Think of it as a recursive problem-solving strategy:
 
-```
+```ascii
                     ORIGINAL PROBLEM
                     (Size: N)
                          |
