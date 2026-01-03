@@ -11,9 +11,9 @@ from bisect import bisect_left
 import math
 import re
 
-# ============================================================================
+
 # DATA STRUCTURES - INITIALIZATION
-# ============================================================================
+
 arr = []                              # Dynamic array
 arr = [0] * n                         # Fixed size, O(n) init
 matrix = [[0]*cols for _ in range(rows)]  # 2D array (CORRECT WAY)
@@ -33,9 +33,9 @@ min_heap = []                         # Min heap (default)
 max_heap = []                         # Max heap (negate values)
 heapq.heappush(max_heap, -val)        # For max heap
 
-# ============================================================================
+
 # COMMON OPERATIONS - TIME COMPLEXITY
-# ============================================================================
+
 # List
 arr.append(x)                         # O(1) amortized
 arr.pop()                             # O(1) - remove last
@@ -75,9 +75,9 @@ heapq.heappop(heap)                   # O(log n) - pop min
 heapq.heapify(arr)                    # O(n) - convert list to heap
 heap[0]                               # O(1) - peek min (don't pop)
 
-# ============================================================================
+
 # SORTING & SEARCHING
-# ============================================================================
+
 arr.sort()                            # O(n log n) - in-place
 sorted(arr)                           # O(n log n) - returns new list
 sorted(arr, reverse=True)             # Descending
@@ -89,9 +89,9 @@ bisect.bisect_left(arr, x)            # O(log n) - leftmost insertion
 bisect.bisect_right(arr, x)           # O(log n) - rightmost insertion
 bisect.insort(arr, x)                 # O(n) - insert maintaining order
 
-# ============================================================================
+
 # ITERATION PATTERNS
-# ============================================================================
+
 for i in range(len(arr)):             # Index only
 for val in arr:                       # Value only
 for i, val in enumerate(arr):         # Index + value
@@ -114,9 +114,8 @@ for right in range(len(arr)):
         # shrink window
         left += 1
 
-# ============================================================================
+
 # STRING OPERATIONS
-# ============================================================================
 s.split()                             # O(n) - split by whitespace
 s.split(',')                          # O(n) - split by delimiter
 ''.join(arr)                          # O(n) - join array of strings
@@ -131,9 +130,9 @@ s.isdigit()                           # Check if all digits
 ord('a')                              # 97 - char to ASCII
 chr(97)                               # 'a' - ASCII to char
 
-# ============================================================================
+
 # MATH & BIT OPERATIONS
-# ============================================================================
+
 import math
 math.inf, -math.inf                   # Infinity
 math.floor(x), math.ceil(x)           # Floor/ceiling
@@ -152,9 +151,9 @@ x >> k                                # Right shift (divide by 2^k)
 bin(x)                                # Binary representation string
 x.bit_count()                         # Count 1s (Python 3.10+)
 
-# ============================================================================
+
 # COMMON ALGORITHMS
-# ============================================================================
+
 # Binary Search Template
 def binary_search(arr, target):
     left, right = 0, len(arr) - 1
@@ -187,9 +186,9 @@ def bfs(start):
                 visited.add(neighbor)
                 queue.append(neighbor)
 
-# ============================================================================
+
 # INPUT/OUTPUT (Competitive Programming)
-# ============================================================================
+
 # Fast input
 import sys
 input = sys.stdin.readline
@@ -203,9 +202,9 @@ print(ans)                            # Single value
 print(*arr)                           # Array (space-separated)
 print('\n'.join(map(str, arr)))       # Array (newline-separated)
 
-# ============================================================================
+
 # USEFUL BUILT-INS
-# ============================================================================
+
 all(iterable)                         # True if all elements True
 any(iterable)                         # True if any element True
 sum(iterable)                         # Sum of elements
@@ -220,9 +219,9 @@ filter(func, iterable)                # Filter elements
 ## 🦀 RUST SPEED SHEET
 
 ```rust
-// ============================================================================
+
 // DATA STRUCTURES - INITIALIZATION
-// ============================================================================
+
 use std::collections::{HashMap, HashSet, BinaryHeap, VecDeque, BTreeMap};
 
 let mut arr: Vec<i32> = Vec::new();              // Dynamic array
@@ -236,9 +235,9 @@ let mut max_heap: BinaryHeap<i32> = BinaryHeap::new();          // Max heap
 let mut queue: VecDeque<i32> = VecDeque::new();  // Double-ended queue
 let mut btree: BTreeMap<i32, i32> = BTreeMap::new(); // Sorted map
 
-// ============================================================================
+
 // COMMON OPERATIONS
-// ============================================================================
+
 // Vec
 arr.push(x);                    // O(1) amortized - add to end
 arr.pop();                      // O(1) - remove from end, returns Option
@@ -276,9 +275,9 @@ max_heap.pop();                 // O(log n) - returns Option
 max_heap.peek();                // O(1) - returns Option<&T>
 min_heap.push(Reverse(x));      // For min heap
 
-// ============================================================================
+
 // SORTING & SEARCHING
-// ============================================================================
+
 arr.sort();                     // O(n log n) - ascending
 arr.sort_by(|a, b| b.cmp(a));   // Descending
 arr.sort_by_key(|x| x.0);       // Sort by key
@@ -291,9 +290,9 @@ match arr.binary_search(&x) {
     Err(i) => i,                // Not found, i is insertion point
 }
 
-// ============================================================================
+
 // ITERATION PATTERNS
-// ============================================================================
+
 for val in &arr {}                    // Borrow elements
 for val in &mut arr {}                // Mutable borrow
 for val in arr {}                     // Consume (move) elements
@@ -318,9 +317,9 @@ for right in 0..arr.len() {
     }
 }
 
-// ============================================================================
+
 // STRING OPERATIONS
-// ============================================================================
+
 let s = String::from("hello");
 let s: &str = "hello";                // String slice (immutable)
 
@@ -344,9 +343,9 @@ c.is_numeric()
 c.to_digit(10)                        // Char to digit (returns Option)
 (b'a' + 1) as char                    // 'b' - byte arithmetic
 
-// ============================================================================
+
 // MATH & BIT OPERATIONS
-// ============================================================================
+
 i32::MAX, i32::MIN                    // Max/min values
 x.abs()                               // Absolute value
 x.min(y), x.max(y)                    // Min/max
@@ -364,9 +363,9 @@ x >> k                                // Right shift
 x.count_ones()                        // Count 1 bits
 x.trailing_zeros()                    // Count trailing zeros
 
-// ============================================================================
+
 // COMMON ALGORITHMS
-// ============================================================================
+
 // Binary Search
 fn binary_search(arr: &[i32], target: i32) -> Option<usize> {
     let (mut left, mut right) = (0, arr.len() as i32 - 1);
@@ -410,9 +409,9 @@ fn bfs(start: i32, graph: &HashMap<i32, Vec<i32>>) {
     }
 }
 
-// ============================================================================
+
 // INPUT/OUTPUT
-// ============================================================================
+
 use std::io::{self, BufRead};
 
 // Read single line
@@ -451,9 +450,9 @@ let line = lines.next().unwrap().unwrap();
 #include <cmath>
 using namespace std;
 
-// ============================================================================
+
 // DATA STRUCTURES - INITIALIZATION
-// ============================================================================
+
 vector<int> arr;                           // Dynamic array
 vector<int> arr(n, 0);                     // Size n, init to 0
 vector<vector<int>> matrix(rows, vector<int>(cols, 0)); // 2D array
@@ -468,9 +467,9 @@ queue<int> q;                              // Queue (FIFO)
 stack<int> st;                             // Stack (LIFO)
 deque<int> dq;                             // Double-ended queue
 
-// ============================================================================
+
 // COMMON OPERATIONS
-// ============================================================================
+
 // Vector
 arr.push_back(x);              // O(1) amortized
 arr.pop_back();                // O(1)
@@ -516,9 +515,9 @@ st.push(x);                    // O(1)
 st.pop();                      // O(1)
 st.top();                      // O(1)
 
-// ============================================================================
+
 // SORTING & SEARCHING
-// ============================================================================
+
 sort(arr.begin(), arr.end());               // O(n log n) ascending
 sort(arr.begin(), arr.end(), greater<int>()); // Descending
 sort(arr.begin(), arr.end(), [](int a, int b) { 
@@ -532,9 +531,9 @@ binary_search(arr.begin(), arr.end(), x);   // Returns true/false
 lower_bound(arr.begin(), arr.end(), x);     // Iterator to first >= x
 upper_bound(arr.begin(), arr.end(), x);     // Iterator to first > x
 
-// ============================================================================
+
 // ITERATION PATTERNS
-// ============================================================================
+
 for (int i = 0; i < n; i++) {}              // Index
 for (int val : arr) {}                      // Value (copy)
 for (int& val : arr) {}                     // Value (reference - can modify)
@@ -548,9 +547,9 @@ while (left < right) {
     right--;
 }
 
-// ============================================================================
+
 // STRING OPERATIONS
-// ============================================================================
+
 string s = "hello";
 s.length() or s.size();        // Length
 s[i];                          // Access char
@@ -573,9 +572,9 @@ tolower(c), toupper(c)
 c - '0'                        // Char to int digit
 'a' + 1                        // 'b'
 
-// ============================================================================
+
 // MATH & BIT OPERATIONS
-// ============================================================================
+
 INT_MAX, INT_MIN               // Max/min int
 LLONG_MAX, LLONG_MIN           // Max/min long long
 abs(x)                         // Absolute value
@@ -593,9 +592,9 @@ x >> k                         // Right shift
 __builtin_popcount(x)          // Count 1 bits (GCC)
 __builtin_clz(x)               // Count leading zeros
 
-// ============================================================================
+
 // COMMON ALGORITHMS
-// ============================================================================
+
 // Binary Search
 int binary_search(vector<int>& arr, int target) {
     int left = 0, right = arr.size() - 1;
@@ -635,9 +634,9 @@ void bfs(int start, vector<vector<int>>& graph) {
     }
 }
 
-// ============================================================================
+
 // INPUT/OUTPUT (Fast I/O for Competitive Programming)
-// ============================================================================
+
 ios_base::sync_with_stdio(false);
 cin.tie(NULL);
 
@@ -667,9 +666,9 @@ import (
     "math"
 )
 
-// ============================================================================
+
 // DATA STRUCTURES - INITIALIZATION
-// ============================================================================
+
 arr := []int{}                         // Dynamic slice
 arr := make([]int, n)                  // Slice size n, init to 0
 matrix := make([][]int, rows)
@@ -698,9 +697,9 @@ func (h *MinHeap) Pop() interface{} {
 minHeap := &MinHeap{}
 heap.Init(minHeap)
 
-// ============================================================================
+
 // COMMON OPERATIONS
-// ============================================================================
+
 // Slice
 arr = append(arr, x)                   // O(1) amortized - add to end
 arr = arr[:len(arr)-1]                 // O(1) - remove last (manual)
@@ -729,9 +728,9 @@ queue.PushFront(x)                     // O(1) - add to front
 front := queue.Front()                 // O(1) - get front element
 queue.Remove(front)                    // O(1) - remove element
 
-// ============================================================================
+
 // SORTING & SEARCHING
-// ============================================================================
+
 sort.Ints(arr)                         // O(n log n) - ascending
 sort.Sort(sort.Reverse(sort.IntSlice(arr))) // Descending
 sort.Slice(arr, func(i, j int) bool {  // Custom sort
@@ -744,9 +743,9 @@ if idx < len(arr) && arr[idx] == x {
     // found
 }
 
-// ============================================================================
+
 // ITERATION PATTERNS
-// ============================================================================
+
 for i := 0; i < n; i++ {}              // Index
 for i, val := range arr {}             // Index + value
 for _, val := range arr {}             // Value only
@@ -761,9 +760,9 @@ for left < right {
     right--
 }
 
-// ============================================================================
+
 // STRING OPERATIONS
-// ============================================================================
+
 s := "hello"
 len(s)                                 // Length
 s[i]                                   // Access byte (not rune!)
@@ -788,9 +787,9 @@ unicode.IsLetter(r)
 unicode.IsDigit(r)
 r >= 'a' && r <= 'z'                   // Check lowercase
 
-// ============================================================================
+
 // MATH & BIT OPERATIONS
-// ============================================================================
+
 math.MaxInt, math.MinInt               // Max/min int (Go 1.17+)
 math.Abs(float64(x))                   // Absolute (converts to float)
 math.Max(a, b), math.Min(a, b)         // Max/min (float64 only)
@@ -810,9 +809,9 @@ x ^ y                                  // XOR
 x << k                                 // Left shift
 x >> k                                 // Right shift
 
-// ============================================================================
+
 // COMMON ALGORITHMS
-// ============================================================================
+
 // Binary Search
 func binarySearch(arr []int, target int) int {
     left, right := 0, len(arr)-1
@@ -856,9 +855,9 @@ func bfs(start int, graph map[int][]int) {
     }
 }
 
-// ============================================================================
+
 // INPUT/OUTPUT
-// ============================================================================
+
 var n int
 fmt.Scan(&n)                           // Single integer
 
@@ -884,9 +883,9 @@ fmt.Println(ans)                       // Output
 #include <limits.h>
 #include <math.h>
 
-// ============================================================================
+
 // DATA STRUCTURES - INITIALIZATION (Manual Implementation Required)
-// ============================================================================
+
 // Dynamic array (manual)
 int* arr = (int*)malloc(n * sizeof(int));
 int** matrix = (int**)malloc(rows * sizeof(int*));
@@ -907,9 +906,9 @@ int top = -1;
 int queue[MAX_SIZE];
 int front = 0, rear = -1;
 
-// ============================================================================
+
 // COMMON OPERATIONS
-// ============================================================================
+
 // Array operations
 arr[i]                         // O(1) - access
 memset(arr, 0, n * sizeof(int)); // O(n) - initialize to 0
@@ -925,9 +924,9 @@ bool empty = (top == -1);      // Check empty
 queue[++rear % MAX_SIZE] = x;  // Enqueue
 int x = queue[front++ % MAX_SIZE]; // Dequeue
 
-// ============================================================================
+
 // SORTING & SEARCHING
-// ============================================================================
+
 // qsort (standard library)
 int compare(const void* a, const void* b) {
     return (*(int*)a - *(int*)b); // Ascending
@@ -937,9 +936,9 @@ qsort(arr, n, sizeof(int), compare);
 // Binary search (arr must be sorted)
 int* found = (int*)bsearch(&key, arr, n, sizeof(int), compare);
 
-// ============================================================================
+
 // STRING OPERATIONS
-// ============================================================================
+
 char s[100];
 strlen(s)                      // Length
 strcpy(dest, src)              // Copy
@@ -955,9 +954,9 @@ isalpha(c), isdigit(c), isalnum(c)
 tolower(c), toupper(c)
 c - '0'                        // Char to int digit
 
-// ============================================================================
+
 // MATH & BIT OPERATIONS
-// ============================================================================
+
 INT_MAX, INT_MIN               // Max/min int
 LLONG_MAX, LLONG_MIN           // Max/min long long
 abs(x)                         // Absolute value
@@ -977,9 +976,9 @@ x << k                         // Left shift
 x >> k                         // Right shift
 __builtin_popcount(x)          // Count 1 bits (GCC)
 
-// ============================================================================
+
 // COMMON ALGORITHMS
-// ============================================================================
+
 // Binary Search
 int binary_search(int arr[], int n, int target) {
     int left = 0, right = n - 1;
@@ -1001,9 +1000,9 @@ void dfs(int node, int** graph, int* graphSize, bool* visited) {
     }
 }
 
-// ============================================================================
+
 // INPUT/OUTPUT
-// ============================================================================
+
 int n;
 scanf("%d", &n);               // Single integer
 
@@ -1028,13 +1027,13 @@ printf("%lld\n", ans);         // Output long long
 │ Array search (unsorted):   O(n)                             │
 │ Array search (sorted):     O(log n)  [binary search]        │
 │ Array insert/delete:       O(n)      [need to shift]        │
-│                                                              │
+│                                                             │
 │ Hash map get/set/delete:   O(1) average, O(n) worst         │
 │ Hash set operations:       O(1) average, O(n) worst         │
-│                                                              │
+│                                                             │
 │ Heap push/pop:             O(log n)                         │
 │ Heap peek:                 O(1)                             │
-│                                                              │
+│                                                             │
 │ Sorting:                   O(n log n) [comparison-based]    │
 │ BFS/DFS:                   O(V + E)   [V=vertices, E=edges] │
 │ Dynamic Programming:       O(n²) or O(n) typically          │
@@ -1043,11 +1042,12 @@ printf("%lld\n", ans);         // Output long long
 
 **Save these sheets. They're your career toolkit. Print and keep near desk for first 3 months of practice.**
 
-# DSA Speed Sheet: Comprehensive Quick Reference
+## DSA Speed Sheet: Comprehensive Quick Reference
 
 This speed sheet covers core Data Structures and Algorithms (DSA) topics for interviews, revision, or quick lookups. It includes key concepts, operations with time/space complexities (assuming standard implementations), common patterns, and tips. Use Big O notation for asymptotics: **T(n)** for time, **S(n)** for space.
 
 ## 1. Big O Notation Basics
+
 | Notation | Description | Example |
 |----------|-------------|---------|
 | O(1) | Constant | Array access |
@@ -1060,6 +1060,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Amortized analysis for dynamic arrays (e.g., resize in O(1) avg). Drop constants/low-order terms.
 
 ## 2. Arrays & Strings
+
 **Arrays**: Contiguous memory, fixed/random access.  
 **Strings**: Immutable arrays of chars (in many langs).
 
@@ -1073,6 +1074,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Subarray sum | O(n) | O(1) | Prefix sums for range queries |
 
 **Common Patterns**:
+
 - Two pointers (e.g., reverse, palindrome): O(n) time.
 - Sliding window (e.g., max substring): O(n) time.
 - Prefix/suffix arrays for hashing (e.g., string matching).
@@ -1080,6 +1082,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Use arrays for cache-friendly access. For strings, consider immutability (e.g., Java StringBuilder for mutations).
 
 ## 3. Linked Lists
+
 **Singly/Doubly**: Nodes with value + pointer(s). Head/tail for access.
 
 | Operation | Time | Space | Notes |
@@ -1091,6 +1094,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Search | O(n) | O(1) | Linear |
 
 **Common Patterns**:
+
 - Cycle detection: Floyd's tortoise-hare (O(n) time, O(1) space).
 - Reverse: Iterative (O(n) time) or recursive.
 - Merge two sorted: Dummy node (O(n) time).
@@ -1098,6 +1102,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Use dummy nodes for edge cases (empty list). Space: O(n) total for list.
 
 ## 4. Stacks & Queues
+
 **Stack**: LIFO (push/pop).  
 **Queue**: FIFO (enqueue/dequeue). Deque for both.
 
@@ -1109,6 +1114,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Search | O(n) | O(n) | O(1) | Not efficient |
 
 **Common Patterns**:
+
 - Stack: Valid parentheses (O(n)), next greater element (monotonic stack).
 - Queue: BFS (level order), sliding window max (deque).
 - Priority Queue (Heap): Min/max heap for Dijkstra, median finder.
@@ -1116,6 +1122,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Python: `list` for stack, `collections.deque` for queue (O(1) both ends). Heaps: `heapq` (min-heap).
 
 ## 5. Trees
+
 **Binary Tree**: ≤2 children/node. BST: sorted, balanced ~O(log n).
 
 | Operation | Unbalanced Time | Balanced Time | Space | Notes |
@@ -1127,6 +1134,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Height/LCA | O(n) | O(log n) | O(h) | - |
 
 **Common Patterns**:
+
 - Level order: BFS queue (O(n)).
 - Diameter: 2 DFS heights (O(n)).
 - Serialize/Deserialize: Preorder + markers.
@@ -1135,6 +1143,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Recursion for traversal. Morris traversal: O(1) space inorder. h = O(log n) for balanced.
 
 ## 6. Graphs
+
 **Adj List**: {node: [neighbors]}. Directed/Undirected, Weighted.
 
 | Operation | Time | Space | Notes |
@@ -1147,6 +1156,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Topo Sort | O(V+E) | O(V) | Kahn's (indegrees) or DFS |
 
 **Common Patterns**:
+
 - Union-Find (DSU): For connectivity (O(α(n)) ~O(1) amortized).
 - MST: Kruskal/Prim (O(E log V)).
 - Bellman-Ford: Negative weights (O(VE)).
@@ -1154,6 +1164,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Adj list for sparse graphs (space O(V+E)). DFS recursion depth O(V). Handle disconnected components.
 
 ## 7. Sorting Algorithms
+
 | Algorithm | Time (Avg/Worst) | Space | Stable? | Notes |
 |-----------|------------------|-------|---------|-------|
 | Bubble | O(n²)/O(n²) | O(1) | Yes | Simple, rarely used |
@@ -1167,6 +1178,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Use built-ins (e.g., `sorted()` in Python: Timsort, O(n log n)). Stable preserves order.
 
 ## 8. Searching Algorithms
+
 | Algorithm | Time | Space | Prerequisites | Notes |
 |-----------|------|-------|---------------|-------|
 | Linear | O(n) | O(1) | None | Unsorted |
@@ -1178,6 +1190,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Binary for sorted arrays. Hash tables for avg O(1) search.
 
 ## 9. Hashing
+
 **Hash Table**: Key-value, hash function + chaining/resize.
 
 | Operation | Avg Time | Worst Time | Space |
@@ -1187,6 +1200,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Search | O(1) | O(n) | O(n) |
 
 **Common Patterns**:
+
 - Collision: Chaining (lists) or open addressing (linear probing).
 - Substring anagram: Sliding window + freq map.
 - LRU Cache: Hash + DLL (O(1) all ops).
@@ -1194,6 +1208,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Load factor ~0.7. Python: `dict`. Handle collisions for worst-case.
 
 ## 10. Dynamic Programming (DP)
+
 **Memoization/Tabulation**: Overlapping subproblems + optimal substructure.
 
 | Type | Time | Space | Optimization |
@@ -1204,6 +1219,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Matrix Chain | O(n³) | O(n²) | - |
 
 **Common Patterns**:
+
 - 1D DP: House robber (O(n) time/space).
 - 2D DP: Edit distance (O(mn)).
 - State: dp[i][j] = optimal for subproblem i,j.
@@ -1211,6 +1227,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Identify recurrence → memoize → tabulate bottom-up. Space optimize by using prev row.
 
 ## 11. Greedy Algorithms
+
 **Local optimum → global**: No backtracking.
 
 | Problem | Greedy Choice | Time |
@@ -1223,6 +1240,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 **Tips**: Prove greedy works (exchange argument). Not for all (e.g., 0/1 knapsack).
 
 ## 12. Common Interview Patterns & Tips
+
 | Pattern | Key Idea | Example Problems |
 |---------|----------|------------------|
 | Two Pointers | Slow/fast, left/right | Container with most water, Remove duplicates |
@@ -1233,6 +1251,7 @@ This speed sheet covers core Data Structures and Algorithms (DSA) topics for int
 | Design | Scale, consistency | LRU Cache, TinyURL |
 
 **General Tips**:
+
 - **Complexity**: Always state T/S. Optimize space (in-place where possible).
 - **Edge Cases**: Empty input, single element, duplicates, overflow.
 - **Languages**: Python (easy), C++ (fast), Java (OOP).

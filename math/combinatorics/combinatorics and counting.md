@@ -1,6 +1,7 @@
 # Combinatorics & Counting: A Comprehensive Mastery Guide
 
 ## Table of Contents
+
 1. Foundational Principles
 2. Core Counting Techniques
 3. Advanced Counting Methods
@@ -17,6 +18,7 @@
 **Core Insight**: Counting is about structured thinking. Every counting problem asks: "How many ways can we arrange, select, or distribute objects under given constraints?"
 
 **The Three Questions Framework**:
+
 1. **What are we counting?** (Objects, arrangements, selections)
 2. **What are the constraints?** (Order matters? Repetition allowed? Restrictions?)
 3. **Can we break it down?** (Sum Rule? Product Rule? Inclusion-Exclusion?)
@@ -28,6 +30,7 @@
 **Mental Model**: Think "OR" → Add
 
 **Example**: Traveling from A to C via B.
+
 - If A→B has 3 routes and B→C has 4 routes, but they're done sequentially (not "or"), this is multiplication.
 - If you can go A→C directly (2 routes) OR via B (3×4 = 12 routes), then total = 2 + 12 = 14.
 
@@ -38,11 +41,13 @@
 **Mental Model**: Think "AND" → Multiply
 
 **Example**: Password with 3 digits followed by 2 letters.
+
 - Digits: 10 choices each → 10 × 10 × 10
 - Letters: 26 choices each → 26 × 26
 - Total: 10³ × 26² = 676,000
 
 **Code Pattern (Python)**:
+
 ```python
 def count_sequences(choices_per_stage):
     """Product rule implementation"""
@@ -56,6 +61,7 @@ print(count_sequences([10, 10, 10, 26, 26]))  # 676000
 ```
 
 **Rust (idiomatic)**:
+
 ```rust
 fn count_sequences(choices: &[usize]) -> usize {
     choices.iter().product()
@@ -79,11 +85,13 @@ let result = count_sequences(&[10, 10, 10, 26, 26]);
 
 **Mental Model**: Filling `r` slots sequentially with decreasing choices.
 
-**When to use**: 
+**When to use**:
+
 - "Arrange", "order", "sequence", "first/second/third"
 - Positions are distinguishable
 
 **Example**: Arrange 3 books from 5 distinct books.
+
 - First position: 5 choices
 - Second position: 4 choices
 - Third position: 3 choices

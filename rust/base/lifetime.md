@@ -1,4 +1,5 @@
 Introduction to Lifetimes
+
 Rust enforces memory safety at compile time through its ownership model, which includes lifetimes. A lifetime represents the scope during which a reference is valid, ensuring it doesn't outlive the data it points to. Unlike garbage-collected languages, Rust uses lifetimes to track references explicitly, avoiding runtime overhead while guaranteeing safety.
 Every reference in Rust has a lifetime, either explicitly annotated (e.g., &'a i32) or inferred by the compiler through lifetime elision. Lifetimes are primarily about references, not owned data, since owned types (e.g., String) manage their own memory.
 Why Lifetimes Matter
