@@ -4,18 +4,20 @@
 
 ascii Visualization
 Algorithm Flow & Flowcharts
-Decision Tree 
+Decision Tree
+
+Kadane-Style Greedy
 
 Practical Takeaway: We use probabilistic or time-bounded algorithms (Paxos, Raft, etc.)
 
-CAP Theorem 
+CAP Theorem
 
-code to Decision Tree 
+code to Decision Tree
 code to Algorithm Flow & Flowcharts
 
-how serverless works? 
+how serverless works?
 
-OrderedDict/LinkedHashSet 
+OrderedDict/LinkedHashSet
 
 Floyd-Warshall
 If you literally mean *every* algorithm ever created, that is impossible—there are thousands, constantly evolving.

@@ -182,7 +182,7 @@ Would you like any of these next steps?
 
 Pick one and I’ll generate it.
 
-# The Ultimate Guide to Writing Clean, Efficient, and Maintainable Code
+## The Ultimate Guide to Writing Clean, Efficient, and Maintainable Code
 
 ## Introduction
 
