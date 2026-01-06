@@ -1822,15 +1822,15 @@ EMPLOYEES TABLE
 
 WITHOUT INDEX: Query "SELECT * FROM EMPLOYEES WHERE EMP_ID = 1005"
 ┌─────────────────────────────────────────────────────────────┐
-│                     FULL TABLE SCAN                        │
-│  ↓ Check Row 1: EMP_ID = 1001 ❌ (Not Found)              │
-│  ↓ Check Row 2: EMP_ID = 1002 ❌ (Not Found)              │
-│  ↓ Check Row 3: EMP_ID = 1003 ❌ (Not Found)              │
-│  ↓ Check Row 4: EMP_ID = 1004 ❌ (Not Found)              │
-│  ↓ Check Row 5: EMP_ID = 1005 ✅ (FOUND!)                 │
-│  ↓ Check Row 6: EMP_ID = 1006 ❌ (Continue...)            │
-│  ↓ Check Row 7: EMP_ID = 1007 ❌ (Continue...)            │
-│  ↓ Check Row 8: EMP_ID = 1008 ❌ (End of Table)           │
+│                     FULL TABLE SCAN                         │
+│  ↓ Check Row 1: EMP_ID = 1001 ❌ (Not Found)                │
+│  ↓ Check Row 2: EMP_ID = 1002 ❌ (Not Found)                │
+│  ↓ Check Row 3: EMP_ID = 1003 ❌ (Not Found)                │
+│  ↓ Check Row 4: EMP_ID = 1004 ❌ (Not Found)                │
+│  ↓ Check Row 5: EMP_ID = 1005 ✅ (FOUND!)                   │
+│  ↓ Check Row 6: EMP_ID = 1006 ❌ (Continue...)              │
+│  ↓ Check Row 7: EMP_ID = 1007 ❌ (Continue...)              │
+│  ↓ Check Row 8: EMP_ID = 1008 ❌ (End of Table)             │
 └─────────────────────────────────────────────────────────────┘
 Time Complexity: O(n) - Must check every row in worst case
 ```
@@ -1842,26 +1842,26 @@ CREATE INDEX idx_emp_id ON EMPLOYEES(EMP_ID);
 
 INDEX CREATION PROCESS:
 ┌─────────────────────────────────────────────────────────────┐
-│ STEP A: Extract EMP_ID values and ROW_IDs                  │
-│ ┌───────────┬───────────┬───────────┬───────────┐          │
-│ │ EMP_ID    │ ROW_ID    │ EMP_ID    │ ROW_ID    │          │
-│ │  1001  →  │    1      │  1005  →  │    5      │          │
-│ │  1002  →  │    2      │  1006  →  │    6      │          │
-│ │  1003  →  │    3      │  1007  →  │    7      │          │
-│ │  1004  →  │    4      │  1008  →  │    8      │          │
-│ └───────────┴───────────┴───────────┴───────────┘          │
+│ STEP A: Extract EMP_ID values and ROW_IDs                   │
+│ ┌───────────┬───────────┬───────────┬───────────┐           │
+│ │ EMP_ID    │ ROW_ID    │ EMP_ID    │ ROW_ID    │           │
+│ │  1001  →  │    1      │  1005  →  │    5      │           │
+│ │  1002  →  │    2      │  1006  →  │    6      │           │
+│ │  1003  →  │    3      │  1007  →  │    7      │           │
+│ │  1004  →  │    4      │  1008  →  │    8      │           │
+│ └───────────┴───────────┴───────────┴───────────┘           │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│ STEP B: Sort by EMP_ID values (Ascending Order)            │
-│ ┌───────────┬───────────┬───────────┬───────────┐          │
-│ │ EMP_ID    │ ROW_ID    │ EMP_ID    │ ROW_ID    │          │
-│ │  1001  →  │    1      │  1005  →  │    5      │          │
-│ │  1002  →  │    2      │  1006  →  │    6      │          │
-│ │  1003  →  │    3      │  1007  →  │    7      │          │
-│ │  1004  →  │    4      │  1008  →  │    8      │          │
-│ └───────────┴───────────┴───────────┴───────────┘          │
-│                    (Already sorted in this case)           │
+│ STEP B: Sort by EMP_ID values (Ascending Order)             │
+│ ┌───────────┬───────────┬───────────┬───────────┐           │
+│ │ EMP_ID    │ ROW_ID    │ EMP_ID    │ ROW_ID    │           │
+│ │  1001  →  │    1      │  1005  →  │    5      │           │
+│ │  1002  →  │    2      │  1006  →  │    6      │           │
+│ │  1003  →  │    3      │  1007  →  │    7      │           │
+│ │  1004  →  │    4      │  1008  →  │    8      │           │
+│ └───────────┴───────────┴───────────┴───────────┘           │
+│                    (Already sorted in this case)            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1890,10 +1890,10 @@ B-TREE INDEX ON EMP_ID
 
 INDEX STRUCTURE EXPLANATION:
 ┌─────────────────────────────────────────────────────────────┐
-│ • Root Node: Contains split values to navigate tree        │
-│ • Leaf Nodes: Contain actual EMP_ID → ROW_ID mappings     │
-│ • Sorted Order: Enables binary search (O(log n))          │
-│ • Balanced Tree: Ensures consistent performance            │
+│ • Root Node: Contains split values to navigate tree         │
+│ • Leaf Nodes: Contain actual EMP_ID → ROW_ID mappings       │
+│ • Sorted Order: Enables binary search (O(log n))            │
+│ • Balanced Tree: Ensures consistent performance             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1904,34 +1904,34 @@ WITH INDEX: Query "SELECT * FROM EMPLOYEES WHERE EMP_ID = 1005"
 
 STEP 1: INDEX TRAVERSAL
 ┌─────────────────────────────────────────────────────────────┐
-│                    ┌─────────────┐                         │
-│                    │ ROOT NODE   │                         │
-│    Search 1005 →   │   1004      │ → 1005 > 1004          │
-│                    └──────┬──────┘   Go RIGHT             │
-│                           │                                │
-│          ┌────────────────┴────────────────┐              │
-│          ▼                                 ▼              │
-│    ┌─────────────┐                   ┌─────────────┐      │
-│    │ LEAF NODE 1 │                   │ LEAF NODE 2 │      │
-│    │             │       ✅          │             │      │
-│    │ 1001 → 1    │   Found Here!     │ 1005 → 5    │ ←─── │
-│    │ 1002 → 2    │                   │ 1006 → 6    │      │
-│    │ 1003 → 3    │                   │ 1007 → 7    │      │
-│    │ 1004 → 4    │                   │ 1008 → 8    │      │
-│    └─────────────┘                   └─────────────┘      │
+│                    ┌─────────────┐                          │
+│                    │ ROOT NODE   │                          │
+│    Search 1005 →   │   1004      │ → 1005 > 1004            │
+│                    └──────┬──────┘   Go RIGHT               │
+│                           │                                 │
+│          ┌────────────────┴────────────────┐                │
+│          ▼                                 ▼                │
+│    ┌─────────────┐                   ┌─────────────┐        │
+│    │ LEAF NODE 1 │                   │ LEAF NODE 2 │        │
+│    │             │       ✅          │             │        │
+│    │ 1001 → 1    │   Found Here!     │ 1005 → 5    │ ←───   │
+│    │ 1002 → 2    │                   │ 1006 → 6    │        │
+│    │ 1003 → 3    │                   │ 1007 → 7    │        │
+│    │ 1004 → 4    │                   │ 1008 → 8    │        │
+│    └─────────────┘                   └─────────────┘        │
 └─────────────────────────────────────────────────────────────┘
 
 STEP 2: DIRECT ROW ACCESS
 ┌─────────────────────────────────────────────────────────────┐
-│ Index found: EMP_ID 1005 → ROW_ID 5                        │
-│ Direct access to Row 5 in main table:                      │
+│ Index found: EMP_ID 1005 → ROW_ID 5                         │
+│ Direct access to Row 5 in main table:                       │
 │                                                             │
 │ EMPLOYEES TABLE                                             │
-│ ┌────────┬────────┬───────────┬────────────┬────────┬─────┐│
-│ │ROW_ID 5│  1005  │    Eve    │     HR     │ 55000  │ 35  ││
-│ └────────┴────────┴───────────┴────────────┴────────┴─────┘│
-│                           ↑                                │
-│                    RESULT FOUND!                           │
+│ ┌────────┬────────┬───────────┬────────────┬────────┬─────┐ │
+│ │ROW_ID 5│  1005  │    Eve    │     HR     │ 55000  │ 35  │ │
+│ └────────┴────────┴───────────┴────────────┴────────┴─────┘ │
+│                           ↑                                 │
+│                    RESULT FOUND!                            │
 └─────────────────────────────────────────────────────────────┘
 
 Time Complexity: O(log n) - Logarithmic search time
@@ -1945,24 +1945,24 @@ PERFORMANCE ANALYSIS
 
 WITHOUT INDEX (Full Table Scan):
 ┌─────────────────────────────────────────────────────────────┐
-│ Records │ Average Comparisons │ Worst Case │ Time Complexity │
-├─────────┼───────────────────────┼────────────┼─────────────────┤
-│    8    │         4.5         │     8      │     O(n)        │
-│   100   │         50          │    100     │     O(n)        │
-│  1000   │        500          │   1000     │     O(n)        │
-│ 10000   │       5000          │  10000     │     O(n)        │
-│100000   │      50000          │ 100000     │     O(n)        │
-└─────────┴───────────────────────┴────────────┴─────────────────┘
+│ Records │ Average Comparisons │ Worst Case │ Time Complexity│
+├─────────┼─────────────────────┼────────────┼────────────────┤
+│    8    │         4.5         │     8      │     O(n)       │
+│   100   │         50          │    100     │     O(n)       │
+│  1000   │        500          │   1000     │     O(n)       │
+│ 10000   │       5000          │  10000     │     O(n)       │
+│100000   │      50000          │ 100000     │     O(n)       │
+└─────────┴─────────────────── ─┴────────────┴────────────────┘
 
 WITH INDEX (B-Tree Search):
 ┌─────────────────────────────────────────────────────────────┐
 │ Records │ Tree Depth │ Max Comparisons │ Time Complexity    │
 ├─────────┼────────────┼─────────────────┼────────────────────┤
-│    8    │     3      │       3         │    O(log n)       │
-│   100   │     7      │       7         │    O(log n)       │
-│  1000   │    10      │      10         │    O(log n)       │
-│ 10000   │    14      │      14         │    O(log n)       │
-│100000   │    17      │      17         │    O(log n)       │
+│    8    │     3      │       3         │    O(log n)        │
+│   100   │     7      │       7         │    O(log n)        │
+│  1000   │    10      │      10         │    O(log n)        │
+│ 10000   │    14      │      14         │    O(log n)        │
+│100000   │    17      │      17         │    O(log n)        │
 └─────────┴────────────┴─────────────────┴────────────────────┘
 
 SPEED IMPROVEMENT VISUALIZATION:

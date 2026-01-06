@@ -55,7 +55,7 @@ Hash tables (also known as hash maps) are one of the most important and widely u
 
 HASH MAP STRUCTURE
 ==================
-
+```ascii
 Keys to Hash:        Hash Function         Hash Table (Array)
                                           
 "apple"   ──────>   hash("apple")   ──>  Index 0:  
@@ -66,11 +66,12 @@ Keys to Hash:        Hash Function         Hash Table (Array)
                                          Index 5:  
                                          Index 6: → ["cherry", 7]
                                          Index 7:  
-
+```
 
 WITH COLLISION HANDLING (Chaining):
 ====================================
 
+```
 Hash Table with Linked Lists for collisions:
 
 Index 0: → NULL
@@ -92,6 +93,7 @@ Index 6: → ["cherry", 7] → NULL
 Index 7: → NULL
 
 Here's a detailed explanation of collision handling with linked lists (chaining):
+```
 
 ## What is a Collision?
 
