@@ -1,5 +1,168 @@
 # ULTIMATE SPEED SHEETS - Career-Long Reference
 
+Greetings, fellow seeker of mastery. 🎯
+
+Your approach—disciplined, from-fundamentals, seeking top 1% understanding—is exactly the path that separates true practitioners from those who merely memorize patterns. Let's begin your journey with the foundational knowledge of your tools.
+
+---
+
+## **LeetCode-Supported Libraries by Language**
+
+Understanding what's available in your competitive programming environment is crucial—these are your weapons. Let me break down each language's standard library support on LeetCode.
+
+---
+
+### **🐍 PYTHON 3**
+
+**Core Libraries** (always available):
+
+```python
+# Built-in data structures
+list, dict, set, tuple, frozenset, deque (from collections)
+
+# Standard Library Modules:
+import collections  # Counter, defaultdict, deque, OrderedDict, namedtuple
+import heapq        # Min-heap operations
+import bisect       # Binary search utilities
+import math         # Mathematical functions
+import itertools    # Combinatorial iterators (permutations, combinations)
+import functools    # lru_cache, reduce
+import re           # Regular expressions
+import string       # String constants
+import random       # Random number generation
+import sys          # System-specific parameters (recursion limit)
+import operator     # Operator functions
+import copy         # Deep/shallow copy
+```
+
+**Key Concepts:**
+
+- **`collections.deque`**: Double-ended queue—O(1) append/pop from both ends (vs list's O(n) for left operations)
+- **`heapq`**: Min-heap by default; for max-heap, negate values
+- **`bisect`**: Binary search on sorted lists
+- **`@lru_cache`**: Memoization decorator for dynamic programming
+
+---
+
+### **🦀 RUST**
+
+**Standard Library** (available via `use` statements):
+
+```rust
+// Core Collections
+use std::collections::{
+    HashMap,        // Hash table
+    HashSet,        // Hash set
+    BTreeMap,       // Ordered map (Red-Black Tree)
+    BTreeSet,       // Ordered set
+    VecDeque,       // Double-ended queue
+    BinaryHeap,     // Max-heap by default
+    LinkedList,     // Doubly-linked list (rarely used)
+};
+
+// Common utilities
+use std::cmp::{max, min, Reverse};  // Reverse for min-heap
+use std::iter;                       // Iterator tools
+use std::mem;                        // Memory utilities (swap, replace)
+use std::ops;                        // Operator traits
+```
+
+**Key Concepts:**
+
+- **Ownership & Borrowing**: Rust's memory safety guarantees—you'll need to understand lifetimes
+- **`BinaryHeap`**: Max-heap; wrap elements in `Reverse(x)` for min-heap behavior
+- **`BTreeMap`/`BTreeSet`**: Sorted collections—O(log n) operations, useful when order matters
+
+---
+
+### **🐹 GO (Golang)**
+
+**Standard Library**:
+
+```go
+// Core packages
+import (
+    "container/heap"     // Heap interface (you implement)
+    "container/list"     // Doubly-linked list
+    "sort"               // Sorting and binary search
+    "math"               // Math functions
+    "strings"            // String utilities
+    "strconv"            // String conversions
+)
+
+// Built-in data structures
+// Slice: []int (dynamic array)
+// Map: map[string]int (hash table)
+// No built-in Set—use map[T]struct{} as workaround
+```
+
+**Key Concepts:**
+
+- **Slices**: Dynamic arrays with capacity management
+- **`container/heap`**: Interface-based—you define type and implement 5 methods (Len, Less, Swap, Push, Pop)
+- **No generics** (pre-Go 1.18 on LeetCode)—use `interface{}` or concrete types
+- **`sort.Search`**: Binary search on sorted slices
+
+---
+
+## **Mental Model: Know Your Tools' Performance Characteristics**
+
+This is **critical thinking** for top-tier problem solving:
+
+| Operation | Python | Rust | Go | Time Complexity |
+|-----------|--------|------|-----|-----------------|
+| **Append** | `list.append()` | `vec.push()` | `append(slice, x)` | Amortized O(1) |
+| **Insert at start** | `list.insert(0, x)` | `vec.insert(0, x)` | Manual shift | O(n) ⚠️ |
+| **Pop from end** | `list.pop()` | `vec.pop()` | `slice[:len-1]` | O(1) |
+| **Hash lookup** | `dict[key]` | `map.get(key)` | `map[key]` | Average O(1) |
+| **Sorted map** | ❌ (use SortedDict lib) | `BTreeMap` ✅ | ❌ (manual) | O(log n) |
+
+**Cognitive Principle**: **Chunking**—internalize these patterns so you can focus mental energy on algorithm design, not syntax.
+
+---
+
+## **Philosophical Framework: The Three Pillars of Mastery**
+
+### **1. Understanding (理解 - Rikai)**
+
+Know *why* data structures exist—their trade-offs, their guarantees.
+
+**Example**: Why does a hash table average O(1) but not guarantee it? (Answer: Hash collisions can degrade to O(n) in worst case)
+
+### **2. Recognition (認識 - Ninshiki)**
+
+Instantly identify problem patterns:
+
+- See "find kth largest" → Think: **Heap** or **Quickselect**
+- See "subarray sum" → Think: **Prefix sum** or **Sliding window**
+
+### **3. Execution (実行 - Jikkō)**
+
+Flawless implementation under pressure—muscle memory through deliberate practice.
+
+---
+
+## **Next Steps: Your Training Path**
+
+When you bring me a problem, I will provide:
+
+1. **🧠 Intuition Building**: The mental model before touching code
+2. **📊 Complexity Analysis**: Time/space with detailed reasoning
+3. **💎 Three-Tier Solutions**: Brute force → Optimized → Elegant
+4. **🔍 Code Review**: Your solution's strengths, weaknesses, hidden bugs
+5. **🎯 Pattern Recognition**: What category does this belong to?
+6. **📈 Growth Insights**: What cognitive skill did this problem target?
+
+---
+
+**Your first challenge awaits.** Bring me a problem—any problem—and let's dissect it with the precision of a master swordsmith forging a blade.
+
+*"In the beginner's mind there are many possibilities, but in the expert's mind there are few."* — Shunryu Suzuki
+
+Yet we seek to **be beginners who see all possibilities, and experts who choose the right one.**
+
+Ready when you are. 🥋
+
 ## 🐍 PYTHON SPEED SHEET
 
 ```python

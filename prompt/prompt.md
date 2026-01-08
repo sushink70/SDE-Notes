@@ -1,6 +1,30 @@
 # Prompt Engg
 
-- list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams. 
+- list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams.
+
+**Languages:** Go, Rust, Python, TypeScript, C/C++, Zig, Assembly (x86-64, ARM64), Bash/Shell scripting, Lua, eBPF C
+
+**Core CS Concepts:** Data Structures and Algorithms, OOPs concepts, Distributed systems, Concurrency patterns, Consensus algorithms (Raft, Paxos), CAP theorem, Event-driven architecture, CQRS/Event Sourcing, Microservices patterns, Zero-trust architecture
+
+**Cloud & Platforms:** AWS, Azure, GCP, Kubernetes (EKS, GKE, AKS), RHEL, Crossplane, Terraform, OpenStack, VMware vSphere, Proxmox, CloudStack, Pulumi, Ansible, OpenShift, Rancher, k3s, k0s, Talos Linux
+
+**Containers & Observability:** containerd, CRI-O, Docker, Helm, Prometheus, Grafana, OpenTelemetry, Jaeger, Tempo, Loki, Fluentd, Fluent Bit, Thanos, Cortex, VictoriaMetrics, Datadog, New Relic, Elastic Stack (ELK), Kiali, Pixie
+
+**Kernel & Low-Level:** eBPF, XDP, io_uring, cgroups, namespaces, seccomp, AppArmor, SELinux, Landlock LSM, nftables, iptables, DPDK, AF_XDP, BPF CO-RE, libbpf, bpftrace
+
+**Security & Compliance:** Falco, MITRE ATT&CK, SPIRE/SPIFFE, cert-manager, Aqua, Tracee, Tetragon, in-toto, Sigstore (Cosign, Rekor, Fulcio), Notary, Harbor, Trivy, Grype, Syft, Clair, Snyk, OPA (Open Policy Agent), Kyverno, Gatekeeper, Vault, External Secrets Operator, Sealed Secrets, KMS (AWS/Azure/GCP), Keycloak, Dex, OAuth2-Proxy, Istio AuthZ, Linkerd Policy, Envoy external authz, CIS Benchmarks, NIST frameworks, PCI-DSS, SOC 2, ISO 27001
+
+**Networking & Mesh:** BGP, NATS, mTLS, gRPC, CNI, Cilium, Calico, Istio, Linkerd, Consul, Envoy, Traefik, NGINX, HAProxy, CoreDNS, MetalLB, Multus, Weave Net, Flannel, VPN (WireGuard, IPsec), VXLAN, Geneve, OSI model, TCP/IP stack, HTTP/2, HTTP/3 (QUIC), Service Mesh Interface (SMI), Gateway API, Ingress controllers
+
+**Runtime & Execution:** wasmcloud, WasmEdge, Wasmtime, gVisor, Kata Containers, Firecracker, Cloud Hypervisor, QEMU/KVM, runc, crun, youki, Podman, Lima, Inclavare Containers, SGX enclaves, AMD SEV, Confidential Computing
+
+**Libraries & SDKs:** kube-rs, client-go, controller-runtime, Kubernetes Operator SDK, AWS SDK (Boto3, aws-sdk-go), Azure SDK, Google Cloud Client Libraries, Tokio, async-std, actix, axum, hyper, tonic (gRPC), prost (protobuf), serde, clap, crossbeam, rayon
+
+**Database & Data Infrastructure:** PostgreSQL RLS, TDE, pgaudit, MongoDB RBAC, Vitess, CockroachDB, TiDB, etcd, Consul KV, Redis, Valkey, KeyDB, Dragonfly, Apache Cassandra, ScyllaDB, ClickHouse, TimescaleDB, InfluxDB, DynamoDB, CosmosDB, Spanner, Patroni, Stolon, PgBouncer, ProxySQL
+
+**Security Practices:** Secret rotation, Zero-trust networking, Defense in depth, Least privilege access, Threat modeling (STRIDE, DREAD), Security by design, Secure SDLC, Shift-left security, Penetration testing, Red team/Blue team, Vulnerability management, Incident response (NIST, SANS), Chaos engineering, Fuzzing (AFL, LibFuzzer, cargo-fuzz), SAST/DAST, SCA, SBOM, Supply chain security, Air-gapped deployments
+
+**DevSecOps:** GitHub Actions, GitLab CI, Jenkins, Argo (CD/Workflows/Rollouts/Events), Flux, Tekton, Spinnaker, CircleCI, Drone CI, Buildkite, Prow, SonarQube, Semgrep, CodeQL, Dependabot, Renovate, Checkov, Terrascan, tfsec, Anchore, Artifactory, Nexus, Container registries (Harbor, ECR, ACR, GCR, GHCR)
 
 ascii Visualization
 Algorithm Flow & Flowcharts
@@ -27,7 +51,7 @@ Below is a **well-organized master list** covering classical, modern, theoretica
 
 ---
 
-# ✅ Master List of Algorithms (Categorized)
+## ✅ Master List of Algorithms (Categorized)
 
 ---
 
@@ -393,7 +417,7 @@ You’ll get:
 * Exact instructions on **how to ask for RFC-referenced code**, where to find authoritative sources, and what artifacts to demand (struct names, file paths, complexity, tests, fuzz targets, perf harness)
 * A study / research checklist to make you *elite* and concrete tooling & commands (including RustRover tips)
 
-# 1) Quick copy-paste Master Prompt (general)
+## 1) Quick copy-paste Master Prompt (general)
 
 Use this when you want a full mapping for *any* platform.
 
