@@ -1,5 +1,11 @@
 # Prompt Engg
 
+Segment Tree - Range query and update operations
+Binary Indexed Tree (Fenwick Tree) - Efficient prefix sum queries.
+Expression trees.
+AVL trees
+Fenwick Tree
+
 - list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams.
 
 **Languages:** Go, Rust, Python, TypeScript, C/C++, Zig, Assembly (x86-64, ARM64), Bash/Shell scripting, Lua, eBPF C

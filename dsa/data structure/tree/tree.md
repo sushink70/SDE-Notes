@@ -1,46 +1,7 @@
 # Comprehensive Tree Implementation Guide
 
-## Additional Tree Implementations Added:
-
-**Advanced Trees:**
-- **Red-Black Tree** - Self-balancing BST with color properties
-- **Trie (Prefix Tree)** - Efficient string storage and retrieval
-- **Segment Tree** - Range query and update operations
-- **Binary Indexed Tree (Fenwick Tree)** - Efficient prefix sum queries
-
-**Advanced Operations:**
-- Tree serialization/deserialization
-- Path sum algorithms
-- Diameter calculation
-- Lowest Common Ancestor (LCA)
-- Tree inversion and symmetry checking
-
-**Utility Functions:**
-- Tree visualization and printing
-- Array-to-tree and tree-to-array conversion
-- Maximum path sum calculation
-- Tree comparison and validation
-
-**Performance Features:**
-- Comprehensive benchmarking code
-- Time complexity analysis for all operations
-- Memory usage optimization techniques
-- Production-ready implementations
-
-**Key Highlights:**
-
-1. **Red-Black Tree**: Complete implementation with insertion, rotation, and fixup procedures
-2. **Trie**: Full-featured with prefix search, word completion, and deletion
-3. **Segment Tree**: Range queries and updates in O(log n) time
-4. **Fenwick Tree**: Space-efficient alternative for range sum queries
-5. **Advanced Algorithms**: LCA, path sum, diameter, and serialization
-6. **Benchmarking Suite**: Performance comparison across different tree types
-
-The guide now serves as a complete reference for tree data structures, suitable for both learning and production use. Each implementation includes detailed comments, error handling, and follows best practices for the respective languages.
-
-# Comprehensive Tree Implementation Guide
-
 ## Table of Contents
+
 1. [Introduction to Trees](#introduction-to-trees)
 2. [Basic Tree Node Structure](#basic-tree-node-structure)
 3. [Binary Tree Implementation](#binary-tree-implementation)
@@ -54,6 +15,7 @@ The guide now serves as a complete reference for tree data structures, suitable 
 ## Introduction to Trees
 
 A tree is a hierarchical data structure consisting of nodes connected by edges. Each tree has:
+
 - **Root**: The topmost node
 - **Parent**: A node that has one or more child nodes
 - **Child**: A node that has a parent
@@ -1803,7 +1765,7 @@ I'll create a comprehensive ASCII diagram showing how tree data structures work,
 
 Each concept is illustrated with clear ASCII art showing exactly how the operations work. The diagrams use consistent formatting and include numbered steps to show the progression of operations. This should give you a complete understanding of how trees function as a data structure!
 
-# Tree Data Structure - Step by Step ASCII Guide
+## Tree Data Structure - Step by Step ASCII Guide
 
 ## 1. Basic Tree Terminology
 
@@ -1818,6 +1780,7 @@ Each concept is illustrated with clear ASCII art showing exactly how the operati
 ```
 
 **Key Terms:**
+
 - **Root**: Top node (A)
 - **Parent**: Node with children (A, B, C)
 - **Child**: Node connected below (B, C are children of A)
@@ -1829,11 +1792,13 @@ Each concept is illustrated with clear ASCII art showing exactly how the operati
 ## 2. Step-by-Step Tree Construction
 
 ### Step 1: Start with Root
+
 ```
     50
 ```
 
 ### Step 2: Add Left and Right Children
+
 ```
       50
      /  \
@@ -1841,6 +1806,7 @@ Each concept is illustrated with clear ASCII art showing exactly how the operati
 ```
 
 ### Step 3: Add More Nodes (Binary Search Tree Example)
+
 ```
       50
      /  \
@@ -1850,6 +1816,7 @@ Each concept is illustrated with clear ASCII art showing exactly how the operati
 ```
 
 ### Step 4: Continue Building
+
 ```
         50
        /  \
@@ -1863,6 +1830,7 @@ Each concept is illustrated with clear ASCII art showing exactly how the operati
 ## 3. Tree Traversal Methods
 
 ### A. In-Order Traversal (Left → Root → Right)
+
 **Order of Visit:** 10 → 20 → 25 → 30 → 40 → 45 → 50 → 60 → 70 → 80 → 90
 
 ```
@@ -1883,6 +1851,7 @@ Step-by-step:
 ```
 
 ### B. Pre-Order Traversal (Root → Left → Right)
+
 **Order of Visit:** 50 → 30 → 20 → 10 → 25 → 40 → 45 → 70 → 60 → 80 → 90
 
 ```
@@ -1902,6 +1871,7 @@ Process:
 ```
 
 ### C. Post-Order Traversal (Left → Right → Root)
+
 **Order of Visit:** 10 → 25 → 20 → 45 → 40 → 30 → 60 → 90 → 80 → 70 → 50
 
 ```
@@ -1920,6 +1890,7 @@ Process:
 ```
 
 ### D. Level-Order Traversal (Breadth-First)
+
 **Order of Visit:** 50 → 30 → 70 → 20 → 40 → 60 → 80 → 10 → 25 → 45 → 90
 
 ```
@@ -1937,6 +1908,7 @@ Visit level by level, left to right
 ## 4. Binary Search Tree Operations
 
 ### Search Operation
+
 **Searching for value 40:**
 
 ```
@@ -1955,6 +1927,7 @@ Steps:
 ```
 
 ### Insertion Operation
+
 **Inserting value 35:**
 
 ```
@@ -1975,6 +1948,7 @@ Steps:
 ```
 
 ### Deletion Operation
+
 **Deleting node with one child (node 20):**
 
 ```
@@ -2012,6 +1986,7 @@ Steps:
 ## 5. Tree Height and Balance
 
 ### Balanced Tree (Height = 3)
+
 ```
         50
        /  \
@@ -2021,9 +1996,11 @@ Steps:
  / \   
 10  25
 ```
+
 **Height difference between subtrees ≤ 1**
 
 ### Unbalanced Tree (Height = 5)
+
 ```
     50
    /
@@ -2038,6 +2015,7 @@ Steps:
 ## 6. Special Tree Types
 
 ### Complete Binary Tree
+
 ```
         1
        / \
@@ -2052,6 +2030,7 @@ which is filled left to right
 ```
 
 ### Full Binary Tree
+
 ```
         1
        / \
@@ -2063,6 +2042,7 @@ Every node has 0 or 2 children
 ```
 
 ### Perfect Binary Tree
+
 ```
         1
        / \
@@ -2077,6 +2057,7 @@ All leaves at same level
 ## 7. Tree Applications
 
 ### File System Structure
+
 ```
     root/
     ├── home/
@@ -2090,6 +2071,7 @@ All leaves at same level
 ```
 
 ### Expression Tree
+
 **Expression: (3 + 5) * (2 - 1)**
 ```
        *
@@ -2100,6 +2082,7 @@ All leaves at same level
 ```
 
 ### Decision Tree
+
 ```
       Age < 30?
       /        \
@@ -2126,6 +2109,7 @@ Approved Denied
 ## 9. Memory Representation
 
 ### Array Representation (Complete Binary Tree)
+
 ```
 Tree:       1
           /   \
@@ -2143,6 +2127,7 @@ For node at index i:
 ```
 
 ### Linked Representation
+
 ```
 struct Node {
     int data;
@@ -2158,3 +2143,47 @@ struct Node {
 ```
 
 This comprehensive guide shows how trees work from basic concepts through advanced operations, with clear ASCII visualizations for each step!
+
+## Comprehensive Tree Implementation Guide
+
+## Additional Tree Implementations Added:
+
+**Advanced Trees:**
+
+- **Red-Black Tree** - Self-balancing BST with color properties
+- **Trie (Prefix Tree)** - Efficient string storage and retrieval
+- **Segment Tree** - Range query and update operations
+- **Binary Indexed Tree (Fenwick Tree)** - Efficient prefix sum queries
+
+**Advanced Operations:**
+
+- Tree serialization/deserialization
+- Path sum algorithms
+- Diameter calculation
+- Lowest Common Ancestor (LCA)
+- Tree inversion and symmetry checking
+
+**Utility Functions:**
+
+- Tree visualization and printing
+- Array-to-tree and tree-to-array conversion
+- Maximum path sum calculation
+- Tree comparison and validation
+
+**Performance Features:**
+
+- Comprehensive benchmarking code
+- Time complexity analysis for all operations
+- Memory usage optimization techniques
+- Production-ready implementations
+
+**Key Highlights:**
+
+1. **Red-Black Tree**: Complete implementation with insertion, rotation, and fixup procedures
+2. **Trie**: Full-featured with prefix search, word completion, and deletion
+3. **Segment Tree**: Range queries and updates in O(log n) time
+4. **Fenwick Tree**: Space-efficient alternative for range sum queries
+5. **Advanced Algorithms**: LCA, path sum, diameter, and serialization
+6. **Benchmarking Suite**: Performance comparison across different tree types
+
+The guide now serves as a complete reference for tree data structures, suitable for both learning and production use. Each implementation includes detailed comments, error handling, and follows best practices for the respective languages.

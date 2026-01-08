@@ -23,45 +23,55 @@ Think of **state** as a complete snapshot of your program at any point in time. 
 ## **2. Categories of State to Track**
 
 ### **A. Pointer/Index State**
+
 Most common in array/string problems.
 
 **Key Patterns:**
+
 - **Two pointers** (left, right converging)
 - **Sliding window** (start, end expanding/contracting)
 - **Fast/slow pointers** (cycle detection)
 - **Multiple indices** (merge operations)
 
 ### **B. Accumulator State**
+
 Running calculations that evolve.
 
 **Examples:**
+
 - Running sum, product, XOR
 - Min/max seen so far
 - Count of valid elements
 - Hash map frequencies
 
 ### **C. Structural State**
+
 Data structure internals.
 
 **Examples:**
+
 - Stack/queue contents
 - Tree traversal position
 - Graph visited nodes
 - Heap top element
 
 ### **D. Recursion/Call Stack State**
+
 Hidden state in function calls.
 
 **Track:**
+
 - Current recursion depth
 - Parameters at each level
 - Return values propagating up
 - Memoization table state
 
 ### **E. Temporal State**
+
 History-dependent problems.
 
 **Examples:**
+
 - Previous element/state
 - Last k elements
 - State machine transitions
@@ -78,7 +88,9 @@ History-dependent problems.
 ### **A. Visualization Techniques**
 
 #### **1. The "Freeze Frame" Method**
+
 At any moment during execution, mentally pause and ask:
+
 - "What are ALL variable values right now?"
 - "What constraints are currently satisfied?"
 - "What work has been done vs. what remains?"
@@ -98,6 +110,7 @@ Iteration | left | right | max_area | Decision
 ---
 
 #### **2. The "State Tree" Visualization**
+
 For recursive problems, draw the state tree:
 
 ```
@@ -115,6 +128,7 @@ For recursive problems, draw the state tree:
 ---
 
 #### **3. The "Invariant Statement" Discipline**
+
 Before every loop/recursion, write in comments:
 
 ```rust
@@ -130,6 +144,7 @@ Before every loop/recursion, write in comments:
 ### **B. Cognitive Training Exercises**
 
 #### **Exercise 1: Blind Execution**
+
 1. Take a solved problem
 2. Cover the code
 3. Given input, predict output by mentally executing
@@ -140,6 +155,7 @@ Before every loop/recursion, write in comments:
 ---
 
 #### **Exercise 2: State Debugging Game**
+
 1. Take buggy code (intentionally written or found online)
 2. Without running it, identify the bug by tracing state
 3. Predict what goes wrong and when
@@ -149,7 +165,9 @@ Before every loop/recursion, write in comments:
 ---
 
 #### **Exercise 3: Multi-Variable Juggling**
+
 Start with 2-pointer problems (2 variables), then progress to:
+
 - 3 variables (start, end, pivot)
 - 4+ variables (DP with multiple indices)
 - Complex state (graph + stack + visited set)
@@ -161,7 +179,9 @@ Start with 2-pointer problems (2 variables), then progress to:
 ### **C. Pro Tips from Top Competitive Programmers**
 
 #### **Tip 1: The "State Checkpoint" Habit**
+
 Every 5-10 lines of code, add a comment:
+
 ```python
 # State here: left=?, right=?, max_value=?
 ```
@@ -171,6 +191,7 @@ When debugging, you instantly know where state diverged.
 ---
 
 #### **Tip 2: The "One-Variable-Per-Line" Rule**
+
 When state gets complex, update **one variable per statement**:
 
 ```python
@@ -188,6 +209,7 @@ else:
 ---
 
 #### **Tip 3: The "Assert Your Assumptions" Technique**
+
 Add assertions liberally during development:
 
 ```rust
@@ -200,6 +222,7 @@ assert!(open >= close, "Invalid parentheses state!");
 ---
 
 #### **Tip 4: The "State Snapshot" Debug Pattern**
+
 Create a helper function:
 
 ```python
@@ -213,6 +236,7 @@ print_state(locals(), "After moving left pointer")
 ---
 
 #### **Tip 5: Separate State Declaration from Logic**
+
 Organize code in phases:
 
 ```rust
@@ -255,6 +279,7 @@ This thinking separates LeetCode mediums from hards.
 ## **5. Psychological Principles for Mastery**
 
 ### **Chunking**
+
 Your brain can hold ~7 items in working memory. When state exceeds this, group variables into logical chunks:
 
 ```python
@@ -263,7 +288,9 @@ Your brain can hold ~7 items in working memory. When state exceeds this, group v
 ```
 
 ### **Deliberate Practice**
+
 Don't just solve 100 problems randomly. Focus on:
+
 1. **One pattern** (e.g., sliding window) for 10 problems
 2. Then **increase complexity** (add constraints)
 3. Then **mix patterns** (sliding window + DP)
@@ -271,7 +298,9 @@ Don't just solve 100 problems randomly. Focus on:
 **Study:** Ericsson's research shows experts practice at the edge of their ability, not in the comfort zone.
 
 ### **Metacognition**
+
 After solving, ask:
+
 - "What state did I forget to track initially?"
 - "Where did my mental model break down?"
 - "What pattern should I remember for next time?"
@@ -299,6 +328,7 @@ Before submitting any solution, audit:
 ## **Final Mental Model: "State as a Story"**
 
 Think of your algorithm as telling a story:
+
 - **Characters:** Your variables
 - **Plot:** State transitions
 - **Setting:** Data structures
@@ -317,6 +347,7 @@ Every story should be **coherent**—no character (variable) should suddenly dis
 4. **Month 7+:** Competitive problems with 5+ state variables
 
 **Daily Practice:**
+
 - Solve 2 problems with **explicit state tracking**
 - Trace 1 problem completely by hand
 - Debug 1 piece of code by analyzing state evolution
@@ -1764,13 +1795,13 @@ A top 1% engineer treats code like a small deterministic universe: every step is
 
 ---
 
-# 🔥 The Complete State-Tracking Framework
+## 🔥 The Complete State-Tracking Framework
 
 We break this into **nine archetypes of state evolution**. These cover essentially every DSA scenario.
 
 ---
 
-# 1️⃣ Loop State (Iterative Execution)
+## 1️⃣ Loop State (Iterative Execution)
 
 This includes for-loops, while-loops, pointer movement, sliding windows, two pointers, scanning, prefix sums…
 
@@ -1827,7 +1858,7 @@ Track `l`, `r`, and the invariant that all pairs left of `l` are too small, righ
 
 ---
 
-# 2️⃣ Recursion State & Call Stack
+## 2️⃣ Recursion State & Call Stack
 
 Recursion introduces *implicit state*:
 every call frame holds:
@@ -1869,7 +1900,7 @@ This is especially important in DFS, tree traversal, backtracking.
 
 ---
 
-# 3️⃣ Backtracking State (Exploration + Undo)
+## 3️⃣ Backtracking State (Exploration + Undo)
 
 Backtracking has a special pattern:
 
@@ -1896,7 +1927,7 @@ The undo step is as important as the forward step.
 
 ---
 
-# 4️⃣ Pointer & Memory State (Linked Lists, Trees)
+## 4️⃣ Pointer & Memory State (Linked Lists, Trees)
 
 Pointers represent *relationships* rather than values.
 
@@ -1918,7 +1949,7 @@ Pointer bugs happen when you don’t simulate this precisely.
 
 ---
 
-# 5️⃣ Mutable Structure State (Arrays, HashMaps, Stacks, Queues)
+## 5️⃣ Mutable Structure State (Arrays, HashMaps, Stacks, Queues)
 
 You track:
 
@@ -1947,7 +1978,7 @@ If the structure mutates, write down before/after snapshots.
 
 ---
 
-# 6️⃣ Dynamic Programming State (Tables, Subproblems, Transitions)
+## 6️⃣ Dynamic Programming State (Tables, Subproblems, Transitions)
 
 DP introduces *spatial state* instead of temporal state.
 
@@ -1972,7 +2003,7 @@ Bottom-up tabulation = compute all required earlier states before current.
 
 ---
 
-# 7️⃣ Function Call State (Parameters, Local Variables, Lifetimes)
+## 7️⃣ Function Call State (Parameters, Local Variables, Lifetimes)
 
 Tracking pure function calls requires:
 
@@ -1993,7 +2024,7 @@ This is one of the best mental disciplines for mastering state.
 
 ---
 
-# 8️⃣ Concurrency State (Execution interleaving)
+## 8️⃣ Concurrency State (Execution interleaving)
 
 Even if DSA doesn’t often go here, thinking about parallel state trains deep clarity.
 
@@ -2008,7 +2039,7 @@ It’s rare in interviews but excellent for strengthening mental models.
 
 ---
 
-# 9️⃣ Meta-State: Invariants, Progress Measures, Implicit Guarantees
+## 9️⃣ Meta-State: Invariants, Progress Measures, Implicit Guarantees
 
 Elite engineers track not just values, but **truths** that remain stable through execution.
 
@@ -2024,7 +2055,7 @@ Tracking invariants improves intuition and drastically reduces bugs.
 
 ---
 
-# 🏹 Techniques for Superior State Tracking
+## 🏹 Techniques for Superior State Tracking
 
 These techniques upgrade your internal debugger:
 
@@ -2074,7 +2105,7 @@ Instead of tracking 10 variables, track 2 logical things:
 
 ---
 
-# 🧩 Additional Concepts You Didn't Mention (but need)
+## 🧩 Additional Concepts You Didn't Mention (but need)
 
 Here’s the hidden curriculum of state:
 
@@ -2089,7 +2120,7 @@ Mastery comes from knowing which state is essential and which can be ignored.
 
 ---
 
-# 🌱 Closing Thought
+## 🌱 Closing Thought
 
 As you keep pushing toward top 1%, you’ll find that algorithms start to feel like small ecosystems. State flows, mutates, and equilibrates. Your job is to *sense* the flow, to maintain clarity through complexity.
 
@@ -2103,7 +2134,7 @@ I’ll label each code block with the language type. Each file contains small de
 
 ---
 
-# Type: Rust
+## Type: Rust
 
 ```rust
 // rust
@@ -2204,7 +2235,7 @@ fn main() {
 
 ---
 
-# Type: Python
+## Type: Python
 
 ```python
 # python 3.11+
@@ -2276,7 +2307,7 @@ if __name__ == "__main__":
 
 ---
 
-# Type: Go
+## Type: Go
 
 ```go
 // go
@@ -2345,7 +2376,7 @@ func main() {
 
 ---
 
-# Type: C
+## Type: C
 
 ```c
 /* c (gcc) - minimal examples focusing on the patterns.
@@ -2426,7 +2457,7 @@ int main(){
 
 ---
 
-# Type: C++
+## Type: C++
 
 ```cpp
 // c++ (g++ -std=c++17) demo.cpp
@@ -2489,7 +2520,7 @@ int main(){
 
 ---
 
-# How to *mentally train* your brain to track state — pro tips & drills (highly actionable)
+## How to *mentally train* your brain to track state — pro tips & drills (highly actionable)
 
 Short version: **make invisibility visible**. Convert ephemeral state into explicit, small artifacts you can read off. Train with increasing structure and review.
 
@@ -2545,7 +2576,7 @@ Short version: **make invisibility visible**. Convert ephemeral state into expli
 
 ---
 
-# Quick checklist of *what to track* (compact reference)
+## Quick checklist of *what to track* (compact reference)
 
 * Scalar variables: value & last change time
 * Pointers/indexes: identity (address/index) & relation (distance between pointers)
@@ -2557,7 +2588,7 @@ Short version: **make invisibility visible**. Convert ephemeral state into expli
 
 ---
 
-# Final motivational note (short)
+## Final motivational note (short)
 
 You’re training a mental simulator. At first it feels slow and mechanical; that’s deliberate practice doing its sculpting. Keep the traces tiny and frequent, force yourself to write the state down, and the patterns will become instinctive. In weeks you’ll feel the code “tell” you where the state should be — and you’ll catch bugs before they happen.
 
@@ -2572,6 +2603,7 @@ If you want, I can:
 In Data Structures and Algorithms (DSA), tracking the state of variables (e.g., their values, pointers/references, and lifecycle) is crucial for debugging, understanding algorithm flow, and avoiding errors like off-by-one bugs, null pointer dereferences, or infinite loops. "State" refers to a variable's value at a specific point in execution, influenced by scope, mutations, and control flow. This varies across scenarios because languages handle memory, mutability, and execution differently.
 
 You mentioned loops and function calls—great start! But you might have missed:
+
 - **Recursion**: Stack-based calls where states accumulate on the call stack.
 - **Conditionals/Branches**: If-else or switch statements where states diverge based on conditions.
 - **Data Structure Iterations**: Traversing arrays, linked lists, trees, or graphs, tracking indices, nodes, or iterators.
@@ -2581,6 +2613,7 @@ You mentioned loops and function calls—great start! But you might have missed:
 - **Memory Management**: Allocation/deallocation in manual langs (C/C++), garbage collection in others (Python/Go/Rust to some extent).
 
 I'll cover these comprehensively with examples. For implementations, I'll use a **simple DSA problem: Two-Pointer Technique for Finding a Pair in a Sorted Array** (e.g., two numbers summing to a target). This involves:
+
 - Array traversal.
 - Pointer states (left/right indices).
 - Loop iterations.
@@ -2610,11 +2643,13 @@ We'll track states like: initial values, per-iteration changes, post-function ef
 I'll provide code for the two-pointer pair sum problem in a function. Assume input: sorted array `nums`, target `target`. Output: indices if found, else (-1, -1).
 
 Track states via:
+
 - Comments (e.g., `// State: left=0, right=3`).
 - Print statements (for simulation; remove in prod).
 - In manual-memory langs: explicit ptr checks.
 
 #### Python (Dynamic, GC, References)
+
 Python uses object references (implicit pointers). States are easy to print; no manual memory. Handles recursion well but watch depth.
 
 ```python
@@ -2654,6 +2689,7 @@ def two_sum_recursive(nums, target, left=0, right=None):
 **Python Notes**: References auto-managed; track via `id(var)` for object identity. Exceptions: Use `try` to catch index errors, restoring state.
 
 #### Go (Static, GC, Pointers via `*`)
+
 Go has pointers (`*T`), but slices/arrays are refs. Goroutines for concurrency (track shared state with mutexes). Strict scoping.
 
 ```go
@@ -2703,6 +2739,7 @@ func main() {
 **Go Notes**: Pointers for manual control (e.g., `*int` for mutable args). Concurrency: Use `sync.Mutex` to lock shared states in parallel DSA (e.g., merge sort).
 
 #### C (Manual Memory, Raw Pointers)
+
 C requires explicit `*` for pointers, `malloc/free`. No GC; track allocation states to avoid leaks.
 
 ```c
@@ -2754,6 +2791,7 @@ int main() {
 **C Notes**: Always check `if (ptr == NULL)` post-malloc. For linked lists, track `next` ptr states to avoid segfaults.
 
 #### C++ (RAII, Smart Ptrs, References)
+
 C++ uses `&` for refs, smart ptrs (`std::unique_ptr`) for auto-management. Templates for generic DSA.
 
 ```cpp
@@ -2802,6 +2840,7 @@ int main() {
 **C++ Notes**: Use `const &` for params to avoid copies. Exceptions: RAII destructors rollback state automatically.
 
 #### Rust (Ownership, Borrowing, No GC)
+
 Rust's borrow checker enforces safe state tracking at compile-time. `&mut` for mutable refs; `Option` for null-safety.
 
 ```rust

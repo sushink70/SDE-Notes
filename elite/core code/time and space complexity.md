@@ -1,9 +1,10 @@
 # Time & Space Complexity: Complete Masterclass
+
 ## A Comprehensive Guide for Python, Rust, Go, and C/C++
 
 ---
 
-# Table of Contents
+## Table of Contents
 
 1. [Foundational Theory](#1-foundational-theory)
 2. [Big-O Notation Deep Dive](#2-big-o-notation-deep-dive)
@@ -18,13 +19,14 @@
 
 ---
 
-# 1. Foundational Theory
+## 1. Foundational Theory
 
 ## 1.1 What is Complexity Analysis?
 
 **Definition:** A mathematical framework to describe how an algorithm's resource consumption (time/memory) grows as input size increases.
 
 **Purpose:**
+
 - Compare algorithms objectively
 - Predict performance at scale
 - Make informed trade-offs
@@ -51,6 +53,7 @@ At scale, A is better (linear vs quadratic)
 ## 1.2 The Three Asymptotic Notations
 
 ### **Big-O (O): Upper Bound**
+
 "Algorithm will never be worse than this"
 
 **Formal Definition:**  
@@ -60,6 +63,7 @@ At scale, A is better (linear vs quadratic)
 **Intuition:** Worst-case guarantee
 
 ### **Big-Omega (Ω): Lower Bound**
+
 "Algorithm will never be better than this"
 
 **Formal Definition:**  
@@ -69,6 +73,7 @@ At scale, A is better (linear vs quadratic)
 **Intuition:** Best-case guarantee
 
 ### **Big-Theta (Θ): Tight Bound**
+
 "Algorithm grows exactly like this"
 
 **Formal Definition:**  
@@ -108,11 +113,12 @@ O(2ⁿ):   1,024    ∞        ∞          ∞
 
 ---
 
-# 2. Big-O Notation Deep Dive
+## 2. Big-O Notation Deep Dive
 
 ## 2.1 Mathematical Rules
 
 ### **Rule 1: Drop Constants**
+
 ```
 O(3n) = O(n)
 O(n/2) = O(n)
@@ -122,6 +128,7 @@ Why? As n → ∞, constants become irrelevant
 ```
 
 ### **Rule 2: Drop Lower-Order Terms**
+
 ```
 O(n² + n) = O(n²)
 O(n³ + n² + n) = O(n³)
@@ -131,6 +138,7 @@ Why? Higher-order term dominates at scale
 ```
 
 ### **Rule 3: Different Variables Stay Separate**
+
 ```
 O(m + n) ≠ O(n)
 O(m * n) ≠ O(n²)
@@ -139,6 +147,7 @@ Why? m and n are independent inputs
 ```
 
 ### **Rule 4: Logarithm Base Doesn't Matter**
+
 ```
 O(log₂ n) = O(log₁₀ n) = O(log n)
 
@@ -150,6 +159,7 @@ Why? log_a(n) = log_b(n) / log_b(a) (constant factor)
 ## 2.2 Adding vs Multiplying Complexities
 
 ### **Addition: Sequential Operations**
+
 ```python
 # O(n) + O(m) = O(n + m)
 for i in range(n):
@@ -160,6 +170,7 @@ for j in range(m):
 ```
 
 ### **Multiplication: Nested Operations**
+
 ```python
 # O(n) * O(m) = O(n * m)
 for i in range(n):
@@ -168,6 +179,7 @@ for i in range(n):
 ```
 
 ### **Decision Tree:**
+
 ```
 Are operations nested?
 │
@@ -202,11 +214,12 @@ for i in range(n):
 
 ---
 
-# 3. Time Complexity Analysis
+## 3. Time Complexity Analysis
 
 ## 3.1 Analyzing Loops
 
 ### **Single Loop: O(n)**
+
 ```python
 # Python
 for i in range(n):
@@ -223,6 +236,7 @@ for i in 0..n {
 ```
 
 ### **Nested Loops: O(n²)**
+
 ```python
 # Python
 for i in range(n):
@@ -242,6 +256,7 @@ for i := 0; i < n; i++ {
 ```
 
 ### **Dependent Loops: O(n²)**
+
 ```python
 # Python - Triangle pattern
 for i in range(n):
@@ -258,6 +273,7 @@ for i in range(n):
 ```
 
 ### **Logarithmic Loop: O(log n)**
+
 ```python
 # Python - Dividing by 2 each time
 i = n
@@ -282,6 +298,7 @@ while (i > 1) {
 ```
 
 ### **Multiplying Loop Variable: O(log n)**
+
 ```python
 # Python
 i = 1
@@ -296,6 +313,7 @@ while i < n:
 ```
 
 ### **Square Root Loop: O(√n)**
+
 ```python
 # Python
 i = 0
@@ -316,6 +334,7 @@ while i * i < n:
 ### **Method 1: Recursion Tree**
 
 **Example: Binary Tree Traversal**
+
 ```python
 def traverse(node):
     if not node:
@@ -341,6 +360,7 @@ Time: O(n)
 **For recurrences:** `T(n) = a·T(n/b) + f(n)`
 
 Where:
+
 - `a` = number of recursive calls
 - `b` = factor by which input shrinks
 - `f(n)` = work done outside recursion
@@ -383,6 +403,7 @@ Where:
 ## 3.3 Time Complexity by Code Pattern
 
 ### **Pattern 1: Constant Time O(1)**
+
 ```python
 # Array access
 x = arr[5]
@@ -399,6 +420,7 @@ if x > y:
 ```
 
 ### **Pattern 2: Logarithmic O(log n)**
+
 ```python
 # Binary search
 def binary_search(arr, target):
@@ -418,6 +440,7 @@ bst.insert(value)  # O(log n) for balanced BST
 ```
 
 ### **Pattern 3: Linear O(n)**
+
 ```python
 # Single pass through array
 total = sum(arr)
@@ -437,6 +460,7 @@ for char in string:
 ```
 
 ### **Pattern 4: Linearithmic O(n log n)**
+
 ```python
 # Efficient sorting
 arr.sort()  # Timsort in Python
@@ -453,6 +477,7 @@ def merge_sort(arr):
 ```
 
 ### **Pattern 5: Quadratic O(n²)**
+
 ```python
 # Bubble sort
 def bubble_sort(arr):
@@ -469,6 +494,7 @@ for i in range(n):
 ```
 
 ### **Pattern 6: Exponential O(2ⁿ)**
+
 ```python
 # Generate all subsets
 def subsets(arr):
@@ -486,13 +512,14 @@ def fib(n):
 
 ---
 
-# 4. Space Complexity Analysis
+## 4. Space Complexity Analysis
 
 ## 4.1 What Counts as Space?
 
 ### ✅ **COUNTS as Auxiliary Space:**
 
 1. **New Data Structures**
+
    ```python
    temp = [0] * n        # O(n)
    hashmap = {}          # O(n) worst case
@@ -500,6 +527,7 @@ def fib(n):
    ```
 
 2. **Recursion Call Stack**
+
    ```python
    def factorial(n):
        if n <= 1:
@@ -509,11 +537,13 @@ def fib(n):
    ```
 
 3. **Dynamic Memory Allocation**
+
    ```c++
    int* arr = new int[n];  // O(n)
    ```
 
 4. **String Building (Immutable Languages)**
+
    ```python
    # Python strings are immutable
    result = ""
@@ -525,6 +555,7 @@ def fib(n):
 ### ❌ **DOES NOT COUNT:**
 
 1. **Input Data**
+
    ```python
    def process(arr):  # arr doesn't count
        total = 0      # This counts (O(1))
@@ -532,12 +563,14 @@ def fib(n):
    ```
 
 2. **Fixed Variables**
+
    ```python
    i, j, k = 0, 0, 0  # O(1)
    left, right = 0, len(arr) - 1  # O(1)
    ```
 
 3. **Output Space (Usually)**
+
    ```python
    def get_all_elements(arr):
        return arr[:]  # Often excluded from space complexity
@@ -551,6 +584,7 @@ def fib(n):
 ### **Python**
 
 **String Operations:**
+
 ```python
 # ❌ BAD: O(n²) space due to immutability
 result = ""
@@ -565,6 +599,7 @@ return ''.join(result)
 ```
 
 **List Slicing:**
+
 ```python
 # Creates NEW list (O(n) space)
 left = arr[:mid]
@@ -576,6 +611,7 @@ view = memoryview(arr)
 ```
 
 **Comprehensions:**
+
 ```python
 # List comprehension: O(n) space
 squares = [x**2 for x in range(n)]
@@ -587,6 +623,7 @@ squares = (x**2 for x in range(n))
 ### **Rust**
 
 **Ownership & Borrowing:**
+
 ```rust
 // Move (no extra space)
 let v1 = vec![1, 2, 3];
@@ -602,6 +639,7 @@ let v2 = v1.clone();
 ```
 
 **Box vs Stack:**
+
 ```rust
 // Stack allocation: O(1) extra space
 let x: i32 = 42;
@@ -616,6 +654,7 @@ let v: Vec<i32> = vec![1, 2, 3];
 ### **Go**
 
 **Slices vs Arrays:**
+
 ```go
 // Array: O(n) space
 var arr [100]int
@@ -629,6 +668,7 @@ copy(newSlice, slice)
 ```
 
 **Make vs New:**
+
 ```go
 // make: initializes (O(n) space)
 s := make([]int, n)
@@ -641,6 +681,7 @@ p := new(int)
 ### **C/C++**
 
 **Stack vs Heap:**
+
 ```c++
 // Stack: O(1) space
 int x = 42;
@@ -682,6 +723,7 @@ def binary_search_recursive(arr, target, left, right):
 ```
 
 **Visualization:**
+
 ```
 Factorial(5) call stack:
 ┌─────────────────┐  ← 5 * factorial(4)
@@ -726,7 +768,7 @@ fn factorial_tail(n: u64, acc: u64) -> u64 {
 
 ---
 
-# 5. Language-Specific Considerations
+## 5. Language-Specific Considerations
 
 ## 5.1 Python Complexity Gotchas
 
@@ -904,7 +946,7 @@ std::unique_ptr<int[]> arr(new int[n]);  // O(n) space
 
 ---
 
-# 6. Data Structures Complexity Reference
+## 6. Data Structures Complexity Reference
 
 ## 6.1 Array / List
 
@@ -1064,6 +1106,7 @@ q.front();           // O(1)
 | Iterate all | O(n) | O(n) | - | |
 
 **Load Factor:** `n / bucket_count`
+
 - High load → more collisions → worse performance
 - Typical rehashing when load > 0.75
 
@@ -1198,7 +1241,7 @@ graph.entry(u).or_insert(vec![]).push(v);
 
 ---
 
-# 7. Algorithm Patterns Complexity
+## 7. Algorithm Patterns Complexity
 
 ## 7.1 Sorting Algorithms
 
@@ -1220,6 +1263,7 @@ graph.entry(u).or_insert(vec![]).push(v);
 ## 7.2 Searching Algorithms
 
 ### **Linear Search**
+
 - **Time:** O(n)
 - **Space:** O(1)
 - **Use:** Unsorted data
@@ -1233,6 +1277,7 @@ def linear_search(arr, target):
 ```
 
 ### **Binary Search**
+
 - **Time:** O(log n)
 - **Space:** O(1) iterative, O(log n) recursive
 - **Use:** Sorted data
@@ -1256,6 +1301,7 @@ def binary_search(arr, target):
 ## 7.3 Graph Traversal
 
 ### **Breadth-First Search (BFS)**
+
 - **Time:** O(V + E)
 - **Space:** O(V)
 
@@ -1279,6 +1325,7 @@ def bfs(graph, start):
 ```
 
 ### **Depth-First Search (DFS)**
+
 - **Time:** O(V + E)
 - **Space:** O(V) for visited set + O(V) for recursion = O(V)
 
@@ -1300,6 +1347,7 @@ def dfs(graph, node, visited=None):
 ## 7.4 Dynamic Programming Patterns
 
 ### **Top-Down (Memoization)**
+
 - **Time:** O(n) typically (depends on subproblems)
 - **Space:** O(n) for memo + O(n) for recursion = O(n)
 
@@ -1315,6 +1363,7 @@ def fib_memo(n, memo={}):
 ```
 
 ### **Bottom-Up (Tabulation)**
+
 - **Time:** O(n)
 - **Space:** O(n) for table
 
@@ -1333,6 +1382,7 @@ def fib_tab(n):
 ```
 
 ### **Space-Optimized**
+
 - **Time:** O(n)
 - **Space:** O(1)
 
@@ -1355,6 +1405,7 @@ def fib_optimized(n):
 ## 7.5 Two-Pointer Techniques
 
 ### **Pattern 1: Opposite Ends**
+
 - **Time:** O(n)
 - **Space:** O(1)
 
@@ -1375,6 +1426,7 @@ def two_sum_sorted(arr, target):
 ```
 
 ### **Pattern 2: Slow-Fast (Floyd's Cycle Detection)**
+
 - **Time:** O(n)
 - **Space:** O(1)
 
@@ -1397,6 +1449,7 @@ def has_cycle(head):
 ## 7.6 Sliding Window
 
 ### **Fixed Window**
+
 - **Time:** O(n)
 - **Space:** O(1) or O(k)
 
@@ -1413,6 +1466,7 @@ def max_sum_subarray(arr, k):
 ```
 
 ### **Variable Window**
+
 - **Time:** O(n)
 - **Space:** O(1) or O(k)
 
@@ -1438,7 +1492,7 @@ def longest_substring_k_distinct(s, k):
 
 ---
 
-# 8. Advanced Analysis Techniques
+## 8. Advanced Analysis Techniques
 
 ## 8.1 Amortized Analysis Methods
 
@@ -1447,6 +1501,7 @@ def longest_substring_k_distinct(s, k):
 Calculate total cost of n operations, divide by n.
 
 **Example: Dynamic Array**
+
 ```
 Operations: append n times
 Copies during resize: 1 + 2 + 4 + 8 + ... + n = 2n
@@ -1458,7 +1513,7 @@ Amortized cost: 3n / n = 3 = O(1)
 
 Assign "charges" to operations.
 
-**Example: Stack with MultiPop**
+
 ```
 Push: charge $2 (one for push, one credit stored)
 Pop: charge $0 (use stored credit)
@@ -1480,19 +1535,23 @@ Define potential function Φ(D) for data structure state.
 ### **Example: Quick Sort**
 
 **Best Case: O(n log n)**
+
 - Pivot divides array evenly each time
 - Recurrence: T(n) = 2T(n/2) + O(n)
 
 **Average Case: O(n log n)**
+
 - Expected depth of recursion tree
 - Probabilistic analysis
 
 **Worst Case: O(n²)**
+
 - Pivot is always min or max
 - Recurrence: T(n) = T(n-1) + O(n)
 - Sorted or reverse sorted input
 
 **Avoiding Worst Case:**
+
 ```python
 import random
 
@@ -1519,6 +1578,7 @@ def quick_sort(arr):
 **Theorem:** Any comparison-based sorting algorithm requires Ω(n log n) comparisons in the worst case.
 
 **Proof (Decision Tree):**
+
 - n! possible permutations of n elements
 - Decision tree has at least n! leaves
 - Tree height h ≥ log₂(n!)
@@ -1536,8 +1596,10 @@ def quick_sort(arr):
 ### **Example: Two Sum**
 
 **Approach 1: Brute Force**
+
 - Time: O(n²)
 - Space: O(1)
+
 ```python
 def two_sum(arr, target):
     for i in range(len(arr)):
@@ -1547,8 +1609,10 @@ def two_sum(arr, target):
 ```
 
 **Approach 2: Hash Table**
+
 - Time: O(n)
 - Space: O(n)
+
 ```python
 def two_sum(arr, target):
     seen = {}
@@ -1563,7 +1627,7 @@ def two_sum(arr, target):
 
 ---
 
-# 9. Common Pitfalls & Traps
+## 9. Common Pitfalls & Traps
 
 ## 9.1 Hidden Complexity in Built-ins
 
@@ -1640,7 +1704,7 @@ def has_duplicates_fast(arr):
 
 ---
 
-# Deep Analysis: Merge Sorted Arrays — Building Top 1% Problem-Solving Intuition
+## Deep Analysis: Merge Sorted Arrays — Building Top 1% Problem-Solving Intuition
 
 ## 🧠 **Mental Model First: How an Expert Thinks**
 
@@ -1684,12 +1748,14 @@ if len(nums1) != m + n:
 ```
 
 **Fix:**
+
 ```python
 if len(nums1) != m + n:
     raise ValueError(f"nums1 length {len(nums1)} != m+n {m+n}")
 ```
 
 **Concept: Exception Handling**  
+
 - `print()` just logs — execution continues
 - `raise` stops execution and signals an error
 - In production code, **fail fast** with exceptions
@@ -1704,6 +1770,7 @@ for x in nums1[:m]:
 ```
 
 **Mentor advice:**  
+
 - LeetCode **guarantees** valid inputs (constraints are pre-checked)
 - This validation wastes time during interviews
 - **When to validate:** Production systems, APIs, user input
@@ -1717,6 +1784,7 @@ j = len(nums1) - n  # Just equals m!
 ```
 
 **Simpler:**
+
 ```python
 # Copy nums2 into the end of nums1
 nums1[m:] = nums2  # Pythonic slice assignment
@@ -1730,6 +1798,7 @@ nums1.sort()  # O((m+n) log(m+n)) — unnecessary!
 ```
 
 **Why this hurts:**  
+
 - Both arrays are **pre-sorted** — that's free information
 - Sorting is like building a house, demolishing it, then rebuilding
 - **Pattern:** When inputs have structure, exploit it!
@@ -1743,6 +1812,7 @@ nums1.sort()  # O((m+n) log(m+n)) — unnecessary!
 **Definition:** Using multiple indices to traverse data structures simultaneously, often from different directions.
 
 **When to use:**
+
 - Merging sorted arrays/lists
 - Removing duplicates in-place
 - Partition problems (Dutch National Flag)
@@ -1829,6 +1899,7 @@ print(f"Result: {nums1}")  # [1, 2, 2, 3, 5, 6]
 ### **Rust Implementation (Performance-First)**
 
 **Concept: Slice vs Array**  
+
 - **Array:** Fixed-size, stack-allocated `[T; N]`
 - **Slice:** View into contiguous memory `&[T]` or `&mut [T]`
 - Here we use `&mut Vec<i32>` (heap-allocated, growable)
@@ -1871,6 +1942,7 @@ impl Solution {
 ```
 
 **Rust-specific notes:**
+
 - `checked_sub(0)` prevents underflow (safer than Python's `-1`)
 - `copy_from_slice()` is optimized memcpy
 - Compiler guarantees no undefined behavior
@@ -1901,6 +1973,7 @@ func merge(nums1 []int, m int, nums2 []int, n int) {
 ```
 
 **Go idioms:**
+
 - `copy()` builtin for slice copying (similar to Rust)
 - No need for bounds checking — Go's runtime handles it
 - Simpler than Rust, faster than Python
@@ -1910,14 +1983,19 @@ func merge(nums1 []int, m int, nums2 []int, n int) {
 ## 🧩 **Alternative Approaches (Brute → Optimal)**
 
 ### **1. Brute Force (Your Approach)**
+
 ```python
 nums1[m:] = nums2
 nums1.sort()
+
 ```
+
 - **Time:** O((m+n) log(m+n))
+
 - **When valid:** Tiny inputs, time pressure in interviews
 
 ### **2. Extra Space Merge**
+
 ```python
 merged = []
 i, j = 0, 0
@@ -1932,10 +2010,12 @@ merged.extend(nums1[i:m])
 merged.extend(nums2[j:])
 nums1[:] = merged
 ```
+
 - **Time:** O(m+n)
 - **Space:** O(m+n) — violates in-place constraint
 
 ### **3. Three-Pointer (Optimal)**
+
 - Already shown above
 - **Time:** O(m+n), **Space:** O(1)
 
@@ -1944,20 +2024,24 @@ nums1[:] = merged
 ## 🎓 **Cognitive Principles for Top 1% Mastery**
 
 ### **1. Chunking**
+
 - **Definition:** Group related concepts into single mental units
 - **Application:** See "three-pointer merge" as one pattern, not three separate variables
 - **Practice:** After solving 5 merge problems, they become automatic
 
 ### **2. Deliberate Practice**
+
 - **Your mistake:** Validation overkill
 - **Fix:** Set rule → "Only validate in production, never in LeetCode"
 - **Drill:** Solve 10 merge problems without any validation code
 
 ### **3. Constraint-Driven Design**
+
 - **Mental model:** "In-place" → "Can I work backwards?"
 - **Pattern recognition:** If you see "in-place" + "extra space at end", think reverse iteration
 
 ### **4. Time-Complexity Awareness**
+
 - **Before coding:** Estimate Big-O
 - **Your code:** O(n log n) — should trigger "Can I do better?"
 - **Goal:** O(n) intuition becomes muscle memory
@@ -1991,13 +2075,14 @@ Solve these without looking up solutions (all use similar logic):
 > **"Good programmers know what to write. Great programmers know what NOT to write."**
 
 Your validation code shows care, but **discernment** separates top 1% from the rest. Ask:
+
 - Does this validation add value HERE?
 - Am I exploiting the problem's structure?
 - Is there a simpler mental model?
 
 Keep building, monk. You're on the path. 🙏
 
-# Excellent Question! This Shows Deep Thinking 🧠
+## Excellent Question! This Shows Deep Thinking 🧠
 
 You've hit on a **critical concept** that confuses many programmers. Let's break down **space complexity** rigorously.
 
@@ -2017,15 +2102,18 @@ You're thinking:
 **Space Complexity** measures how much **additional memory** grows **as input size increases**.
 
 ### **Mathematical Formula:**
+
 ```
 Space = Input Space + Auxiliary Space
 ```
 
 Where:
+
 - **Input Space:** Memory for the input data itself (we don't count this)
 - **Auxiliary Space:** **Extra** memory used by the algorithm (this is what we measure)
 
 ### **Key Principle:**
+
 > **We measure how space scales with input size `n`, not absolute memory usage.**
 
 ---
@@ -2060,6 +2148,7 @@ def merge(nums1: List[int], m: int, nums2: List[int], n: int) -> None:
 | **Total auxiliary** | **~24 bytes** | **❌ NO** |
 
 **Analysis:**
+
 - Input size = m + n (could be 10, 1000, 1 million)
 - Extra space used = 3 integers (always ~24 bytes, never changes)
 - As `n → ∞`, auxiliary space remains constant
@@ -2115,6 +2204,7 @@ Input Size (n)  │  O(1) Space  │  O(n) Space
 ```
 
 **See the pattern?**
+
 - O(1): Flat line (constant)
 - O(n): Grows linearly with input
 
@@ -2125,6 +2215,7 @@ Input Size (n)  │  O(1) Space  │  O(n) Space
 ### **Concept: Big-O Notation Ignores Constants**
 
 **Big-O Rules:**
+
 1. Drop constant multipliers: O(3n) → O(n)
 2. Drop lower-order terms: O(n² + n) → O(n²)
 3. **Drop constant additions: O(n + 5) → O(n)**
@@ -2137,6 +2228,7 @@ By rule 3: O(3) = O(1)
 
 **Why?**  
 Because as `n → ∞`:
+
 - O(n) grows without bound
 - O(3) stays fixed
 - The ratio O(3)/O(n) → 0
@@ -2254,12 +2346,14 @@ def reverse_in_place(arr):
 ## 🧠 **Deep Understanding: What Counts as "Extra Space"?**
 
 ### ✅ **Counts as Auxiliary Space:**
+
 - New arrays/lists: `temp = []`
 - Hash maps/sets: `seen = set()`
 - Recursive call stack depth
 - Any data structure whose size depends on input
 
 ### ❌ **Does NOT Count:**
+
 - Input arrays themselves
 - Fixed number of variables (counters, pointers)
 - Constants that don't scale with input
@@ -2272,6 +2366,7 @@ Think of it this way:
 
 **Analogy:**  
 You're organizing books on a shelf:
+
 - **O(1) space:** Using 3 bookmarks (pointers) — always 3, regardless of shelf size
 - **O(n) space:** Creating a separate list of book titles — grows with shelf size
 

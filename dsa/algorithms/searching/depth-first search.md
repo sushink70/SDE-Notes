@@ -1,53 +1,7 @@
-# Depth-First Search (DFS) Algorithm Guide
-
-I'll create a comprehensive guide to Depth-First Search (DFS) that covers the theory, implementation details, and provides complete code examples in both Python and Rust.I've created a comprehensive guide to Depth-First Search that covers everything from basic theory to advanced implementations. Here are the key highlights:
-
-## What's Included:
-
-**Theoretical Foundation:**
-
-- Clear explanation of how DFS works
-- Time and space complexity analysis
-- Comparison with BFS
-
-**Complete Python Implementation:**
-
-- Graph class with directed/undirected support
-- Both recursive and iterative DFS variants
-- Path finding algorithms
-- Cycle detection for both graph types
-- Connected components finding
-- Comprehensive test demonstrations
-
-**Complete Rust Implementation:**
-
-- Similar structure and features as Python version
-- Generic graph structure using HashMap
-- Memory-safe implementations with proper ownership
-- All the same features as Python version
-- Unit tests included
-- Idiomatic Rust patterns
-
-**Advanced Features:**
-
-- Multiple DFS variants (recursive, iterative, all components)
-- Practical applications like cycle detection and path finding
-- Performance considerations and optimization tips
-- Real-world use cases and applications
-
-**Practice Section:**
-
-- Categorized problems from beginner to advanced
-- Best practices and common pitfalls
-- Error handling strategies
-
-The implementations are production-ready and include proper error handling, comprehensive documentation, and practical examples. Both versions demonstrate the same concepts but leverage each language's strengths - Python's simplicity and Rust's memory safety and performance.
-
-Would you like me to explain any specific part in more detail or add additional algorithms that build on DFS?
-
 # Comprehensive Guide to Depth-First Search Algorithm
 
 ## Table of Contents
+
 1. [Introduction](#introduction)
 2. [How DFS Works](#how-dfs-works)
 3. [Time and Space Complexity](#time-and-space-complexity)
@@ -63,6 +17,7 @@ Would you like me to explain any specific part in more detail or add additional 
 Depth-First Search (DFS) is a fundamental graph traversal algorithm that explores a graph by visiting nodes as far as possible along each branch before backtracking. It's called "depth-first" because it prioritizes exploring deeper into the graph structure before exploring neighboring nodes at the same level.
 
 ### Key Characteristics:
+
 - **Traversal Strategy**: Goes deep before going wide
 - **Data Structure**: Uses a stack (either explicit or implicit via recursion)
 - **Memory Usage**: Generally more memory-efficient than BFS for deep graphs
@@ -79,6 +34,7 @@ DFS follows these steps:
 4. Backtrack when no unvisited neighbors remain
 
 ### Visual Example:
+
 ```
 Graph:    A --- B --- E
           |     |
@@ -99,11 +55,13 @@ Where V = number of vertices, E = number of edges
 ## Implementation Approaches
 
 ### 1. Recursive Approach
+
 - Uses the call stack implicitly
 - Cleaner, more intuitive code
 - Risk of stack overflow for very deep graphs
 
 ### 2. Iterative Approach
+
 - Uses an explicit stack data structure
 - More control over memory usage
 - Handles deeper graphs without stack overflow
@@ -861,26 +819,31 @@ mod tests {
 ## Applications and Use Cases
 
 ### 1. **Connectivity Problems**
+
 - Finding connected components
 - Checking if graph is connected
 - Finding bridges and articulation points
 
 ### 2. **Path Finding**
+
 - Finding any path between two vertices
 - Maze solving
 - Puzzle solving (like N-Queens)
 
 ### 3. **Cycle Detection**
+
 - Detecting cycles in both directed and undirected graphs
 - Deadlock detection in operating systems
 - Dependency analysis
 
 ### 4. **Topological Sorting**
+
 - Course scheduling
 - Build systems
 - Task dependency resolution
 
 ### 5. **Tree Traversals**
+
 - Pre-order, in-order, post-order traversals
 - Expression tree evaluation
 - File system traversal
@@ -898,16 +861,19 @@ mod tests {
 ## Practice Problems
 
 ### Beginner
+
 1. **Count Islands**: Count the number of connected components in a 2D grid
 2. **Path Exists**: Check if a path exists between two nodes
 3. **Tree Depth**: Find the maximum depth of a binary tree
 
 ### Intermediate  
+
 1. **Clone Graph**: Create a deep copy of an undirected graph
 2. **Course Schedule**: Detect if courses can be completed (cycle detection)
 3. **Number of Provinces**: Find connected components in a friendship matrix
 
 ### Advanced
+
 1. **Reconstruct Itinerary**: Find Eulerian path in a directed graph
 2. **Critical Connections**: Find bridges in a network
 3. **Strongly Connected Components**: Decompose directed graph into SCCs
@@ -915,20 +881,24 @@ mod tests {
 ## Best Practices
 
 ### 1. **Choose the Right Approach**
+
 - Use recursive DFS for simpler code and moderate depth
 - Use iterative DFS for very deep graphs or when stack overflow is a concern
 
 ### 2. **Handle Edge Cases**
+
 - Empty graphs
 - Single-node graphs  
 - Disconnected graphs
 - Self-loops
 
 ### 3. **Memory Optimization**
+
 - Use bit arrays for visited tracking when dealing with dense vertex IDs
 - Consider in-place marking for special graph types
 
 ### 4. **Error Handling**
+
 - Validate input parameters
 - Handle non-existent vertices gracefully
 - Provide meaningful error messages
@@ -951,9 +921,10 @@ The key insight is that DFS uses a **stack** (either explicit or via recursion),
 
 The visual progression shows how the stack changes at each step, making it clear why we get the traversal order A→B→E→D→C→G→F rather than a level-by-level approach like BFS would provide.
 
-# Depth-First Search (DFS) Algorithm - Step by Step
+## Depth-First Search (DFS) Algorithm - Step by Step
 
 ## Sample Graph Structure
+
 ```
      A
    /   \
@@ -965,6 +936,7 @@ D   E F   G
 ## DFS Traversal Steps (Starting from A)
 
 ### Initial State
+
 ```
 Stack: [A]
 Visited: []
@@ -979,6 +951,7 @@ D   E F   G
 ```
 
 ### Step 1: Visit A
+
 ```
 Stack: [B, C]  ← A's children added (order may vary)
 Visited: [A]
@@ -993,6 +966,7 @@ D   E F   G
 ```
 
 ### Step 2: Visit B (pop from stack)
+
 ```
 Stack: [C, D, E]  ← B's children added
 Visited: [A, B]
@@ -1007,6 +981,7 @@ D   E F   G
 ```
 
 ### Step 3: Visit E (pop from stack - LIFO)
+
 ```
 Stack: [C, D]  ← E has no children
 Visited: [A, B, E]
@@ -1021,6 +996,7 @@ D  [E] F   G
 ```
 
 ### Step 4: Visit D (pop from stack)
+
 ```
 Stack: [C]  ← D has no children
 Visited: [A, B, E, D]
@@ -1035,6 +1011,7 @@ Graph:
 ```
 
 ### Step 5: Visit C (pop from stack)
+
 ```
 Stack: [F, G]  ← C's children added
 Visited: [A, B, E, D, C]
@@ -1049,6 +1026,7 @@ Graph:
 ```
 
 ### Step 6: Visit G (pop from stack)
+
 ```
 Stack: [F]  ← G has no children
 Visited: [A, B, E, D, C, G]
@@ -1063,6 +1041,7 @@ Graph:
 ```
 
 ### Step 7: Visit F (pop from stack)
+
 ```
 Stack: []  ← F has no children, stack empty
 Visited: [A, B, E, D, C, G, F]
@@ -1077,6 +1056,7 @@ Graph:
 ```
 
 ### Final Result
+
 ```
 DFS Traversal Order: A → B → E → D → C → G → F
 All nodes visited!
@@ -1084,6 +1064,7 @@ Stack: [] (empty)
 ```
 
 ## DFS Algorithm Pseudocode
+
 ```
 function DFS(graph, start):
     stack = [start]
@@ -1108,6 +1089,7 @@ function DFS(graph, start):
 ## Key DFS Characteristics
 
 ### Stack Behavior (LIFO - Last In, First Out)
+
 ```
 Push B, C:     [B, C]
 Pop C:         [B]     ← C comes out first
@@ -1115,6 +1097,7 @@ Pop B:         []      ← B comes out last
 ```
 
 ### Memory Usage
+
 ```
 Space Complexity: O(V) where V = number of vertices
 - Stack can hold at most V nodes
@@ -1122,6 +1105,7 @@ Space Complexity: O(V) where V = number of vertices
 ```
 
 ### Time Complexity
+
 ```
 Time Complexity: O(V + E) where:
 - V = number of vertices
@@ -1131,6 +1115,7 @@ Time Complexity: O(V + E) where:
 ```
 
 ## DFS vs BFS Comparison
+
 ```
 DFS (Depth-First):        BFS (Breadth-First):
 Uses: Stack               Uses: Queue
@@ -1148,9 +1133,57 @@ A                         A
 ```
 
 ## Applications of DFS
+
 - **Topological Sorting**: Ordering tasks with dependencies
 - **Cycle Detection**: Finding loops in graphs
 - **Path Finding**: Finding any path between two nodes
 - **Connected Components**: Finding separate graph sections
 - **Maze Solving**: Exploring all possible paths
 - **Tree Traversals**: In-order, pre-order, post-order
+
+## Depth-First Search (DFS) Algorithm Guide
+
+I'll create a comprehensive guide to Depth-First Search (DFS) that covers the theory, implementation details, and provides complete code examples in both Python and Rust.I've created a comprehensive guide to Depth-First Search that covers everything from basic theory to advanced implementations. Here are the key highlights:
+
+## What's Included:
+
+**Theoretical Foundation:**
+
+- Clear explanation of how DFS works
+- Time and space complexity analysis
+- Comparison with BFS
+
+**Complete Python Implementation:**
+
+- Graph class with directed/undirected support
+- Both recursive and iterative DFS variants
+- Path finding algorithms
+- Cycle detection for both graph types
+- Connected components finding
+- Comprehensive test demonstrations
+
+**Complete Rust Implementation:**
+
+- Similar structure and features as Python version
+- Generic graph structure using HashMap
+- Memory-safe implementations with proper ownership
+- All the same features as Python version
+- Unit tests included
+- Idiomatic Rust patterns
+
+**Advanced Features:**
+
+- Multiple DFS variants (recursive, iterative, all components)
+- Practical applications like cycle detection and path finding
+- Performance considerations and optimization tips
+- Real-world use cases and applications
+
+**Practice Section:**
+
+- Categorized problems from beginner to advanced
+- Best practices and common pitfalls
+- Error handling strategies
+
+The implementations are production-ready and include proper error handling, comprehensive documentation, and practical examples. Both versions demonstrate the same concepts but leverage each language's strengths - Python's simplicity and Rust's memory safety and performance.
+
+Would you like me to explain any specific part in more detail or add additional algorithms that build on DFS?

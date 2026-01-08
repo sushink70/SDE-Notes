@@ -1,4 +1,5 @@
 # Comprehensive Guide to Operator Precedence & Boolean Expressions
+
 ## A World-Class Deep Dive for Mastery
 
 This guide will forge your understanding of operator precedence from first principles, then extend into the nuanced realities across Rust, Python, Go, C, and C++. We'll build the mental models that elite programmers use to reason about expression evaluation instantaneously.
