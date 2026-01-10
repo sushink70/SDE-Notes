@@ -857,11 +857,13 @@ func main() {
 ```
 
 **Adoption Challenges:**
+
 - UDP blocked by some firewalls/middleboxes
 - Requires client library changes
 - Loss detection algorithms more complex
 
 **Current Adoption (2025):**
+
 - Google services: 100%
 - Meta: ~75%
 - Cloudflare: Enabled for all customers
