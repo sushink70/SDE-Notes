@@ -1,10 +1,7 @@
 # Prompt Engg
 
 Segment Tree - Range query and update operations
-Binary Indexed Tree (Fenwick Tree) - Efficient prefix sum queries.
-Expression trees.
-AVL trees
-Fenwick Tree
+
 
 Cormen, Leiserson, Rivest, Stein: "Introduction to Algorithms" (CLRS)
 Skiena: "The Algorithm Design Manual"

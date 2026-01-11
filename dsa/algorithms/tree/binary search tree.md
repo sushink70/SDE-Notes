@@ -379,7 +379,7 @@ func insert(root *TreeNode, val int) *TreeNode {
 
 **Three Cases**:
 
-**Case 1: Leaf Node (no children)**
+### **Case 1: Leaf Node (no children)**
 
 ```
 Delete 20:
@@ -392,7 +392,7 @@ Delete 20:
 Action: Simply remove it
 ```
 
-**Case 2: One Child**
+### **Case 2: One Child**
 
 ```
 Delete 30:
@@ -405,7 +405,7 @@ Delete 30:
 Action: Replace node with its child
 ```
 
-**Case 3: Two Children** (Critical)
+### **Case 3: Two Children** (Critical)
 
 ```
 Delete 50:
@@ -419,7 +419,7 @@ Strategy: Replace with inorder successor (60)
 Why 60? It's the smallest value > 50, maintaining BST property
 ```
 
-**Finding Inorder Successor**:
+### **Finding Inorder Successor**:
 
 ```
       50
@@ -429,7 +429,7 @@ Why 60? It's the smallest value > 50, maintaining BST property
       60  80
 ```
 
-**Python Implementation**:
+### **Python Implementation**:
 
 ```python
 def delete(root, val):
@@ -928,22 +928,22 @@ impl BST {
 
 ### Common Problem Patterns
 
-**Pattern 1: Range Queries**
+### **Pattern 1: Range Queries**
 
 - Problem: Count nodes in range [L, R]
 - Insight: Use BST property to prune search space
 
-**Pattern 2: Path Problems**
+### **Pattern 2: Path Problems**
 
 - Problem: Find path sum, max path
 - Insight: Track state while recursing
 
-**Pattern 3: Construction**
+### **Pattern 3: Construction**
 
 - Problem: Build BST from inorder + preorder
 - Insight: Preorder gives roots, inorder gives left/right split
 
-**Pattern 4: Validation**
+### **Pattern 4: Validation**
 
 - Problem: Check if valid BST
 - Insight: Track valid ranges, not just immediate children
