@@ -29,3 +29,6 @@
 [submodule "algorithms/cp-algorithms-aux"]
 	path = algorithms/cp-algorithms-aux
 	url = https://github.com/sushink70/cp-algorithms-aux.git
+[submodule "algorithms/zig"]
+	path = algorithms/zig
+	url = https://github.com/sushink70/ZigAlgorithms.git
