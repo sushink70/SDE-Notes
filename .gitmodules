@@ -16,9 +16,16 @@
 [submodule "algorithms/go"]
 	path = algorithms/go
 	url = https://github.com/sushink70/GoAlgorithms.git
-[submodule "algorithms/cp-algorithms-aux"]
-	path = algorithms/cp-algorithms-aux
-	url = https://github.com/sushink70/cp-algorithms-aux.git
+
+
+
+
+# [submodule "algorithms/rust-algorithms"]
+# 	path = algorithms/rust-algorithms
+# 	url = https://github.com/sushink70/rust-algorithms.git
 [submodule "algorithms/rust-algorithms"]
 	path = algorithms/rust-algorithms
 	url = https://github.com/sushink70/rust-algorithms.git
+[submodule "algorithms/cp-algorithms-aux"]
+	path = algorithms/cp-algorithms-aux
+	url = https://github.com/sushink70/cp-algorithms-aux.git
