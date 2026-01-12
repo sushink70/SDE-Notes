@@ -1,0 +1,24 @@
+[submodule "rust-algorithms"]
+	path = rust-algorithms
+	url = https://github.com/sushink70/rust-algorithms.git
+[submodule "cp-algorithms-aux"]
+	path = cp-algorithms-aux
+	url = https://github.com/sushink70/cp-algorithms-aux.git
+[submodule "algorithms/cp-algorithms"]
+	path = algorithms/cp-algorithms
+	url = https://github.com/sushink70/cp-algorithms.git
+[submodule "algorithms/rust"]
+	path = algorithms/rust
+	url = https://github.com/sushink70/RustAlgorithms.git
+[submodule "algorithms/python"]
+	path = algorithms/python
+	url = https://github.com/sushink70/PythonAlgorithms.git
+[submodule "algorithms/java"]
+	path = algorithms/java
+	url = https://github.com/sushink70/JavaAlgorithms.git
+[submodule "algorithms/cpp"]
+	path = algorithms/cpp
+	url = https://github.com/sushink70/C-Plus-Plus_Algorithms.git
+[submodule "algorithms/go"]
+	path = algorithms/go
+	url = https://github.com/sushink70/GoAlgorithms.git
