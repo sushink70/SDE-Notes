@@ -1,188 +1,7 @@
-# GREEDY ALGORITHM: COIN CHANGE PROBLEM
-
-I'll create a detailed ASCII diagram that illustrates how greedy algorithms work using a classic example - the coin change problem. This will show the step-by-step decision-making process that defines greedy algorithms.I've created a comprehensive ASCII diagram that illustrates how greedy algorithms work using the coin change problem as an example. The diagram shows:
-
-1. **Step-by-step execution** - How the algorithm makes decisions at each step by always choosing the largest available coin
-2. **Greedy choice principle** - The algorithm never looks back or reconsiders previous decisions
-3. **Decision tree visualization** - Shows how greedy algorithms explore only one path through the solution space
-4. **Algorithm template** - The general structure that most greedy algorithms follow
-5. **Pros and cons** - When greedy algorithms work well and their limitations
-
-The key insight is that greedy algorithms make the locally optimal choice at each step, hoping this leads to a globally optimal solution. This works for some problems (like coin change with standard denominations) but not others.
-
-The diagram demonstrates the three essential components of a greedy algorithm:
-
-- **Greedy choice property**: Making the best choice at each step
-- **No backtracking**: Never reconsidering previous decisions  
-- **Optimal substructure**: The problem can be broken into smaller subproblems
-
-Would you like me to show examples of other classic greedy algorithms like activity selection or minimum spanning tree algorithms?
-
-GREEDY ALGORITHM: COIN CHANGE PROBLEM
-==========================================
-
-Problem: Make change for 67 cents using minimum number of coins
-Available coins: [25¢, 10¢, 5¢, 1¢]
-
-STEP-BY-STEP EXECUTION:
-═══════════════════════
-
-Initial State:
-┌─────────────────────────────────────┐
-│ Target Amount: 67¢                  │
-│ Available Coins: [25¢, 10¢, 5¢, 1¢] │
-│ Selected Coins: []                  │
-│ Remaining: 67¢                      │
-└─────────────────────────────────────┘
-
-STEP 1: Choose Largest Coin (Greedy Choice)
-═════════════════════════════════════════════
-Current Amount: 67¢
-┌──────┬──────┬──────┬──────┐
-│ 25¢  │ 10¢  │  5¢  │  1¢  │ ← Available coins
-└──────┴──────┴──────┴──────┘
-   ↑
-  PICK (largest ≤ 67¢)
-
-67¢ - 25¢ = 42¢
-Selected: [25¢]
-Remaining: 42¢
-
-STEP 2: Choose Next Largest Coin
-═══════════════════════════════════
-Current Amount: 42¢
-┌──────┬──────┬──────┬──────┐
-│ 25¢  │ 10¢  │  5¢  │  1¢  │
-└──────┴──────┴──────┴──────┘
-   ↑
-  PICK (largest ≤ 42¢)
-
-42¢ - 25¢ = 17¢
-Selected: [25¢, 25¢]
-Remaining: 17¢
-
-STEP 3: Continue Greedy Selection
-═══════════════════════════════════
-Current Amount: 17¢
-┌──────┬──────┬──────┬──────┐
-│ 25¢  │ 10¢  │  5¢  │  1¢  │
-└──────┴──────┴──────┴──────┘
-  (>17¢)  ↑
-         PICK (largest ≤ 17¢)
-
-17¢ - 10¢ = 7¢
-Selected: [25¢, 25¢, 10¢]
-Remaining: 7¢
-
-STEP 4: Continue Selection
-═══════════════════════════
-Current Amount: 7¢
-┌──────┬──────┬──────┬──────┐
-│ 25¢  │ 10¢  │  5¢  │  1¢  │
-└──────┴──────┴──────┴──────┘
-  (>7¢)  (>7¢)   ↑
-              PICK (largest ≤ 7¢)
-
-7¢ - 5¢ = 2¢
-Selected: [25¢, 25¢, 10¢, 5¢]
-Remaining: 2¢
-
-STEP 5: Final Selection
-═══════════════════════
-Current Amount: 2¢
-┌──────┬──────┬──────┬──────┐
-│ 25¢  │ 10¢  │  5¢  │  1¢  │
-└──────┴──────┴──────┴──────┘
-  (>2¢)  (>2¢)  (>2¢)   ↑
-                     PICK
-
-2¢ - 1¢ = 1¢
-Selected: [25¢, 25¢, 10¢, 5¢, 1¢]
-Remaining: 1¢
-
-STEP 6: Last Coin
-═══════════════════
-Current Amount: 1¢
-┌──────┬──────┬──────┬──────┐
-│ 25¢  │ 10¢  │  5¢  │  1¢  │
-└──────┴──────┴──────┴──────┘
-  (>1¢)  (>1¢)  (>1¢)   ↑
-                     PICK
-
-1¢ - 1¢ = 0¢
-Selected: [25¢, 25¢, 10¢, 5¢, 1¢, 1¢]
-Remaining: 0¢ ✓
-
-FINAL RESULT:
-═════════════
-┌─────────────────────────────────────┐
-│ Original Amount: 67¢                │
-│ Final Solution: 6 coins             │
-│ Breakdown: 2×25¢ + 1×10¢ + 1×5¢ + 2×1¢│
-│ Verification: 50+10+5+2 = 67¢ ✓     │
-└─────────────────────────────────────┘
-
-GREEDY ALGORITHM CHARACTERISTICS:
-══════════════════════════════════
-
-1. LOCAL OPTIMUM CHOICE:
-   ┌─────────────────────────┐
-   │ At each step, choose    │ ──┐
-   │ the best option NOW     │   │
-   └─────────────────────────┘   │
-                                 ▼
-   ┌─────────────────────────┐
-   │ Never reconsider        │
-   │ previous choices        │
-   └─────────────────────────┘
-
-2. DECISION TREE VISUALIZATION:
-
-   67¢
-   ├─25¢→ 42¢
-   │     ├─25¢→ 17¢
-   │     │     ├─10¢→ 7¢
-   │     │     │     ├─5¢→ 2¢
-   │     │     │     │   ├─1¢→ 1¢
-   │     │     │     │   │   └─1¢→ 0¢ ✓
-   │     │     │     │   └─... (other paths)
-   │     │     │     └─... (other paths)
-   │     │     └─... (other paths)
-   │     └─... (other paths)
-   └─... (other paths never explored)
-
-3. ALGORITHM TEMPLATE:
-   ┌──────────────────────────────────────┐
-   │ function greedy_algorithm(problem):  │
-   │   solution = []                      │
-   │   while not_solved(problem):         │
-   │     choice = best_local_choice()     │ ← KEY: Greedy choice
-   │     solution.add(choice)             │
-   │     update_problem_state()           │
-   │   return solution                    │
-   └──────────────────────────────────────┘
-
-PROS & CONS:
-════════════
-
-ADVANTAGES:               DISADVANTAGES:
-┌─────────────────┐      ┌─────────────────────┐
-│ • Simple        │      │ • May not find      │
-│ • Fast O(n)     │      │   global optimum    │
-│ • Memory eff.   │      │ • Problem-dependent │
-│ • Easy to code  │      │ • No backtracking   │
-└─────────────────┘      └─────────────────────┘
-
-WHEN TO USE GREEDY:
-═══════════════════
-✓ Problem has greedy choice property
-✓ Problem has optimal substructure  
-✓ Local optimum leads to global optimum
-✓ Examples: Huffman coding, MST, Activity selection
-
 # Comprehensive Guide to Greedy Algorithms
 
 ## Table of Contents
+
 1. [Introduction to Greedy Algorithms](#introduction)
 2. [Key Characteristics](#characteristics)
 3. [When to Use Greedy Algorithms](#when-to-use)
@@ -196,6 +15,7 @@ WHEN TO USE GREEDY:
 Greedy algorithms make locally optimal choices at each step, hoping to find a global optimum. They follow the principle of making the best choice available at the current moment without considering the overall problem.
 
 ### Core Principles
+
 - **Local Optimization**: Make the best choice at each step
 - **Irrevocability**: Choices cannot be undone
 - **Efficiency**: Often provide O(n log n) or O(n) solutions
@@ -204,20 +24,24 @@ Greedy algorithms make locally optimal choices at each step, hoping to find a gl
 ## Key Characteristics {#characteristics}
 
 ### Greedy Choice Property
+
 The optimal solution contains optimal solutions to subproblems, and local optimal choices lead to global optimum.
 
 ### Optimal Substructure
+
 A problem exhibits optimal substructure if an optimal solution can be constructed from optimal solutions of its subproblems.
 
 ## When to Use Greedy Algorithms {#when-to-use}
 
 ✅ **Good for:**
+
 - Optimization problems with greedy choice property
 - Problems where local optimum leads to global optimum
 - Scheduling and resource allocation
 - Graph problems (MST, shortest paths)
 
 ❌ **Avoid when:**
+
 - Multiple optimal solutions exist
 - Future choices depend heavily on current decisions
 - Backtracking might be needed
@@ -2871,3 +2695,186 @@ class MemoryEfficientGreedy:
         for temp_path in sorted_files:
             os.unlink(temp_path)
 ```
+
+# GREEDY ALGORITHM: COIN CHANGE PROBLEM
+
+I'll create a detailed ASCII diagram that illustrates how greedy algorithms work using a classic example - the coin change problem. This will show the step-by-step decision-making process that defines greedy algorithms.I've created a comprehensive ASCII diagram that illustrates how greedy algorithms work using the coin change problem as an example. The diagram shows:
+
+1. **Step-by-step execution** - How the algorithm makes decisions at each step by always choosing the largest available coin
+2. **Greedy choice principle** - The algorithm never looks back or reconsiders previous decisions
+3. **Decision tree visualization** - Shows how greedy algorithms explore only one path through the solution space
+4. **Algorithm template** - The general structure that most greedy algorithms follow
+5. **Pros and cons** - When greedy algorithms work well and their limitations
+
+The key insight is that greedy algorithms make the locally optimal choice at each step, hoping this leads to a globally optimal solution. This works for some problems (like coin change with standard denominations) but not others.
+
+The diagram demonstrates the three essential components of a greedy algorithm:
+
+- **Greedy choice property**: Making the best choice at each step
+- **No backtracking**: Never reconsidering previous decisions  
+- **Optimal substructure**: The problem can be broken into smaller subproblems
+
+Would you like me to show examples of other classic greedy algorithms like activity selection or minimum spanning tree algorithms?
+
+### GREEDY ALGORITHM: COIN CHANGE PROBLEM
+
+```
+Problem: Make change for 67 cents using minimum number of coins
+Available coins: [25¢, 10¢, 5¢, 1¢]
+
+STEP-BY-STEP EXECUTION:
+═══════════════════════
+
+Initial State:
+┌─────────────────────────────────────┐
+│ Target Amount: 67¢                  │
+│ Available Coins: [25¢, 10¢, 5¢, 1¢] │
+│ Selected Coins: []                  │
+│ Remaining: 67¢                      │
+└─────────────────────────────────────┘
+
+STEP 1: Choose Largest Coin (Greedy Choice)
+═════════════════════════════════════════════
+Current Amount: 67¢
+┌──────┬──────┬──────┬──────┐
+│ 25¢  │ 10¢  │  5¢  │  1¢  │ ← Available coins
+└──────┴──────┴──────┴──────┘
+   ↑
+  PICK (largest ≤ 67¢)
+
+67¢ - 25¢ = 42¢
+Selected: [25¢]
+Remaining: 42¢
+
+STEP 2: Choose Next Largest Coin
+═══════════════════════════════════
+Current Amount: 42¢
+┌──────┬──────┬──────┬──────┐
+│ 25¢  │ 10¢  │  5¢  │  1¢  │
+└──────┴──────┴──────┴──────┘
+   ↑
+  PICK (largest ≤ 42¢)
+
+42¢ - 25¢ = 17¢
+Selected: [25¢, 25¢]
+Remaining: 17¢
+
+STEP 3: Continue Greedy Selection
+═══════════════════════════════════
+Current Amount: 17¢
+┌──────┬──────┬──────┬──────┐
+│ 25¢  │ 10¢  │  5¢  │  1¢  │
+└──────┴──────┴──────┴──────┘
+  (>17¢)  ↑
+         PICK (largest ≤ 17¢)
+
+17¢ - 10¢ = 7¢
+Selected: [25¢, 25¢, 10¢]
+Remaining: 7¢
+
+STEP 4: Continue Selection
+═══════════════════════════
+Current Amount: 7¢
+┌──────┬──────┬──────┬──────┐
+│ 25¢  │ 10¢  │  5¢  │  1¢  │
+└──────┴──────┴──────┴──────┘
+  (>7¢)  (>7¢)   ↑
+              PICK (largest ≤ 7¢)
+
+7¢ - 5¢ = 2¢
+Selected: [25¢, 25¢, 10¢, 5¢]
+Remaining: 2¢
+
+STEP 5: Final Selection
+═══════════════════════
+Current Amount: 2¢
+┌──────┬──────┬──────┬──────┐
+│ 25¢  │ 10¢  │  5¢  │  1¢  │
+└──────┴──────┴──────┴──────┘
+  (>2¢)  (>2¢)  (>2¢)   ↑
+                     PICK
+
+2¢ - 1¢ = 1¢
+Selected: [25¢, 25¢, 10¢, 5¢, 1¢]
+Remaining: 1¢
+
+STEP 6: Last Coin
+═══════════════════
+Current Amount: 1¢
+┌──────┬──────┬──────┬──────┐
+│ 25¢  │ 10¢  │  5¢  │  1¢  │
+└──────┴──────┴──────┴──────┘
+  (>1¢)  (>1¢)  (>1¢)   ↑
+                     PICK
+
+1¢ - 1¢ = 0¢
+Selected: [25¢, 25¢, 10¢, 5¢, 1¢, 1¢]
+Remaining: 0¢ ✓
+
+FINAL RESULT:
+═════════════
+┌─────────────────────────────────────┐
+│ Original Amount: 67¢                │
+│ Final Solution: 6 coins             │
+│ Breakdown: 2×25¢ + 1×10¢ + 1×5¢ + 2×1¢│
+│ Verification: 50+10+5+2 = 67¢ ✓     │
+└─────────────────────────────────────┘
+
+GREEDY ALGORITHM CHARACTERISTICS:
+══════════════════════════════════
+
+1. LOCAL OPTIMUM CHOICE:
+   ┌─────────────────────────┐
+   │ At each step, choose    │ ──┐
+   │ the best option NOW     │   │
+   └─────────────────────────┘   │
+                                 ▼
+   ┌─────────────────────────┐
+   │ Never reconsider        │
+   │ previous choices        │
+   └─────────────────────────┘
+
+2. DECISION TREE VISUALIZATION:
+
+   67¢
+   ├─25¢→ 42¢
+   │     ├─25¢→ 17¢
+   │     │     ├─10¢→ 7¢
+   │     │     │     ├─5¢→ 2¢
+   │     │     │     │   ├─1¢→ 1¢
+   │     │     │     │   │   └─1¢→ 0¢ ✓
+   │     │     │     │   └─... (other paths)
+   │     │     │     └─... (other paths)
+   │     │     └─... (other paths)
+   │     └─... (other paths)
+   └─... (other paths never explored)
+
+3. ALGORITHM TEMPLATE:
+   ┌──────────────────────────────────────┐
+   │ function greedy_algorithm(problem):  │
+   │   solution = []                      │
+   │   while not_solved(problem):         │
+   │     choice = best_local_choice()     │ ← KEY: Greedy choice
+   │     solution.add(choice)             │
+   │     update_problem_state()           │
+   │   return solution                    │
+   └──────────────────────────────────────┘
+
+PROS & CONS:
+════════════
+
+ADVANTAGES:               DISADVANTAGES:
+┌─────────────────┐      ┌─────────────────────┐
+│ • Simple        │      │ • May not find      │
+│ • Fast O(n)     │      │   global optimum    │
+│ • Memory eff.   │      │ • Problem-dependent │
+│ • Easy to code  │      │ • No backtracking   │
+└─────────────────┘      └─────────────────────┘
+```
+
+### WHEN TO USE GREEDY:
+
+✓ Problem has greedy choice property
+✓ Problem has optimal substructure  
+✓ Local optimum leads to global optimum
+✓ Examples: Huffman coding, MST, Activity selection
