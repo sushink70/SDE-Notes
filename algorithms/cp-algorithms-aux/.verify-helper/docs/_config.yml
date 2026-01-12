@@ -1,0 +1,2 @@
+exclude: ['images', 'cp-algo/min', 'cp-algo/min-bundled']
+title: CP-Algorithms Library

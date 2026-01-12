@@ -1,0 +1,61 @@
+# Whether to treat int8_t/signed char and uint8_t/unsigned char just like char, as a symbol as
+# opposed to an integer. This also enables printing of '(un)signed char*' strings in addition to the
+# 'char*' strings, which are enabled by default. This is mostly an STL compatibility option than
+# anything useful by itself. Choose 'y' if unsure.
+char_with_sign_is_glyph=y
+
+# Whether to support <bitset> I/O. This will benefit from using SIMD significantly. This also
+# increases code size greatly while being seldom used. Choose 'n' if unsure.
+bitset=y
+
+# Whether to support floating-point I/O. This increases code size significantly. Choose 'y' if
+# unsure.
+float=y
+
+# Whether to support <complex> I/O. Choose 'y' if unsure.
+complex=y
+
+# Whether to support inputs other than regular files, mostly useful for interactive tasks and local
+# debugging. Using 'n' will cause the program to crash unless run with redirected input. Using 'y'
+# will increase code size significantly. Choose 'y' if unsure.
+interactive=y
+
+# Whether to support graceful end-of-file handling on stdin. Namely, 'while (std::cin >> ...)'
+# syntax is only allowed with this option set. This EOF handling is not fully compatible with std:
+# reading from a EOF pipe twice will cause crashes, so you would need to terminate immediately.
+# Choose 'y' if unsure.
+stdin_eof=y
+
+# Whether to support freopen on stdin. freopen on stdout works regardless of this option. If 'y',
+# calling freopen on stdin before the first I/O operation will successfully redirect the stream. If
+# 'n', this will work, albeit inefficiently, if running the script from tty, but otherwise all
+# guarantees are off. Choose 'y' if unsure.
+late_binding=y
+
+# Whether to replace std::cerr/std::clog with a /dev/null-like stream if ONLINE_JUDGE is set. This
+# enables logs like 'std::cerr << ...' to be zero-cost on environments such as Codeforces. Choose
+# 'y' if unsure.
+cerr=y
+
+# Whether to use inline assembly to optimize a memory load out of hot loops that read from stdin but
+# do not call into libc (including transitive calls, e.g. operator new). This approach is more
+# error-prone and is unlikely to cause significant speed-ups, but increases performance on synthetic
+# benchmarks by a few percent. Choose 'y' if unsure.
+hoist_globals_on_interactive_input=y
+
+# Which operating systems to generate code for. The supported values are 'windows', 'linux', and
+# 'macos'. Listing more than one operating system will increase code size significantly. Codeforces
+# uses Windows; most other online judges use Linux. Choose 'windows,linux,macos' if unsure.
+os=windows,linux,macos
+
+# Which architectures and instruction sets to generate code for. The supported architectures are
+# 'x86_64' (amd64), 'i386', and 'aarch64' (arm64). Additionally, ISA extensions may be specified by
+# naming them after '+'. The supported extensions are 'avx2' and 'sse4.1' for x86_64 and i386;
+# 'neon' for aarch64. If an extension is listed, it is assumed to always be present: there is no way
+# to perform smart detection after blazingio is built. Most x86 CPUs support AVX2 these days,
+# including Codeforces invokers and likely your computer, so 'x86_64+avx2' will work in most use
+# cases. 'x86_64+sse4.1' is a middle-ground option available since Silvermont. NEON is always
+# present on aarch64; it is only opt-in due to code size considerations. If you are using M1, you
+# will need to list 'aarch64' among the options. Listing more than one target or enabling SIMD will
+# increase code size. Choose 'x86_64+avx2,i386+avx2,aarch64+neon' if unsure.
+architecture=x86_64+avx2,i386+avx2,aarch64+neon

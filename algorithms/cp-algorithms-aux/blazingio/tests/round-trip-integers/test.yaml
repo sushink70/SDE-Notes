@@ -1,0 +1,8 @@
+type: round-trip
+config:
+  architecture: x86_64,i386,aarch64
+  os: windows,linux,macos
+  # Make sure overloads don't resolve to floats
+  float: [y, n]
+  interactive: [y, n]
+  hoist_globals_on_interactive_input: [y, n]

@@ -1,0 +1,31 @@
+// @brief Pow of Matrix
+#define PROBLEM "https://judge.yosupo.jp/problem/pow_of_matrix"
+#pragma GCC optimize("O3,unroll-loops")
+#pragma GCC target("avx2")
+#include "cp-algo/linalg/matrix.hpp"
+#include <bits/stdc++.h>
+
+using namespace std;
+using namespace cp_algo::linalg;
+using namespace cp_algo::math;
+
+const int64_t mod = 998244353;
+
+void solve() {
+    int n;
+    uint64_t k;
+    cin >> n >> k;
+    matrix<modint<mod>> a(n, n);
+    a.read();
+    a.pow(k).print();
+}
+
+signed main() {
+    //freopen("input.txt", "r", stdin);
+    ios::sync_with_stdio(0);
+    cin.tie(0);
+    int t = 1;
+    while(t--) {
+        solve();
+    }
+}
