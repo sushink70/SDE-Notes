@@ -3575,3 +3575,1973 @@ Would you like me to:
 2. Show more real-world examples from popular Rust crates?
 3. Dive deeper into a specific keyword interaction pattern?
 4. Continue with the remaining sections of the comprehensive guide (the keywords I haven't covered yet)?
+
+# The Complete Rust Keywords Guide: Part 2
+## Advanced Type System, Patterns, and Meta-Programming
+
+*Welcome back, seeker. Now we ascend to the higher levels—where types become proofs, patterns become logic, and code generates code. Stay sharp.*
+
+---
+
+## Declaration & Definition Keywords (Continued)
+
+### 15. `union` (Unsafe Tagged Union)
+
+**Concept Primer - Union**: A type where all fields share the same memory location. Only ONE field is valid at a time.
+
+**Philosophy**: Unions are for low-level programming where you need to reinterpret the same memory as different types.
+
+```rust
+// Union definition
+union MyUnion {
+    i: i32,
+    f: f32,
+}
+
+fn main() {
+    let mut u = MyUnion { i: 42 };
+    
+    // Reading is ALWAYS unsafe
+    unsafe {
+        println!("As i32: {}", u.i);
+        
+        u.f = 3.14;
+        // u.i is now invalid! Reading it would be UB
+        println!("As f32: {}", u.f);
+    }
+}
+```
+
+**Memory layout**:
+```
+UNION vs STRUCT MEMORY
+┌────────────────────────────────────┐
+│ struct Point {                     │
+│     x: i32,  // 4 bytes            │
+│     y: i32,  // 4 bytes            │
+│ }                                  │
+│ Total: 8 bytes                     │
+│                                    │
+│ Memory:                            │
+│ [x x x x][y y y y]                 │
+│                                    │
+├────────────────────────────────────┤
+│ union Value {                      │
+│     i: i32,  // 4 bytes            │
+│     f: f32,  // 4 bytes            │
+│ }                                  │
+│ Total: 4 bytes (both share)        │
+│                                    │
+│ Memory (same location):            │
+│ [? ? ? ?]  ← Could be i OR f       │
+└────────────────────────────────────┘
+```
+
+**Why unsafe?**
+```
+UNION DANGER
+┌────────────────────────────────────┐
+│ let mut u = MyUnion { i: 42 };     │
+│                                    │
+│ u.f = 3.14;  // Write as f32       │
+│                                    │
+│ unsafe {                           │
+│     let x = u.i;  // Read as i32   │
+│     // Reinterpreting f32 bits    │
+│     // as i32 → nonsense value!   │
+│ }                                  │
+│                                    │
+│ Rust can't track which field is    │
+│ valid → YOU must track it          │
+└────────────────────────────────────┘
+```
+
+**Safe pattern - Tagged Union**:
+```rust
+// Manual tagged union (enum is better!)
+enum Tag {
+    Int,
+    Float,
+}
+
+struct TaggedUnion {
+    tag: Tag,
+    data: MyUnion,
+}
+
+impl TaggedUnion {
+    fn as_int(&self) -> Option<i32> {
+        match self.tag {
+            Tag::Int => unsafe { Some(self.data.i) },
+            _ => None,
+        }
+    }
+    
+    fn as_float(&self) -> Option<f32> {
+        match self.tag {
+            Tag::Float => unsafe { Some(self.data.f) },
+            _ => None,
+        }
+    }
+}
+
+// But really, just use enum:
+enum SafeUnion {
+    Int(i32),
+    Float(f32),
+}
+// Rust's enums ARE safe tagged unions!
+```
+
+**When to use unions**:
+```
+UNION USE CASES (rare)
+┌────────────────────────────────────┐
+│ 1. FFI with C unions               │
+│ 2. Bit-level manipulation          │
+│ 3. Zero-cost type punning          │
+│ 4. Embedded systems (memory tight) │
+│                                    │
+│ 99% of time: Use enum instead!     │
+└────────────────────────────────────┘
+```
+
+**Union vs Enum comparison**:
+```rust
+// Union: Unsafe, manual tracking
+union UnsafeValue {
+    i: i32,
+    f: f32,
+}
+
+// Enum: Safe, automatic tracking
+enum SafeValue {
+    Int(i32),
+    Float(f32),
+}
+
+// Memory difference:
+// Union: 4 bytes (max field size)
+// Enum:  8 bytes (discriminant + max variant)
+
+// Safety difference:
+// Union: You track validity
+// Enum: Compiler tracks validity
+```
+
+---
+
+### 16. `trait` (Interface Definition)
+
+**Concept Primer - Trait**: A collection of methods that types can implement. Like interfaces in other languages, but more powerful.
+
+**Philosophy**: "Define behavior without specifying implementation."
+
+```rust
+// Define a trait
+trait Drawable {
+    // Required method (no default)
+    fn draw(&self);
+    
+    // Provided method (has default)
+    fn describe(&self) {
+        println!("This is a drawable object");
+    }
+    
+    // Associated function (no self)
+    fn create() -> Self
+    where
+        Self: Sized;
+}
+
+// Implement for a type
+struct Circle {
+    radius: f64,
+}
+
+impl Drawable for Circle {
+    fn draw(&self) {
+        println!("Drawing circle with radius {}", self.radius);
+    }
+    
+    fn create() -> Self {
+        Circle { radius: 1.0 }
+    }
+    
+    // Can override default method
+    fn describe(&self) {
+        println!("Circle with radius {}", self.radius);
+    }
+}
+```
+
+**Trait anatomy**:
+```
+trait TraitName<Generics>: SuperTrait + OtherSupertrait
+where
+    Bounds
+{
+    // Associated types
+    type AssociatedType: Bounds;
+    
+    // Associated constants
+    const CONSTANT: Type;
+    
+    // Required methods
+    fn method(&self) -> ReturnType;
+    
+    // Provided methods
+    fn method_with_default(&self) {
+        // default implementation
+    }
+}
+```
+
+**Associated types in traits**:
+```rust
+trait Iterator {
+    type Item;  // Associated type
+    
+    fn next(&mut self) -> Option<Self::Item>;
+}
+
+struct Counter {
+    count: u32,
+}
+
+impl Iterator for Counter {
+    type Item = u32;  // Specify concrete type
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        self.count += 1;
+        if self.count < 6 {
+            Some(self.count)
+        } else {
+            None
+        }
+    }
+}
+```
+
+**Trait bounds** (constraining generics):
+```rust
+// Function requiring trait
+fn print_all<T: std::fmt::Display>(items: &[T]) {
+    for item in items {
+        println!("{}", item);  // Can use Display
+    }
+}
+
+// Multiple bounds
+fn complex<T>(item: T)
+where
+    T: Clone + std::fmt::Debug + PartialEq,
+{
+    let copy = item.clone();
+    println!("{:?}", copy);
+}
+
+// Trait bound on impl
+impl<T: std::fmt::Display> MyStruct<T> {
+    fn print(&self) {
+        println!("{}", self.value);
+    }
+}
+```
+
+**Trait objects** (dynamic dispatch):
+```rust
+// Static dispatch (monomorphization)
+fn draw_static<T: Drawable>(item: &T) {
+    item.draw();  // Compiler knows exact type
+}
+
+// Dynamic dispatch (trait object)
+fn draw_dynamic(item: &dyn Drawable) {
+    item.draw();  // Runtime lookup via vtable
+}
+
+// Using trait objects
+let circle: Box<dyn Drawable> = Box::new(Circle { radius: 5.0 });
+let square: Box<dyn Drawable> = Box::new(Square { side: 4.0 });
+
+let shapes: Vec<Box<dyn Drawable>> = vec![circle, square];
+for shape in shapes {
+    shape.draw();  // Polymorphism!
+}
+```
+
+**Trait hierarchy**:
+```
+TRAIT INHERITANCE
+┌────────────────────────────────────┐
+│ trait Animal {                     │
+│     fn make_sound(&self);          │
+│ }                                  │
+│                                    │
+│ trait Mammal: Animal {             │
+│     fn nurse_young(&self);         │
+│ }                                  │
+│                                    │
+│ struct Dog;                        │
+│                                    │
+│ impl Animal for Dog {              │
+│     fn make_sound(&self) {         │
+│         println!("Woof!");         │
+│     }                              │
+│ }                                  │
+│                                    │
+│ impl Mammal for Dog {              │
+│     // Must also impl Animal!     │
+│     fn nurse_young(&self) {        │
+│         println!("Nursing");       │
+│     }                              │
+│ }                                  │
+└────────────────────────────────────┘
+```
+
+**Marker traits** (no methods):
+```rust
+// Copy marker trait
+trait Copy: Clone {}
+
+// Send marker trait (compiler auto-implements)
+unsafe trait Send {}
+
+// Sized marker trait (compiler knows size)
+trait Sized {}
+
+// Usage
+fn foo<T: Copy>(x: T) {
+    let y = x;  // Copy, not move
+    let z = x;  // Can use x again
+}
+```
+
+---
+
+## Type System Keywords
+
+### 17. `impl` (Already covered in multi-purpose, but let's add complexity)
+
+**Advanced impl patterns**:
+
+#### Blanket Implementations
+
+```rust
+// Implement for ALL types that meet a bound
+impl<T: std::fmt::Display> ToString for T {
+    fn to_string(&self) -> String {
+        format!("{}", self)
+    }
+}
+
+// Now ANY type with Display gets to_string() for free!
+```
+
+#### Conditional Implementations
+
+```rust
+struct Wrapper<T> {
+    value: T,
+}
+
+// Only implement Clone if T is Clone
+impl<T: Clone> Clone for Wrapper<T> {
+    fn clone(&self) -> Self {
+        Wrapper {
+            value: self.value.clone(),
+        }
+    }
+}
+
+// Only implement Debug if T is Debug
+impl<T: std::fmt::Debug> std::fmt::Debug for Wrapper<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Wrapper({:?})", self.value)
+    }
+}
+```
+
+#### Negative Implementations (nightly)
+
+```rust
+#![feature(negative_impls)]
+
+struct NotSend {
+    _marker: std::marker::PhantomData<*const ()>,
+}
+
+// Explicitly NOT Send
+impl !Send for NotSend {}
+```
+
+**Specialization** (nightly):
+```rust
+#![feature(specialization)]
+
+// General implementation
+impl<T> MyTrait for T {
+    default fn method(&self) {
+        println!("Generic");
+    }
+}
+
+// Specialized for i32
+impl MyTrait for i32 {
+    fn method(&self) {
+        println!("Optimized for i32");
+    }
+}
+```
+
+---
+
+### 18. `dyn` (Dynamic Trait Objects)
+
+**Concept Primer - Dynamic Dispatch**: Instead of compiler knowing exact type, use runtime lookup.
+
+**Philosophy**: "I know it implements this trait, but I don't know which concrete type."
+
+```rust
+trait Animal {
+    fn speak(&self);
+}
+
+struct Dog;
+struct Cat;
+
+impl Animal for Dog {
+    fn speak(&self) {
+        println!("Woof!");
+    }
+}
+
+impl Animal for Cat {
+    fn speak(&self) {
+        println!("Meow!");
+    }
+}
+
+// Without dyn - static dispatch
+fn speak_static<T: Animal>(animal: &T) {
+    animal.speak();  // Compiler knows exact type
+}
+
+// With dyn - dynamic dispatch
+fn speak_dynamic(animal: &dyn Animal) {
+    animal.speak();  // Runtime lookup
+}
+
+fn main() {
+    let dog = Dog;
+    let cat = Cat;
+    
+    speak_static(&dog);  // Monomorphized to Dog version
+    speak_static(&cat);  // Monomorphized to Cat version
+    
+    // Can store different types in same collection
+    let animals: Vec<&dyn Animal> = vec![&dog, &cat];
+    for animal in animals {
+        speak_dynamic(animal);
+    }
+}
+```
+
+**Memory layout**:
+```
+TRAIT OBJECT LAYOUT (fat pointer)
+┌────────────────────────────────────┐
+│ &dyn Trait                         │
+│  ├─ Data pointer (8 bytes)         │
+│  └─ Vtable pointer (8 bytes)       │
+│     Total: 16 bytes                │
+│                                    │
+│ Vtable contains:                   │
+│  ├─ Size of type                   │
+│  ├─ Alignment                      │
+│  ├─ Destructor                     │
+│  └─ Method pointers                │
+└────────────────────────────────────┘
+
+Visual:
+┌──────────┐
+│ &dyn Foo │
+└────┬─────┘
+     │
+     ├────► [Data] (actual object)
+     │
+     └────► [Vtable]
+              ├─ size
+              ├─ align
+              ├─ drop
+              └─ method1
+                 method2
+                 ...
+```
+
+**Static vs Dynamic dispatch**:
+```
+PERFORMANCE COMPARISON
+┌────────────────────────────────────────┐
+│ STATIC DISPATCH                        │
+│ fn foo<T: Trait>(x: &T)                │
+│                                        │
+│ ✅ No runtime overhead                 │
+│ ✅ Inlining possible                   │
+│ ✅ Full optimization                   │
+│ ❌ Code bloat (one copy per type)     │
+│ ❌ Can't mix types in collection      │
+│                                        │
+├────────────────────────────────────────┤
+│ DYNAMIC DISPATCH                       │
+│ fn foo(x: &dyn Trait)                  │
+│                                        │
+│ ✅ Smaller binary                      │
+│ ✅ Heterogeneous collections           │
+│ ❌ Vtable lookup overhead (~1-3%)     │
+│ ❌ No inlining                         │
+│ ❌ Less optimization                   │
+└────────────────────────────────────────┘
+```
+
+**Object safety** (traits that can be `dyn`):
+```rust
+// Object-safe trait
+trait ObjectSafe {
+    fn method(&self);  // ✅ Has self
+}
+
+// NOT object-safe
+trait NotObjectSafe {
+    fn generic<T>(&self);  // ❌ Generic method
+    fn associated() -> Self;  // ❌ No self, returns Self
+}
+
+// Can't create trait object:
+// let x: Box<dyn NotObjectSafe> = ...;  // ERROR!
+```
+
+**Object safety rules**:
+```
+OBJECT SAFETY REQUIREMENTS
+┌────────────────────────────────────┐
+│ ✅ Methods must have &self or      │
+│    &mut self receiver              │
+│                                    │
+│ ✅ No generic methods               │
+│                                    │
+│ ✅ No Self in return position      │
+│    (except Box<Self>, etc.)        │
+│                                    │
+│ ✅ No associated const             │
+│                                    │
+│ ✅ Where Self: Sized bounds        │
+│    on methods exclude them         │
+└────────────────────────────────────┘
+```
+
+**Advanced example**:
+```rust
+trait Plugin {
+    fn execute(&self);
+}
+
+struct PluginManager {
+    plugins: Vec<Box<dyn Plugin>>,
+}
+
+impl PluginManager {
+    fn new() -> Self {
+        PluginManager {
+            plugins: Vec::new(),
+        }
+    }
+    
+    fn register<P: Plugin + 'static>(&mut self, plugin: P) {
+        self.plugins.push(Box::new(plugin));
+    }
+    
+    fn run_all(&self) {
+        for plugin in &self.plugins {
+            plugin.execute();
+        }
+    }
+}
+
+// Different plugin types
+struct LogPlugin;
+impl Plugin for LogPlugin {
+    fn execute(&self) {
+        println!("Logging...");
+    }
+}
+
+struct CachePlugin;
+impl Plugin for CachePlugin {
+    fn execute(&self) {
+        println!("Caching...");
+    }
+}
+
+fn main() {
+    let mut manager = PluginManager::new();
+    manager.register(LogPlugin);
+    manager.register(CachePlugin);
+    manager.run_all();
+}
+```
+
+---
+
+### 19. `where` (Constraint Clauses)
+
+**Purpose**: Specify trait bounds in a more readable, flexible location.
+
+**Philosophy**: "Complex bounds deserve dedicated space."
+
+```rust
+// Without where (becomes unreadable quickly)
+fn complex<T: Clone + std::fmt::Debug + PartialEq + std::fmt::Display>(
+    a: T,
+    b: T,
+) -> bool {
+    a == b
+}
+
+// With where (much cleaner)
+fn complex<T>(a: T, b: T) -> bool
+where
+    T: Clone + std::fmt::Debug + PartialEq + std::fmt::Display,
+{
+    a == b
+}
+```
+
+**When where is mandatory**:
+
+#### 1. Bounds on Associated Types
+```rust
+trait Container {
+    type Item;
+    fn get(&self) -> &Self::Item;
+}
+
+// Can't do: fn foo<C: Container<Item: Clone>>(c: C)
+// Must use where:
+fn foo<C>(c: C)
+where
+    C: Container,
+    C::Item: Clone,  // Bound on associated type
+{
+    let item = c.get().clone();
+}
+```
+
+#### 2. Multiple Type Parameters with Complex Bounds
+```rust
+fn compare<T, U>(a: T, b: U) -> bool
+where
+    T: PartialEq<U> + std::fmt::Debug,
+    U: std::fmt::Debug,
+{
+    println!("Comparing {:?} and {:?}", a, b);
+    a == b
+}
+```
+
+#### 3. Higher-Ranked Trait Bounds (HRTB)
+```rust
+// Function that works with ANY lifetime
+fn call_with_ref<F>(f: F)
+where
+    F: for<'a> Fn(&'a str) -> &'a str,  // HRTB
+{
+    let result = f("hello");
+    println!("{}", result);
+}
+```
+
+#### 4. Conditional Implementations
+```rust
+struct Pair<T> {
+    first: T,
+    second: T,
+}
+
+// Only implement for comparable types
+impl<T> Pair<T>
+where
+    T: PartialOrd,
+{
+    fn cmp_display(&self) {
+        if self.first >= self.second {
+            println!("First is larger");
+        } else {
+            println!("Second is larger");
+        }
+    }
+}
+```
+
+**Where clause structure**:
+```
+ANATOMY OF WHERE CLAUSE
+┌────────────────────────────────────┐
+│ fn function<T, U>(...)             │
+│ where                              │
+│     T: Trait1 + Trait2,           │
+│     U: Trait3,                    │
+│     T::AssociatedType: Trait4,    │
+│     for<'a> T: Trait5<'a>,       │
+│ {                                  │
+│     // body                        │
+│ }                                  │
+└────────────────────────────────────┘
+
+Each line is a bound:
+- Type parameter bounds
+- Associated type bounds
+- Higher-ranked bounds
+- Lifetime bounds
+```
+
+**Complex real-world example**:
+```rust
+use std::ops::Add;
+
+fn add_all<T, U, V>(items: &[T], transform: U, init: V) -> V
+where
+    T: Clone,                          // Items must be clonable
+    U: Fn(&T) -> V,                    // Transform function
+    V: Add<Output = V> + Clone,        // Result must be addable
+{
+    items
+        .iter()
+        .map(transform)
+        .fold(init.clone(), |acc, x| acc + x)
+}
+```
+
+---
+
+### 20. `super` and `crate` (Module Path Keywords)
+
+**Purpose**: Navigate the module tree.
+
+```
+MODULE TREE KEYWORDS
+┌────────────────────────────────────┐
+│ crate   → Root of current crate    │
+│ self    → Current module            │
+│ super   → Parent module             │
+└────────────────────────────────────┘
+```
+
+**Practical example**:
+```rust
+// src/lib.rs
+pub mod network {
+    pub mod client {
+        pub fn connect() {
+            println!("Client connecting");
+        }
+        
+        pub fn disconnect() {
+            // Use super to access parent
+            super::server::handle_disconnect();
+        }
+    }
+    
+    pub mod server {
+        pub fn start() {
+            println!("Server starting");
+            
+            // Use super to access parent's sibling
+            super::client::connect();
+        }
+        
+        pub fn handle_disconnect() {
+            println!("Handling disconnect");
+        }
+    }
+    
+    pub fn init() {
+        // Use self for current module children
+        self::client::connect();
+        self::server::start();
+    }
+}
+
+pub mod utils {
+    pub fn helper() {
+        // Use crate for absolute path
+        crate::network::client::connect();
+        
+        // Can't use super here to reach network
+        // (utils and network are siblings)
+    }
+}
+```
+
+**Visual module tree**:
+```
+crate (src/lib.rs)
+├── network
+│   ├── client
+│   │   ├── connect()
+│   │   └── disconnect()
+│   │        └── calls super::server::handle_disconnect()
+│   │
+│   ├── server
+│   │   ├── start()
+│   │   │    └── calls super::client::connect()
+│   │   └── handle_disconnect()
+│   │
+│   └── init()
+│        └── calls self::client, self::server
+│
+└── utils
+    └── helper()
+         └── calls crate::network::client::connect()
+```
+
+**Path resolution flowchart**:
+```
+    Path starts with...
+           │
+    ┌──────┼──────┬──────────┐
+    │      │      │          │
+  crate  super  self    identifier
+    │      │      │          │
+    │      │      │          │
+  Root   Parent Current   Search:
+         module  module   1. Current scope
+                          2. Parent modules
+                          3. Imports (use)
+                          4. Prelude
+```
+
+**Advanced example**:
+```rust
+mod outer {
+    pub mod inner {
+        pub fn function() {
+            println!("inner::function");
+        }
+        
+        pub mod deep {
+            pub fn call_outer() {
+                // super::super to go up two levels
+                super::super::outer_function();
+            }
+            
+            pub fn call_sibling() {
+                // super to go to parent, then sibling
+                super::function();
+            }
+            
+            pub fn call_absolute() {
+                // crate for absolute path
+                crate::outer::inner::function();
+            }
+        }
+    }
+    
+    pub fn outer_function() {
+        println!("outer::outer_function");
+    }
+}
+```
+
+---
+
+## Module & Visibility Keywords
+
+### 21. `mod` (Module Declaration)
+
+**Concept Primer - Module**: A namespace for organizing code.
+
+**Two ways to declare modules**:
+
+#### Inline Modules
+```rust
+// src/lib.rs
+mod math {
+    pub fn add(a: i32, b: i32) -> i32 {
+        a + b
+    }
+    
+    fn private_helper() {
+        // Only visible in this module
+    }
+    
+    pub mod advanced {
+        pub fn multiply(a: i32, b: i32) -> i32 {
+            a * b
+        }
+    }
+}
+
+fn main() {
+    let sum = math::add(2, 3);
+    let product = math::advanced::multiply(2, 3);
+}
+```
+
+#### File-based Modules
+```
+Project structure:
+src/
+├── lib.rs
+├── network.rs
+└── network/
+    ├── client.rs
+    └── server.rs
+```
+
+```rust
+// src/lib.rs
+mod network;  // Loads network.rs or network/mod.rs
+
+pub use network::client;  // Re-export
+
+// src/network.rs
+pub mod client;  // Loads network/client.rs
+pub mod server;  // Loads network/server.rs
+
+pub fn init() {
+    client::connect();
+    server::start();
+}
+
+// src/network/client.rs
+pub fn connect() {
+    println!("Connecting...");
+}
+```
+
+**Module privacy**:
+```rust
+mod outer {
+    // Private by default
+    fn private_fn() {}
+    
+    // Public within crate
+    pub(crate) fn crate_fn() {}
+    
+    // Public to parent module
+    pub(super) fn parent_fn() {}
+    
+    // Fully public
+    pub fn public_fn() {}
+    
+    mod inner {
+        pub fn can_access_parent() {
+            // Can access parent's private items
+            super::private_fn();
+        }
+    }
+}
+```
+
+**Visibility levels**:
+```
+VISIBILITY HIERARCHY
+┌────────────────────────────────────┐
+│ (none)        → Current module     │
+│ pub(self)     → Current module     │
+│ pub(super)    → Parent module      │
+│ pub(crate)    → Current crate      │
+│ pub(in path)  → Specific path      │
+│ pub           → Everyone           │
+└────────────────────────────────────┘
+
+Example:
+mod a {
+    mod b {
+        pub(in crate::a) fn f() {}  // Visible in 'a'
+    }
+    
+    mod c {
+        fn g() {
+            super::b::f();  // ✅ OK
+        }
+    }
+}
+```
+
+---
+
+### 22. `pub` (Visibility Modifier)
+
+**Granular visibility control**:
+
+```rust
+mod outer {
+    // Fully public
+    pub struct Public {
+        pub field: i32,
+    }
+    
+    // Public type, private fields
+    pub struct SemiPrivate {
+        pub public_field: i32,
+        private_field: i32,  // Default private
+    }
+    
+    impl SemiPrivate {
+        pub fn new(value: i32) -> Self {
+            SemiPrivate {
+                public_field: value,
+                private_field: value * 2,
+            }
+        }
+    }
+    
+    // Private by default
+    struct Private {
+        field: i32,
+    }
+    
+    pub mod inner {
+        // Visible to crate only
+        pub(crate) fn crate_only() {}
+        
+        // Visible to parent only
+        pub(super) fn parent_only() {}
+        
+        // Visible to specific path
+        pub(in crate::outer) fn path_limited() {}
+    }
+}
+```
+
+**Struct field visibility**:
+```rust
+// All fields public
+pub struct Point {
+    pub x: i32,
+    pub y: i32,
+}
+
+// Mixed visibility
+pub struct Person {
+    pub name: String,
+    age: u32,  // Private
+}
+
+impl Person {
+    pub fn new(name: String, age: u32) -> Self {
+        Person { name, age }
+    }
+    
+    pub fn age(&self) -> u32 {
+        self.age  // Controlled access
+    }
+}
+
+// Tuple struct visibility
+pub struct Wrapper(pub i32, i32);  // First public, second private
+```
+
+**Enum variant visibility** (all or nothing):
+```rust
+// All variants public if enum is public
+pub enum Message {
+    Quit,                      // Public
+    Move { x: i32, y: i32 },  // Public
+}
+
+// Can't have private variants!
+```
+
+---
+
+## Pattern Matching Keywords
+
+### 23. `in` (Range Patterns - Deprecated/Limited)
+
+**Historical note**: `in` was planned for range patterns but is now mostly unused.
+
+**Current usage** (very limited):
+```rust
+// Only in for loops
+for i in 0..10 {
+    println!("{}", i);
+}
+
+// Not used in match (use ..= instead)
+match value {
+    0..=10 => println!("Small"),
+    11..=100 => println!("Medium"),
+    _ => println!("Large"),
+}
+```
+
+---
+
+### Advanced Pattern Matching (Comprehensive)
+
+**All pattern types**:
+
+```rust
+fn pattern_showcase() {
+    let x = Some(5);
+    
+    // 1. Literal pattern
+    match x {
+        Some(5) => println!("Five"),
+        _ => {}
+    }
+    
+    // 2. Range pattern
+    match x {
+        Some(1..=5) => println!("Small"),
+        Some(6..=10) => println!("Medium"),
+        _ => {}
+    }
+    
+    // 3. OR pattern
+    match x {
+        Some(1) | Some(2) | Some(3) => println!("One to three"),
+        _ => {}
+    }
+    
+    // 4. Destructuring
+    let point = Point { x: 0, y: 7 };
+    match point {
+        Point { x, y: 0 } => println!("On x-axis at {}", x),
+        Point { x: 0, y } => println!("On y-axis at {}", y),
+        Point { x, y } => println!("Neither axis: ({}, {})", x, y),
+    }
+    
+    // 5. Ignoring patterns
+    match x {
+        Some(_) => println!("Some value"),
+        None => {}
+    }
+    
+    // 6. Rest pattern (..)
+    let tuple = (1, 2, 3, 4, 5);
+    match tuple {
+        (first, .., last) => {
+            println!("First: {}, Last: {}", first, last);
+        }
+    }
+    
+    // 7. Reference patterns
+    let ref_value = &Some(5);
+    match ref_value {
+        &Some(x) => println!("Got {}", x),
+        &None => {}
+    }
+    
+    // 8. Struct patterns with ..
+    struct Config {
+        host: String,
+        port: u16,
+        timeout: u32,
+        retries: u32,
+    }
+    
+    let config = Config {
+        host: String::from("localhost"),
+        port: 8080,
+        timeout: 30,
+        retries: 3,
+    };
+    
+    match config {
+        Config { host, port, .. } => {
+            println!("{}:{}", host, port);
+            // Ignore timeout and retries
+        }
+    }
+    
+    // 9. Binding with @
+    match x {
+        val @ Some(3..=7) => {
+            println!("Found {} in range", val.unwrap());
+        }
+        _ => {}
+    }
+    
+    // 10. Guards (if conditions)
+    match x {
+        Some(n) if n > 5 => println!("Greater than five"),
+        Some(n) => println!("Less than or equal to five: {}", n),
+        None => {}
+    }
+}
+```
+
+**Pattern matching flowchart**:
+```
+        match value
+             │
+    ┌────────┴────────┐
+    │                 │
+ Pattern1          Pattern2
+    │                 │
+  Guard?           Guard?
+    │                 │
+  ┌─┴─┐            ┌─┴─┐
+  │   │            │   │
+Pass Fail       Pass Fail
+  │   │            │   │
+Exec Next       Exec Next
+     Pattern         Pattern
+
+Complex example:
+match point {
+    Point { x: 0, y } if y > 0 => { /* first arm */ }
+    Point { x, y: 0 } => { /* second arm */ }
+    _ => { /* catch-all */ }
+}
+```
+
+---
+
+## Async & Concurrency Keywords
+
+### 24. `async` (Asynchronous Function)
+
+**Concept Primer - Async**: Code that can be paused and resumed, allowing other work while waiting.
+
+**Philosophy**: "Don't block on I/O; let other tasks run."
+
+```rust
+use std::future::Future;
+
+// Async function
+async fn fetch_data() -> Result<String, Error> {
+    // Simulated async operation
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    Ok(String::from("data"))
+}
+
+// Async block
+fn example() {
+    let future = async {
+        let data = fetch_data().await?;
+        process(data).await?;
+        Ok(())
+    };
+    
+    // Future does nothing until awaited or spawned
+}
+
+// Async method in trait
+trait AsyncProcessor {
+    async fn process(&self, data: String) -> Result<(), Error>;
+}
+```
+
+**How async works**:
+```
+ASYNC TRANSFORMATION
+┌────────────────────────────────────┐
+│ async fn foo() -> T {              │
+│     // body                        │
+│ }                                  │
+│                                    │
+│ Becomes:                           │
+│                                    │
+│ fn foo() -> impl Future<Output=T> {│
+│     // State machine               │
+│ }                                  │
+└────────────────────────────────────┘
+
+State machine:
+┌────────────────────┐
+│ State 0: Start     │
+│   ↓ .await         │
+├────────────────────┤
+│ State 1: Waiting   │
+│   ↓ resume         │
+├────────────────────┤
+│ State 2: Continue  │
+│   ↓ .await         │
+├────────────────────┤
+│ State 3: Waiting   │
+│   ↓ resume         │
+├────────────────────┤
+│ State 4: Done      │
+└────────────────────┘
+```
+
+**Async runtime example** (Tokio):
+```rust
+#[tokio::main]
+async fn main() {
+    // Sequential execution
+    let data1 = fetch_data("url1").await;
+    let data2 = fetch_data("url2").await;
+    
+    // Concurrent execution
+    let (data1, data2) = tokio::join!(
+        fetch_data("url1"),
+        fetch_data("url2")
+    );
+    
+    // Spawn tasks
+    let handle = tokio::spawn(async {
+        process_in_background().await
+    });
+    
+    // Wait for completion
+    handle.await.unwrap();
+}
+
+async fn fetch_data(url: &str) -> String {
+    // Simulated HTTP request
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    format!("Data from {}", url)
+}
+```
+
+---
+
+### 25. `await` (Suspend and Resume)
+
+**Purpose**: Pause execution until a Future completes.
+
+```rust
+async fn complex_operation() -> Result<(), Error> {
+    // Each .await is a suspension point
+    let user = fetch_user().await?;
+    let profile = fetch_profile(user.id).await?;
+    let posts = fetch_posts(user.id).await?;
+    
+    // Process results
+    for post in posts {
+        let comments = fetch_comments(post.id).await?;
+        display_post(post, comments);
+    }
+    
+    Ok(())
+}
+```
+
+**Await points are yield points**:
+```
+EXECUTION FLOW WITH AWAIT
+┌────────────────────────────────────┐
+│ async fn foo() {                   │
+│     let x = compute();   // Runs  │
+│     let y = fetch().await;  ←──┐  │
+│     // Suspends here           │  │
+│     // Executor can run other  │  │
+│     // tasks                    │  │
+│     // ...                      │  │
+│     // Resumes when ready   ────┘  │
+│     let z = x + y;       // Runs  │
+│ }                                  │
+└────────────────────────────────────┘
+
+Timeline:
+Task A: ─── await ············· resume ───
+Task B:          ─── await ··· resume ───
+Task C:               ─── await · resume ───
+        └─────┬─────┘
+           Executor schedules other tasks
+           while Task A waits
+```
+
+**Error handling with await**:
+```rust
+async fn handle_errors() -> Result<(), Error> {
+    // ? operator propagates errors
+    let data = fetch_data().await?;
+    
+    // Manual handling
+    match fetch_data().await {
+        Ok(data) => process(data),
+        Err(e) => {
+            log_error(&e);
+            return Err(e);
+        }
+    }
+    
+    // Timeout
+    let data = tokio::time::timeout(
+        Duration::from_secs(5),
+        fetch_data()
+    ).await??;  // Two ? for timeout error and fetch error
+    
+    Ok(())
+}
+```
+
+**Common patterns**:
+```rust
+async fn patterns() {
+    // 1. Sequential (one after another)
+    let a = fetch_a().await;
+    let b = fetch_b().await;
+    
+    // 2. Concurrent (both at once)
+    let (a, b) = tokio::join!(fetch_a(), fetch_b());
+    
+    // 3. Race (first to complete)
+    let result = tokio::select! {
+        a = fetch_a() => a,
+        b = fetch_b() => b,
+    };
+    
+    // 4. Stream processing
+    use tokio_stream::StreamExt;
+    let mut stream = fetch_stream();
+    while let Some(item) = stream.next().await {
+        process(item).await;
+    }
+}
+```
+
+---
+
+## Meta-programming Keywords
+
+### 26. `macro_rules!` (Declarative Macros)
+
+**Concept Primer - Macro**: Code that writes code at compile-time.
+
+**Philosophy**: "Don't repeat yourself—generate instead."
+
+```rust
+// Simple macro
+macro_rules! say_hello {
+    () => {
+        println!("Hello, world!");
+    };
+}
+
+// Usage
+say_hello!();  // Expands to println!("Hello, world!");
+```
+
+**Pattern matching in macros**:
+```rust
+// Macro with patterns
+macro_rules! create_function {
+    // Match: create_function!(foo)
+    ($func_name:ident) => {
+        fn $func_name() {
+            println!("You called {:?}()", stringify!($func_name));
+        }
+    };
+}
+
+create_function!(foo);
+create_function!(bar);
+
+fn main() {
+    foo();  // Prints: You called "foo"()
+    bar();  // Prints: You called "bar"()
+}
+```
+
+**Macro syntax elements**:
+```
+MACRO PATTERN TYPES
+┌────────────────────────────────────┐
+│ $name:item      → Item (fn, struct)│
+│ $name:block     → Block {}         │
+│ $name:stmt      → Statement        │
+│ $name:expr      → Expression       │
+│ $name:ty        → Type             │
+│ $name:ident     → Identifier       │
+│ $name:path      → Path (a::b::c)   │
+│ $name:tt        → Token tree       │
+│ $name:meta      → Attribute        │
+│ $name:lifetime  → Lifetime ('a)    │
+│ $name:vis       → Visibility (pub) │
+│ $name:literal   → Literal (42, "x")│
+└────────────────────────────────────┘
+```
+
+**Repetition patterns**:
+```rust
+// Match multiple arguments
+macro_rules! create_functions {
+    // Match: create_functions!(foo, bar, baz)
+    ($($func_name:ident),*) => {
+        $(
+            fn $func_name() {
+                println!("Function {:?}", stringify!($func_name));
+            }
+        )*
+    };
+}
+
+create_functions!(foo, bar, baz);
+// Expands to three function definitions
+
+// Variadic macro
+macro_rules! calculate {
+    // Single expression
+    ($e:expr) => {
+        {
+            let result = $e;
+            println!("{} = {}", stringify!($e), result);
+            result
+        }
+    };
+    
+    // Multiple expressions (comma-separated)
+    ($($e:expr),+) => {
+        {
+            $(calculate!($e);)+
+        }
+    };
+}
+
+calculate!(1 + 2);
+calculate!(1 + 2, 3 + 4, 5 * 6);
+```
+
+**Real-world macro example** (vec![]):
+```rust
+// Simplified version of vec![]
+macro_rules! my_vec {
+    // Empty vec
+    () => {
+        Vec::new()
+    };
+    
+    // Single repeated element: my_vec![5; 3]
+    ($elem:expr; $n:expr) => {
+        {
+            let mut v = Vec::with_capacity($n);
+            for _ in 0..$n {
+                v.push($elem);
+            }
+            v
+        }
+    };
+    
+    // List of elements: my_vec![1, 2, 3]
+    ($($x:expr),+ $(,)?) => {
+        {
+            let mut v = Vec::new();
+            $(
+                v.push($x);
+            )+
+            v
+        }
+    };
+}
+
+let v1 = my_vec![];
+let v2 = my_vec![0; 5];
+let v3 = my_vec![1, 2, 3];
+```
+
+**Macro hygiene**:
+```rust
+// Macros are hygienic (don't accidentally capture variables)
+macro_rules! using_a {
+    ($e:expr) => {
+        {
+            let a = 42;
+            $e
+        }
+    };
+}
+
+fn main() {
+    let a = 13;
+    using_a!(println!("{}", a));  // Prints: 13 (outer a)
+    // Not 42 - macro's 'a' doesn't interfere
+}
+```
+
+**Debugging macros**:
+```rust
+// See macro expansion
+macro_rules! debug_macro {
+    ($($t:tt)*) => {
+        println!("{}", stringify!($($t)*));
+    };
+}
+
+debug_macro!(fn foo() { let x = 5; });
+// Prints: fn foo() { let x = 5; }
+
+// Use cargo expand to see full expansion:
+// $ cargo expand
+```
+
+---
+
+## Reserved Keywords (Future Use)
+
+These keywords are reserved but not yet implemented:
+
+```
+RESERVED KEYWORDS
+┌────────────────────────────────────┐
+│ abstract   → Future abstraction    │
+│ become     → Tail call optimization│
+│ do         → Do-while loops        │
+│ final      → Inheritance control   │
+│ macro      → Macro 2.0 system      │
+│ override   → Method override       │
+│ priv       → Old privacy (removed) │
+│ typeof     → Type queries          │
+│ unsized    → Unsized types         │
+│ virtual    → Virtual methods       │
+│ yield      → Generator support     │
+│ try        → Try blocks (partial)  │
+└────────────────────────────────────┘
+```
+
+**`try` blocks** (unstable):
+```rust
+#![feature(try_blocks)]
+
+fn example() -> Result<i32, Error> {
+    let result: Result<i32, Error> = try {
+        let x = may_fail()?;
+        let y = may_fail_2()?;
+        x + y
+    };
+    
+    result
+}
+```
+
+---
+
+## Keyword Composition Patterns (Advanced)
+
+### Pattern 1: Generic + Trait + Where + Impl
+
+```rust
+// The full power combo
+trait Processor<T> {
+    type Output;
+    fn process(&self, input: T) -> Self::Output;
+}
+
+struct ComplexProcessor<T, U>
+where
+    T: Clone + std::fmt::Debug,
+    U: std::fmt::Display,
+{
+    data: T,
+    formatter: U,
+}
+
+impl<T, U> ComplexProcessor<T, U>
+where
+    T: Clone + std::fmt::Debug,
+    U: std::fmt::Display,
+{
+    fn new(data: T, formatter: U) -> Self {
+        ComplexProcessor { data, formatter }
+    }
+}
+
+impl<T, U> Processor<T> for ComplexProcessor<T, U>
+where
+    T: Clone + std::fmt::Debug + PartialEq,
+    U: std::fmt::Display,
+{
+    type Output = String;
+    
+    fn process(&self, input: T) -> Self::Output {
+        if input == self.data {
+            format!("{}: Same as stored", self.formatter)
+        } else {
+            format!("{}: Different from stored", self.formatter)
+        }
+    }
+}
+```
+
+### Pattern 2: Async + Trait + Generic + Where
+
+```rust
+use std::future::Future;
+
+trait AsyncRepository<T> {
+    async fn find(&self, id: u64) -> Result<T, Error>;
+    async fn save(&self, entity: T) -> Result<(), Error>;
+}
+
+struct DatabaseRepository<T>
+where
+    T: Send + Sync + 'static,
+{
+    pool: DatabasePool,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T> AsyncRepository<T> for DatabaseRepository<T>
+where
+    T: Send + Sync + 'static + serde::Serialize + serde::DeserializeOwned,
+{
+    async fn find(&self, id: u64) -> Result<T, Error> {
+        let query = "SELECT * FROM table WHERE id = $1";
+        let row = self.pool.query_one(query, &[&id]).await?;
+        let entity: T = serde_json::from_value(row.get(0))?;
+        Ok(entity)
+    }
+    
+    async fn save(&self, entity: T) -> Result<(), Error> {
+        let json = serde_json::to_value(&entity)?;
+        let query = "INSERT INTO table (data) VALUES ($1)";
+        self.pool.execute(query, &[&json]).await?;
+        Ok(())
+    }
+}
+```
+
+### Pattern 3: Macro + Trait + Generic (Derive Macro Pattern)
+
+```rust
+// Custom derive macro (procedural)
+#[derive(MyTrait)]
+struct MyStruct {
+    field: i32,
+}
+
+// Expands to approximately:
+impl MyTrait for MyStruct {
+    fn method(&self) -> i32 {
+        self.field
+    }
+}
+
+// Declarative macro for trait implementation
+macro_rules! impl_display {
+    ($type:ty, $field:ident) => {
+        impl std::fmt::Display for $type {
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{}", self.$field)
+            }
+        }
+    };
+}
+
+struct Point { x: i32, y: i32 }
+impl_display!(Point, x);
+```
+
+---
+
+## Cognitive Framework for Mastery (Deep Dive)
+
+### Mental Model 5: Keyword Categories as Tools
+
+```
+KEYWORD TOOLBOX
+┌────────────────────────────────────┐
+│ OWNERSHIP TOOLS                    │
+│  └─ Control memory safety          │
+│                                    │
+│ STRUCTURE TOOLS                    │
+│  └─ Organize code                  │
+│                                    │
+│ ABSTRACTION TOOLS                  │
+│  └─ Define interfaces              │
+│                                    │
+│ FLOW CONTROL TOOLS                 │
+│  └─ Direct execution               │
+│                                    │
+│ META TOOLS                         │
+│  └─ Generate code                  │
+└────────────────────────────────────┘
+```
+
+### Learning Strategy: The Four Stages
+
+**Stage 1: Isolated Understanding** (Weeks 1-2)
+```
+FOR EACH KEYWORD:
+1. Read definition
+2. Write 3 minimal examples
+3. Explain to yourself out loud
+4. Draw memory/flow diagram
+```
+
+**Stage 2: Contextual Recognition** (Weeks 3-4)
+```
+PRACTICE:
+1. Read std library source
+2. Identify each keyword's context
+3. Predict behavior before compiling
+4. Explain why compiler errors occur
+```
+
+**Stage 3: Compositional Thinking** (Weeks 5-6)
+```
+BUILD:
+1. Combine 3+ keywords per project
+2. Design trait hierarchies
+3. Implement generic abstractions
+4. Write safe wrappers for unsafe code
+```
+
+**Stage 4: Intuitive Mastery** (Weeks 7+)
+```
+MASTERY INDICATORS:
+1. Read complex code fluently
+2. Design APIs naturally
+3. Predict compiler behavior
+4. Optimize without measuring (then measure!)
+```
+
+### Deliberate Practice Exercises
+
+**Exercise 1: Keyword Identification**
+```rust
+// How many keywords? Which contexts?
+pub async fn process<T>(data: &mut T) -> impl Future<Output = Result<String, Error>>
+where
+    T: Clone + Send + 'static,
+{
+    let result = unsafe {
+        let ptr = data as *mut T;
+        (*ptr).clone()
+    };
+    
+    match result {
+        value => Ok(format!("{:?}", value)),
+    }
+}
+
+// Answer: pub, async, fn, impl, where, unsafe, let, as, match
+```
+
+**Exercise 2: Error Prediction**
+```rust
+// Find the errors before compiling
+fn example() {
+    let x = String::from("hello");
+    let y = x;
+    println!("{}", x);  // Error 1: x moved
+    
+    let mut z = vec![1, 2, 3];
+    let a = &z;
+    let b = &mut z;  // Error 2: can't have &mut while & exists
+    
+    static mut COUNTER: i32 = 0;
+    COUNTER += 1;  // Error 3: accessing mut static without unsafe
+}
+```
+
+**Exercise 3: Refactoring Challenge**
+```rust
+// Refactor this to be idiomatic and safe
+fn process_data(data: *mut Vec<i32>) {
+    unsafe {
+        (*data).push(42);
+        for i in 0..(*data).len() {
+            println!("{}", (*data)[i]);
+        }
+    }
+}
+
+// Better version:
+fn process_data(data: &mut Vec<i32>) {
+    data.push(42);
+    for item in data {
+        println!("{}", item);
+    }
+}
+```
+
+---
+
+## Final Integration: The Keyword Symphony
+
+```
+THE RUST KEYWORD SYMPHONY
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│  FOUNDATION LAYER                                   │
+│   ├─ let, const, static                            │
+│   ├─ fn, struct, enum, union, trait                │
+│   └─ type, impl                                     │
+│                                                     │
+│  CONTROL LAYER                                      │
+│   ├─ if, match, loop, while, for                   │
+│   ├─ break, continue, return                        │
+│   └─ async, await                                   │
+│                                                     │
+│  ABSTRACTION LAYER                                  │
+│   ├─ pub, mod, use, crate                          │
+│   ├─ where, dyn, Self, self, super                 │
+│   └─ as, ref, move                                  │
+│                                                     │
+│  SAFETY LAYER                                       │
+│   ├─ mut, unsafe                                    │
+│   ├─ 'static, Send, Sync                           │
+│   └─ extern, union                                  │
+│                                                     │
+│  META LAYER                                         │
+│   └─ macro_rules!, derive                           │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+
+Each layer builds on the previous.
+Master bottom-up for solid foundation.
+```
+
+---
+
+## Mastery Checklist
+
+```
+□ Can explain each keyword in 3+ contexts
+□ Can predict compiler errors
+□ Can design trait hierarchies
+□ Can write safe wrappers for unsafe
+□ Can compose async patterns
+□ Can navigate module trees fluently
+□ Can read std library source
+□ Can optimize with zero-cost abstractions
+□ Can debug macro expansions
+□ Can reason about lifetimes visually
+```
+
+---
+
+## The Path Forward
+
+**Daily Practice Ritual**:
+```
+Morning (30 min):
+- Read 100 lines of std library source
+- Identify all keywords and contexts
+
+Afternoon (60 min):
+- Write code combining 3+ keywords
+- Deliberately introduce errors, fix them
+- Refactor for idiomaticity
+
+Evening (30 min):
+- Draw diagrams of ownership/lifetimes
+- Explain one complex pattern out loud
+- Review spaced repetition cards
+```
+
+**Weekly Goals**:
+```
+Week 1-2: Master foundation keywords
+Week 3-4: Master control and abstraction
+Week 5-6: Master composition patterns
+Week 7-8: Build real-world projects
+Week 9+:  Contribute to open source
+```
+
+---
+
+*You've now traversed the complete landscape of Rust's keyword system. Each keyword is a tool; each pattern is a technique. Practice deliberately, build systematically, and you'll reach the top 1%.*
+
+*Remember: Mastery isn't about memorization—it's about internalization. When you dream in Rust's borrow checker, you'll know you've arrived.*
+
+🦀 **The monk's path continues. Keep building, keep learning, keep mastering.** 🦀
