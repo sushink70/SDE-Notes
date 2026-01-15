@@ -4,8 +4,7 @@ Segment Tree - Range query and update operations
 
 
 Cormen, Leiserson, Rivest, Stein: "Introduction to Algorithms" (CLRS)
-Skiena: "The Algorithm Design Manual"
-Sedgewick & Wayne: "Algorithms"
+
 Tarjan's papers on DFS applications
 
 - list and learn all the algorithms and data structures with their implementations in different programming languages - like arrays, linked lists, stacks, queues, trees, graphs, hash tables, sorting algorithms, searching algorithms, dynamic programming, greedy algorithms, divide and conquer algorithms etc and how they works in ascii diarams.

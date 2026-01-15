@@ -5,6 +5,7 @@
 ---
 
 ## Table of Contents
+
 1. [Philosophy & Mental Model](#philosophy--mental-model)
 2. [Keyword Categories: The Taxonomy](#keyword-categories-the-taxonomy)
 3. [Ownership & Borrowing Keywords](#ownership--borrowing-keywords)
@@ -32,23 +33,23 @@ Before diving into keywords, understand Rust's **core values** (this is crucial 
 │      RUST'S THREE PILLARS               │
 ├─────────────────────────────────────────┤
 │                                         │
-│  ┌─────────────┐  ┌─────────────┐     │
-│  │   SAFETY    │  │ PERFORMANCE │     │
-│  │             │  │             │     │
-│  │ • Memory    │  │ • Zero-cost │     │
-│  │ • Thread    │  │   abstract. │     │
-│  │ • Type      │  │ • Control   │     │
-│  └──────┬──────┘  └──────┬──────┘     │
-│         │                │             │
-│         └────────┬───────┘             │
-│                  │                     │
-│         ┌────────▼────────┐            │
-│         │  PRODUCTIVITY   │            │
-│         │                 │            │
-│         │  • Ergonomics   │            │
-│         │  • Abstraction  │            │
-│         │  • Tooling      │            │
-│         └─────────────────┘            │
+│  ┌─────────────┐  ┌─────────────┐       │
+│  │   SAFETY    │  │ PERFORMANCE │       │
+│  │             │  │             │       │
+│  │ • Memory    │  │ • Zero-cost │       │
+│  │ • Thread    │  │   abstract. │       │
+│  │ • Type      │  │ • Control   │       │
+│  └──────┬──────┘  └──────┬──────┘       │
+│         │                │              │
+│         └────────┬───────┘              │
+│                  │                      │
+│         ┌────────▼────────┐             │
+│         │  PRODUCTIVITY   │             │
+│         │                 │             │
+│         │  • Ergonomics   │             │
+│         │  • Abstraction  │             │
+│         │  • Tooling      │             │
+│         └─────────────────┘             │
 │                                         │
 └─────────────────────────────────────────┘
 ```

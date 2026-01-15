@@ -80,8 +80,19 @@ Linked List: [A|●]→[B|●]→[C|●]→[D|NULL]  (scattered memory)
 ### Singly Linked List
 
 ```python
+# The best-practice version
+# class Node:
+#     """A single node in a linked list."""
+#     def __init__(self, data, next=None):
+#         self.data = data
+#         self.next = next
+
+# n1 = Node(1)
+# n2 = Node(2, n1)
+
+
 class Node:
-    """A single node in a linked list."""
+    """A single node in a linked list. Learning / interviews"""
     def __init__(self, data):
         self.data = data
         self.next = None
