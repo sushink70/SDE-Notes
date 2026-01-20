@@ -1,5 +1,10 @@
 # Prompt Engg
 
+Rust, Go and C(optional only Python, C++)
+
+no need to provide Practice Strategy, Daily Training Protocol, Psychological Models, Final Wisdom, Practice Roadmap, Deliberate Practice Strategy.
+
+
 Segment Tree - Range query and update operations
 
 
