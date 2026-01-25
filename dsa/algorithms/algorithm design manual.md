@@ -938,3 +938,33 @@ if __name__ == "__main__":
 
 ---
 
+```
+Queue structure:
+    Head → [Dummy] → [Node 1] → [Node 2] → null ← Tail
+           
+Invariant: Head always points to dummy node
+           Tail points to last node OR second-to-last
+
+Enqueue(x):
+1. Create new node
+2. Loop:
+   a. Read tail
+   b. Read tail.next
+   c. If tail.next == null:
+      - CAS(tail.next, null, new_node)
+      - If success: try to swing tail pointer
+   d. Else (tail is behind):
+      - Help by advancing tail
+
+Dequeue():
+1. Loop:
+   a. Read head
+   b. Read tail
+   c. Read head.next
+   d. If head == tail (queue empty or tail behind):
+      - If head.next == null: return None
+      - Else: advance tail (help)
+   e. Else:
+      - CAS(head, old_head, head.next)
+      - Return head.next.data
+```

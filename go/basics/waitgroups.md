@@ -7,6 +7,7 @@ A `sync.WaitGroup` is a synchronization primitive in Go that allows you to wait 
 ## Core Concepts
 
 A WaitGroup has three main methods:
+
 - **`Add(delta int)`**: Increments the counter by delta (usually 1)
 - **`Done()`**: Decrements the counter by 1 (shorthand for `Add(-1)`)
 - **`Wait()`**: Blocks until the counter becomes zero
@@ -15,13 +16,17 @@ A WaitGroup has three main methods:
 
 ## 1. Code WITHOUT WaitGroup (Problems)
 
-### Example 1: Basic Concurrency Without WaitGroup**Problems with this approach:**
+### Example 1: Basic Concurrency Without WaitGroup
+
+**Problems with this approach:**
+
 - ❌ Program may exit before goroutines complete
 - ❌ Unpredictable output
 - ❌ No way to know when all goroutines have finished
 - ❌ Using `time.Sleep()` is a hack and unreliable
 - ❌ Wastes time if goroutines finish early, or fails if they need more time
 
+```go
 package main
 
 import (
@@ -74,14 +79,18 @@ func main() {
 	withSleepHack()
 }
 
+```
+
 ---
 
 ## 2. Code WITH WaitGroup (Correct)**Benefits:**
+
 - ✅ Guaranteed all goroutines complete before main exits
 - ✅ Predictable execution flow
 - ✅ No wasted time waiting
 - ✅ Clean synchronization
 
+```go
 package main
 
 import (
@@ -185,9 +194,13 @@ func main() {
 	workerPoolExample()
 }
 
+```
+
 ---
 
-## 3. INCORRECT Usage Patterns (Common Mistakes)---
+## 3. INCORRECT Usage Patterns (Common Mistakes)
+
+```go
 
 package main
 
@@ -345,10 +358,13 @@ func main() {
 	incorrectNegativeCounter()
 }
 
+```
+
 ## 4. Errors and Warnings
 
-### Runtime Errors---
+### Runtime Errors
 
+```go
 package main
 
 import (
@@ -534,8 +550,11 @@ func main() {
 	correctContextCancellation()
 }
 
-## 5. Complete Comparison: With vs Without WaitGroup---
+```
 
+## 5. Complete Comparison: With vs Without WaitGroup
+
+```go
 package main
 
 import (
@@ -727,8 +746,11 @@ func main() {
 	parallelComputationComparison()
 }
 
+```
+
 ## 6. Advanced Patterns and Best Practices
 
+```go
 package main
 
 import (
@@ -1096,6 +1118,7 @@ func main() {
 	usingWrapperFunction()
 }
 
+```
 ---
 
 ## Summary: Key Benefits and Control Comparison
@@ -1324,7 +1347,7 @@ Step 4: First Done() Call
 ┌─────────┼───────────────────────────┐
 │         │  STACK (worker1)          │
 ├─────────┼───────────────────────────┤
-│  (*wg).Done() // or wg.Done()      │
+│  (*wg).Done() // or wg.Done()       │
 │  ┌──────────────────┐               │
 │  │ wg pointer ──────┼───────┘       │
 │  └──────────────────┘               │
@@ -1376,11 +1399,11 @@ SCENARIO A: WaitGroup on Stack (typical)
 │  │  │  counter: 2    │                      │         │
 │  │  │  sema: [...]   │                      │         │
 │  │  └────────────────┘                      │         │
-│  │                                           │         │
+│  │                                          │         │
 │  │  Pointers to wg passed to goroutines ─┐  │         │
 │  └───────────────────────────────────────┼──┘         │
-│                                           │            │
-│  worker1() stack frame:                   │            │
+│                                          │            │
+│  worker1() stack frame:                  │            │
 │  ┌───────────────────────────────────────┼──┐         │
 │  │  func worker(wg *sync.WaitGroup)      │  │         │
 │  │  ┌────────────────┐                   │  │         │
@@ -1388,7 +1411,7 @@ SCENARIO A: WaitGroup on Stack (typical)
 │  │  │  → 0x1000 ─────┼───────────────────┘  │         │
 │  │  └────────────────┘                      │         │
 │  └──────────────────────────────────────────┘         │
-│                                                        │
+│                                                       │
 │  worker2() stack frame:                               │
 │  ┌──────────────────────────────────────────┐         │
 │  │  func worker(wg *sync.WaitGroup)         │         │
@@ -1436,7 +1459,7 @@ SCENARIO B: WaitGroup on Heap (escape analysis)
 │  │  │ counter: 3     │                    │           │
 │  │  │ sema: [...]    │                    │           │
 │  │  └────────────────┘                    │           │
-│  │                                         │           │
+│  │                                        │           │
 │  │  Referenced by multiple goroutines     │           │
 │  └────────────────────────────────────────┘           │
 │         ↑         ↑         ↑                          │
