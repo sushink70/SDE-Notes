@@ -106,6 +106,7 @@ Pointer changes: 6
 
 ## 3. Production Implementation (C)
 
+```c
 /*
  * Production Red-Black Tree Implementation in C
  * Thread-safety: NOT thread-safe (caller must synchronize)
@@ -649,8 +650,11 @@ int main(void) {
     return 0;
 }
 
+```
+
 ## 4. Production Implementation (Rust)
 
+```rust
 /*
  * Production Red-Black Tree Implementation in Rust
  * Memory-safe with zero-cost abstractions
@@ -1212,6 +1216,8 @@ fn main() {
     println!("\n=== Test Complete ===");
 }
 
+```
+
 ---
 
 ## 5. Detailed Algorithm Walkthrough
@@ -1267,6 +1273,7 @@ Phase 3: ENFORCE ROOT BLACK
 ```
 
 **Complexity Analysis**:
+
 - BST insert: O(h) where h = tree height ≤ 2⋅log₂(n+1)
 - Fixup: O(log n) - at most log₂(n) recolorings, at most 2 rotations
 - **Total: O(log n) worst-case**
@@ -1336,6 +1343,8 @@ Phase 3: X.color = BLACK
 ```
 
 **Complexity Analysis**:
+
+
 - BST delete: O(h) ≤ O(log n)
 - Fixup: O(log n) - at most log₂(n) iterations, at most 3 rotations
 - **Total: O(log n) worst-case**
@@ -1348,7 +1357,7 @@ Phase 3: X.color = BLACK
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ THREAT MODEL: Red-Black Tree in Security-Critical Apps │
+│ THREAT MODEL: Red-Black Tree in Security-Critical Apps  │
 └─────────────────────────────────────────────────────────┘
 
 ASSETS:
@@ -1483,6 +1492,8 @@ int rb_tree_insert_safe(rb_tree_t *tree, int64_t key, void *value) {
 ## 7. Testing, Fuzzing & Benchmarking
 
 ### 7.1 Unit Tests
+
+```rust
 /*
  * Comprehensive Test Suite for Red-Black Tree
  * Includes: property tests, stress tests, adversarial tests
@@ -1868,6 +1879,8 @@ mod proptests {
     }
 }
 
+```
+
 ### 7.2 Fuzzing Configuration
 
 ```toml
@@ -1888,6 +1901,8 @@ criterion = "0.5"
 name = "fuzz_rbtree"
 path = "fuzz/fuzz_targets/fuzz_rbtree.rs"
 ```
+
+```rust
 /*
  * Fuzzing Harness for Red-Black Tree
  * Compatible with: cargo-fuzz (libFuzzer), AFL++
@@ -2133,7 +2148,11 @@ Run fuzzer with sanitizers:
 cargo fuzz run fuzz_rbtree --sanitizer=address -- -max_len=10000
 */
 
+```
+
 ### 7.3 Benchmarking Suite
+
+```rust
 /*
  * Comprehensive Benchmark Suite using Criterion
  * 
@@ -2444,6 +2463,9 @@ static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 $ MALLOC_CONF=prof:true cargo run --release
 $ jeprof --show_bytes --pdf target/release/rbtree_bench jeprof.*.heap > profile.pdf
 */
+
+```
+
 ---
 
 ## 8. Performance Analysis
@@ -2571,36 +2593,36 @@ unsafe fn simd_search(keys: &[i32; 8], target: i32) -> Option<usize> {
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │           RB-Tree Interface (Generic K, V)                  │
-│  ┌──────────────┬──────────────┬──────────────┐            │
-│  │   insert()   │   search()   │   delete()   │            │
-│  └──────────────┴──────────────┴──────────────┘            │
+│  ┌──────────────┬──────────────┬──────────────┐             │
+│  │   insert()   │   search()   │   delete()   │             │
+│  └──────────────┴──────────────┴──────────────┘             │
 └───────────────────────────┬─────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Core RB-Tree Implementation                    │
-│  ┌──────────────────────────────────────────┐              │
-│  │  Balance Operations                      │              │
-│  │  - Rotations (left/right)                │              │
-│  │  - Recoloring                            │              │
-│  │  - Fixup procedures                      │              │
-│  └──────────────────────────────────────────┘              │
-│  ┌──────────────────────────────────────────┐              │
-│  │  Memory Management                       │              │
-│  │  - Node allocation                       │              │
-│  │  - Reference counting (Rust Arc)         │              │
-│  │  - Cleanup on drop                       │              │
-│  └──────────────────────────────────────────┘              │
+│  ┌──────────────────────────────────────────┐               │
+│  │  Balance Operations                      │               │
+│  │  - Rotations (left/right)                │               │
+│  │  - Recoloring                            │               │
+│  │  - Fixup procedures                      │               │
+│  └──────────────────────────────────────────┘               │
+│  ┌──────────────────────────────────────────┐               │
+│  │  Memory Management                       │               │
+│  │  - Node allocation                       │               │
+│  │  - Reference counting (Rust Arc)         │               │
+│  │  - Cleanup on drop                       │               │
+│  └──────────────────────────────────────────┘               │
 └───────────────────────────┬─────────────────────────────────┘
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │        Optional: Concurrency Layer (RwLock/Mutex)           │
-│  ┌──────────────────────────────────────────┐              │
-│  │  Read operations: shared lock            │              │
-│  │  Write operations: exclusive lock        │              │
-│  │  Lock-free alternatives: epoch-based     │              │
-│  └──────────────────────────────────────────┘              │
+│  ┌──────────────────────────────────────────┐               │
+│  │  Read operations: shared lock            │               │
+│  │  Write operations: exclusive lock        │               │
+│  │  Lock-free alternatives: epoch-based     │               │
+│  └──────────────────────────────────────────┘               │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -2945,6 +2967,7 @@ Concurrent Trees:
 ## 12. Next Steps
 
 ### Immediate (Week 1-2)
+
 ```bash
 1. Implement basic RB-Tree in Rust
    $ cargo new rbtree && cd rbtree
@@ -2960,6 +2983,7 @@ Concurrent Trees:
 ```
 
 ### Short-term (Week 3-4)
+
 ```bash
 4. Implement concurrent wrapper (Arc<RwLock<RBTree>>)
    $ # Add thread-safe wrapper
@@ -2974,6 +2998,7 @@ Concurrent Trees:
 ```
 
 ### Medium-term (Month 2-3)
+
 ```bash
 7. Optimize for production (memory pooling, SIMD)
    $ cargo build --release --features simd
@@ -2989,6 +3014,7 @@ Concurrent Trees:
 ```
 
 ### Long-term (Month 4-6)
+
 ```bash
 10. Implement persistent (on-disk) variant
     $ # Add serialization/deserialization
@@ -3011,12 +3037,12 @@ System Architecture: Red-Black Tree in Cloud-Native Stack
 
 ┌────────────────────────────────────────────────────────┐
 │              User Application (Go/Rust)                │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │  Business Logic                                  │ │
-│  │  - Service mesh routing                          │ │
-│  │  - Resource scheduling                           │ │
-│  │  - Configuration management                      │ │
-│  └────────────────┬─────────────────────────────────┘ │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │  Business Logic                                  │  │
+│  │  - Service mesh routing                          │  │
+│  │  - Resource scheduling                           │  │
+│  │  - Configuration management                      │  │
+│  └────────────────┬─────────────────────────────────┘  │
 └───────────────────┼────────────────────────────────────┘
                     │
                     ▼
@@ -3024,18 +3050,18 @@ System Architecture: Red-Black Tree in Cloud-Native Stack
 │           RB-Tree Library (Rust crate)                 │
 │  ┌──────────────────────────────────────────────────┐ │
 │  │  Public API                                      │ │
-│  │  - insert(K, V) -> Result<(), Error>            │ │
-│  │  - delete(K) -> Option<V>                       │ │
-│  │  - search(K) -> Option<&V>                      │ │
+│  │  - insert(K, V) -> Result<(), Error>             │ │
+│  │  - delete(K) -> Option<V>                        │ │
+│  │  - search(K) -> Option<&V>                       │ │
 │  └────────────────┬─────────────────────────────────┘ │
-│                   │                                    │
+│                   │                                   │
 │  ┌────────────────▼─────────────────────────────────┐ │
 │  │  Core Implementation                             │ │
-│  │  - Node<K, V> with color field                  │ │
+│  │  - Node<K, V> with color field                   │ │
 │  │  - Rotation operations                           │ │
-│  │  - Rebalancing fixup                            │ │
+│  │  - Rebalancing fixup                             │ │
 │  └────────────────┬─────────────────────────────────┘ │
-│                   │                                    │
+│                   │                                   │
 │  ┌────────────────▼─────────────────────────────────┐ │
 │  │  Security Layer                                  │ │
 │  │  - Input validation                              │ │
@@ -3057,3 +3083,1077 @@ System Architecture: Red-Black Tree in Cloud-Native Stack
 ---
 
 This comprehensive guide provides everything needed to understand, implement, test, and deploy production-grade Red-Black Trees in security-critical systems. All implementations are provided with rigorous correctness guarantees, security hardening, and operational best practices suitable for CNCF-style infrastructure projects.
+
+# The Red-Black Tree: A Comprehensive Mastery Guide
+
+## Foundation: What Problem Does This Solve?
+
+Before diving into red-black trees, understand the **why**:
+
+In a basic Binary Search Tree (BST), operations like search, insert, and delete take O(h) time, where h = height. The problem? In worst case (inserting sorted data), the tree degenerates into a linked list (h = n), making operations O(n).
+
+**Red-Black Trees guarantee O(log n) height** through self-balancing properties, making worst-case performance predictable and efficient.
+
+---
+
+## Core Concept: The Five Invariants
+
+A Red-Black Tree is a BST with nodes colored **RED** or **BLACK**, satisfying these **inviolable rules**:
+
+1. **Root Property**: Root is always BLACK
+2. **Leaf Property**: All NIL (null) leaves are BLACK
+3. **Red Property**: Red nodes cannot have red children (no consecutive reds on any path)
+4. **Black Property**: Every path from root to NIL has the same number of black nodes (black-height)
+5. **BST Property**: Left subtree < node < right subtree
+
+**Mental Model**: Think of black nodes as the "skeleton" maintaining balance, and red nodes as "elastic connectors" that can shift without breaking the structural integrity.
+
+---
+
+## Vocabulary Deep Dive
+
+Before proceeding, let's define every term precisely:
+
+### **Black-Height**
+The number of black nodes on any path from a node to a NIL descendant, **excluding the node itself**. 
+
+Example:
+```
+       10(B)  ← black-height = 2
+      /    \
+    5(R)   15(B)
+   /  \      \
+ NIL NIL     NIL
+```
+Path: 10→15→NIL has 2 black nodes (15, NIL) → black-height of 10 is 2
+
+### **Successor**
+The node with the smallest key **greater than** the current node's key. In-order traversal's next node.
+
+Finding successor:
+- If node has right child: successor is leftmost node in right subtree
+- Otherwise: successor is the first ancestor where node is in left subtree
+
+### **Predecessor**
+The node with the largest key **smaller than** current node's key.
+
+### **Rotation**
+A local restructuring operation that maintains BST property while changing tree shape:
+
+**Left Rotation** (moves right child up):
+```
+    x                y
+   / \              / \
+  a   y     →      x   c
+     / \          / \
+    b   c        a   b
+```
+
+**Right Rotation** (moves left child up):
+```
+    y                x
+   / \              / \
+  x   c     →      a   y
+ / \                  / \
+a   b                b   c
+```
+
+### **Uncle**
+Parent's sibling node.
+```
+       G (grandparent)
+      / \
+    P(parent) U(uncle)
+    |
+    N(current node)
+```
+
+### **Sibling**
+Node's parent's other child.
+
+---
+
+## Why Red-Black Trees Work: The Mathematical Proof
+
+**Theorem**: A Red-Black Tree with n internal nodes has height ≤ 2·log₂(n+1)
+
+**Proof Sketch**:
+1. By Red Property: No path can have more than half its nodes red
+2. Shortest path (all black) to longest path (alternating red-black) differs by at most factor of 2
+3. If black-height = bh, minimum nodes in subtree = 2^bh - 1
+4. Therefore: n ≥ 2^(h/2) - 1
+5. Solving: h ≤ 2·log₂(n+1)
+
+**Cognitive Insight**: The "roughly balanced" nature (height ≤ 2·optimal) is what makes RB-trees faster in practice than strictly balanced trees (AVL) — less rebalancing overhead.
+
+---
+
+## Visual Representation: Tree Structure
+
+```
+                  13(B) bh=2
+                 /      \
+              8(R)       17(B)
+             /   \         \
+          1(B)  11(B)      25(R)
+                          /    \
+                       22(B)   27(B)
+
+Legend: (B) = Black, (R) = Red
+NIL nodes (not shown) are all BLACK
+```
+
+**Verification**:
+- ✓ Root 13 is BLACK
+- ✓ No red node has red child
+- ✓ All paths have 2 black nodes:
+  - 13→8→1→NIL: [13,1,NIL] = 3 black
+  - 13→17→25→27→NIL: [13,17,27,NIL] = 4 black
+  
+Wait! This violates black-height. Let me correct:
+
+```
+                  13(B) 
+                 /      \
+              8(B)       17(B)
+             /   \         \
+          1(R)  11(R)      25(R)
+                          /    \
+                       22(B)   27(B)
+```
+
+---
+
+## Node Structure Implementation
+
+### Rust Implementation
+
+```rust
+use std::cmp::Ordering;
+use std::fmt::Debug;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Color {
+    Red,
+    Black,
+}
+
+type Link<T> = Option<Box<Node<T>>>;
+
+#[derive(Debug)]
+struct Node<T: Ord> {
+    key: T,
+    color: Color,
+    left: Link<T>,
+    right: Link<T>,
+    // Note: We don't store parent pointer in Rust (ownership issues)
+    // Will use iterative approach with stack instead
+}
+
+impl<T: Ord> Node<T> {
+    fn new(key: T, color: Color) -> Self {
+        Node {
+            key,
+            color,
+            left: None,
+            right: None,
+        }
+    }
+}
+
+pub struct RBTree<T: Ord> {
+    root: Link<T>,
+}
+```
+
+**Rust-Specific Design Decision**: No parent pointers due to ownership. We'll use stack-based iteration or recursive approach with return values.
+
+### Go Implementation
+
+```go
+package rbtree
+
+type Color bool
+
+const (
+    RED   Color = false
+    BLACK Color = true
+)
+
+type Node[T comparable] struct {
+    Key    T
+    Color  Color
+    Left   *Node[T]
+    Right  *Node[T]
+    Parent *Node[T]  // Go allows this easily
+}
+
+type RBTree[T comparable] struct {
+    root *Node[T]
+    nil  *Node[T]  // Sentinel NIL node
+}
+
+func NewRBTree[T comparable]() *RBTree[T] {
+    nil := &Node[T]{Color: BLACK}
+    return &RBTree[T]{
+        root: nil,
+        nil:  nil,
+    }
+}
+```
+
+**Go Design**: Using sentinel NIL node simplifies edge cases (no null checks needed).
+
+### C Implementation
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef enum { RED, BLACK } Color;
+
+typedef struct Node {
+    int key;
+    Color color;
+    struct Node *left;
+    struct Node *right;
+    struct Node *parent;
+} Node;
+
+typedef struct {
+    Node *root;
+    Node *NIL;  // Sentinel
+} RBTree;
+
+Node* create_node(int key, Color color, Node *NIL) {
+    Node *node = (Node*)malloc(sizeof(Node));
+    node->key = key;
+    node->color = color;
+    node->left = NIL;
+    node->right = NIL;
+    node->parent = NIL;
+    return node;
+}
+
+void init_rbtree(RBTree *tree) {
+    tree->NIL = create_node(0, BLACK, NULL);
+    tree->root = tree->NIL;
+}
+```
+
+---
+
+## Rotation Operations: The Building Blocks
+
+### Left Rotation Logic Flow
+
+```
+BEFORE:              AFTER:
+   x                   y
+  / \                 / \
+ α   y      →        x   γ
+    / \             / \
+   β   γ           α   β
+
+BST Property Maintained:
+α < x < β < y < γ
+```
+
+**When to use**: When right subtree is too heavy (right child is red in fixing violations)
+
+### Rust: Left Rotation
+
+```rust
+impl<T: Ord> RBTree<T> {
+    fn rotate_left(&mut self, mut node: Box<Node<T>>) -> Box<Node<T>> {
+        // Take right child (will become new root of subtree)
+        let mut right_child = node.right.take().expect("Right child must exist");
+        
+        // Step 1: Move right child's left subtree to node's right
+        node.right = right_child.left.take();
+        
+        // Step 2: Make node the left child of right_child
+        right_child.left = Some(node);
+        
+        // Return new root
+        right_child
+    }
+}
+```
+
+**Complexity**: O(1) - constant pointer changes
+
+### Go: Left Rotation with Parent Pointers
+
+```go
+func (t *RBTree[T]) rotateLeft(x *Node[T]) {
+    y := x.Right  // Set y
+    
+    // Turn y's left subtree into x's right subtree
+    x.Right = y.Left
+    if y.Left != t.nil {
+        y.Left.Parent = x
+    }
+    
+    // Link x's parent to y
+    y.Parent = x.Parent
+    if x.Parent == t.nil {
+        t.root = y
+    } else if x == x.Parent.Left {
+        x.Parent.Left = y
+    } else {
+        x.Parent.Right = y
+    }
+    
+    // Put x on y's left
+    y.Left = x
+    x.Parent = y
+}
+```
+
+### Right Rotation (Mirror of Left)
+
+```rust
+fn rotate_right(&mut self, mut node: Box<Node<T>>) -> Box<Node<T>> {
+    let mut left_child = node.left.take().expect("Left child must exist");
+    node.left = left_child.right.take();
+    left_child.right = Some(node);
+    left_child
+}
+```
+
+**Cognitive Pattern**: Rotations are **local** operations — only affect 3 nodes and maintain all RB properties except potentially color properties (which we fix separately).
+
+---
+
+## Insertion: The Complete Algorithm
+
+### High-Level Strategy (Mental Model)
+
+1. **Insert as BST**: Standard BST insertion, color new node RED
+2. **Fix violations**: Red node might have red parent (violates Red Property)
+3. **Rebalancing**: Use rotations and recoloring based on uncle's color
+
+### Why Insert as RED?
+
+**Critical Insight**: Inserting BLACK would **immediately** violate Black Property (different black-heights on paths). Inserting RED only potentially violates Red Property (easier to fix locally).
+
+### Insertion Cases: Decision Tree
+
+```
+                    NEW NODE INSERTED (RED)
+                            |
+                    Does it violate rules?
+                            |
+                +-----------+-----------+
+                |                       |
+            Parent=BLACK            Parent=RED
+                |                       |
+           ✓ DONE!              Need to fix
+                                        |
+                            What color is Uncle?
+                                        |
+                        +---------------+---------------+
+                        |                               |
+                   Uncle=RED                        Uncle=BLACK
+                        |                               |
+                 Recolor & Recurse              Which side is node?
+                 (Case 1)                               |
+                                        +---------------+---------------+
+                                        |                               |
+                                  Same side as parent            Opposite side
+                                   (Case 2)                        (Case 3)
+                                        |                               |
+                                  Rotate + Recolor            Double rotation + Recolor
+```
+
+### Detailed Case Analysis
+
+#### **Case 1: Uncle is RED**
+
+```
+       G(B)              G(R)
+      /    \            /    \
+    P(R)   U(R)   →   P(B)   U(B)
+    /                 /
+  N(R)              N(R)
+```
+
+**Action**: 
+- Recolor parent → BLACK
+- Recolor uncle → BLACK  
+- Recolor grandparent → RED
+- Recursively fix grandparent (might violate at higher level)
+
+**Why this works**: Maintains black-height (still 2 black nodes on each path), but pushes red violation up the tree.
+
+#### **Case 2: Uncle is BLACK, Node is "Inside"**
+
+```
+    G(B)              G(B)              N(B)
+   /                 /                 /   \
+  P(R)        →    N(R)         →    P(R)  G(R)
+    \              /
+    N(R)         P(R)
+```
+
+**Action**:
+- Left rotate on parent (converts to Case 3)
+- Then apply Case 3
+
+**Why**: "Inside" position (left-right or right-left zigzag) needs to be straightened before final rotation.
+
+#### **Case 3: Uncle is BLACK, Node is "Outside"**
+```
+      G(B)              P(B)
+     /                 /   \
+   P(R)        →     N(R)  G(R)
+   /
+ N(R)
+```
+
+**Action**:
+- Right rotate on grandparent
+- Swap colors of parent and grandparent
+
+**Why**: This is the final fix. After rotation, tree is balanced with correct colors.
+
+---
+
+## Rust: Complete Insertion Implementation
+
+```rust
+impl<T: Ord + Debug + Clone> RBTree<T> {
+    pub fn insert(&mut self, key: T) {
+        self.root = self.insert_recursive(self.root.take(), key);
+        // Ensure root is black
+        if let Some(ref mut root) = self.root {
+            root.color = Color::Black;
+        }
+    }
+    
+    fn insert_recursive(&mut self, node: Link<T>, key: T) -> Link<T> {
+        // Base case: insert new red node
+        let mut node = match node {
+            None => return Some(Box::new(Node::new(key, Color::Red))),
+            Some(n) => n,
+        };
+        
+        // Recursive BST insertion
+        match key.cmp(&node.key) {
+            Ordering::Less => {
+                node.left = self.insert_recursive(node.left.take(), key);
+            }
+            Ordering::Greater => {
+                node.right = self.insert_recursive(node.right.take(), key);
+            }
+            Ordering::Equal => return Some(node), // Duplicate
+        }
+        
+        // Fix violations on the way up
+        Some(self.fix_insert(node))
+    }
+    
+    fn fix_insert(&mut self, mut node: Box<Node<T>>) -> Box<Node<T>> {
+        // Case 1: Right child is red, left is black → left rotate
+        if self.is_red(&node.right) && !self.is_red(&node.left) {
+            node = self.rotate_left(node);
+        }
+        
+        // Case 2: Left child and left-left grandchild are red → right rotate
+        if self.is_red(&node.left) {
+            if let Some(ref left) = node.left {
+                if self.is_red(&left.left) {
+                    node = self.rotate_right(node);
+                }
+            }
+        }
+        
+        // Case 3: Both children red → flip colors
+        if self.is_red(&node.left) && self.is_red(&node.right) {
+            self.flip_colors(&mut node);
+        }
+        
+        node
+    }
+    
+    fn is_red(&self, node: &Link<T>) -> bool {
+        node.as_ref().map_or(false, |n| n.color == Color::Red)
+    }
+    
+    fn flip_colors(&self, node: &mut Box<Node<T>>) {
+        node.color = Color::Red;
+        if let Some(ref mut left) = node.left {
+            left.color = Color::Black;
+        }
+        if let Some(ref mut right) = node.right {
+            right.color = Color::Black;
+        }
+    }
+}
+```
+
+**Rust Pattern**: This uses **Left-Leaning Red-Black Tree** variant (LLRB) which simplifies implementation:
+
+- All red nodes lean left
+- Reduces cases from 6 to 3
+- Functionally equivalent to standard RB-tree
+
+---
+
+## Go: Standard Red-Black Tree Insertion
+
+```go
+func (t *RBTree[T]) Insert(key T) {
+    node := &Node[T]{
+        Key:    key,
+        Color:  RED,
+        Left:   t.nil,
+        Right:  t.nil,
+        Parent: t.nil,
+    }
+    
+    // Standard BST insert
+    var parent *Node[T] = t.nil
+    current := t.root
+    
+    for current != t.nil {
+        parent = current
+        if key < current.Key {
+            current = current.Left
+        } else if key > current.Key {
+            current = current.Right
+        } else {
+            return // Duplicate
+        }
+    }
+    
+    node.Parent = parent
+    if parent == t.nil {
+        t.root = node
+    } else if key < parent.Key {
+        parent.Left = node
+    } else {
+        parent.Right = node
+    }
+    
+    // Fix violations
+    t.insertFixup(node)
+}
+
+func (t *RBTree[T]) insertFixup(z *Node[T]) {
+    for z.Parent.Color == RED {
+        if z.Parent == z.Parent.Parent.Left {
+            uncle := z.Parent.Parent.Right
+            
+            if uncle.Color == RED {
+                // Case 1: Uncle is red
+                z.Parent.Color = BLACK
+                uncle.Color = BLACK
+                z.Parent.Parent.Color = RED
+                z = z.Parent.Parent
+            } else {
+                if z == z.Parent.Right {
+                    // Case 2: Inside position
+                    z = z.Parent
+                    t.rotateLeft(z)
+                }
+                // Case 3: Outside position
+                z.Parent.Color = BLACK
+                z.Parent.Parent.Color = RED
+                t.rotateRight(z.Parent.Parent)
+            }
+        } else {
+            // Mirror cases (right subtree)
+            uncle := z.Parent.Parent.Left
+            
+            if uncle.Color == RED {
+                z.Parent.Color = BLACK
+                uncle.Color = BLACK
+                z.Parent.Parent.Color = RED
+                z = z.Parent.Parent
+            } else {
+                if z == z.Parent.Left {
+                    z = z.Parent
+                    t.rotateRight(z)
+                }
+                z.Parent.Color = BLACK
+                z.Parent.Parent.Color = RED
+                t.rotateLeft(z.Parent.Parent)
+            }
+        }
+    }
+    t.root.Color = BLACK
+}
+```
+
+**Performance Analysis**:
+
+- BST insertion: O(log n)
+- Fixup: O(log n) worst case (recoloring propagates to root)
+- Rotations: At most 2 per insertion
+- **Total: O(log n)**
+
+---
+
+## Deletion: The Most Complex Operation
+
+### Why Deletion is Hard
+
+Removing a node can violate black-height property. The fix is more intricate than insertion (up to 3 rotations needed).
+
+### Deletion Strategy
+
+1. **BST Delete**: Remove node using standard BST deletion
+2. **Track "double black"**: If deleted node was black, creates black-height violation
+3. **Fix violations**: Rebalance using rotations and recoloring
+
+### Standard BST Deletion Review
+
+Three cases:
+
+1. **No children**: Simply remove
+2. **One child**: Replace node with child
+3. **Two children**: Replace with successor (rightmost of left subtree OR leftmost of right subtree), then delete successor
+
+### Deletion Cases: Decision Tree
+
+```
+                NODE TO DELETE
+                      |
+         +------------+------------+
+         |            |            |
+    0 children   1 child      2 children
+         |            |            |
+    Remove node   Replace       Find successor
+         |        with child     Replace & delete successor
+         |            |            |
+    Was it BLACK?  ───┴────────────┘
+         |
+    +----+----+
+    |         |
+  BLACK      RED
+    |         |
+ Double    Simple
+  Black    removal
+    |
+  FIX NEEDED
+```
+
+### Double Black Concept
+
+When we delete a black node, we create a "deficit" in black-height on that path. We conceptually mark that position as "double black" and fix it.
+
+**Cases for fixing double black** (sibling = S, parent = P):
+
+#### **Case 1: Sibling is RED**
+```
+      P(B)              S(B)
+     /    \            /    \
+   DB     S(R)   →   P(R)   SR(B)
+         /    \     /    \
+       SL(B) SR(B) DB   SL(B)
+```
+
+**Action**: Rotate at parent, recolor, convert to Case 2/3/4
+
+#### **Case 2: Sibling BLACK, both nephews BLACK**
+```
+      P(?)              P(+B)
+     /    \            /    \
+   DB     S(B)   →    B     S(R)
+         /    \             /    \
+       SL(B) SR(B)        SL(B) SR(B)
+```
+
+**Action**: Recolor sibling RED, move double-black up to parent
+
+#### **Case 3: Sibling BLACK, far nephew BLACK, near nephew RED**
+```
+      P(?)              P(?)
+     /    \            /    \
+   DB     S(B)   →   DB    SL(B)
+         /    \               \
+      SL(R) SR(B)             S(R)
+                                \
+                               SR(B)
+```
+
+**Action**: Rotate at sibling, recolor, convert to Case 4
+
+#### **Case 4: Sibling BLACK, far nephew RED**
+```
+      P(?)              S(?)
+     /    \            /    \
+   DB     S(B)   →   P(B)  SR(B)
+         /    \     /    \
+      SL(?) SR(R) DB    SL(?)
+```
+
+**Action**: Rotate at parent, recolor, **DONE** (removes double black)
+
+---
+
+## Go: Complete Deletion Implementation
+
+```go
+func (t *RBTree[T]) Delete(key T) {
+    z := t.search(key)
+    if z == t.nil {
+        return
+    }
+    
+    y := z
+    yOriginalColor := y.Color
+    var x *Node[T]
+    
+    if z.Left == t.nil {
+        x = z.Right
+        t.transplant(z, z.Right)
+    } else if z.Right == t.nil {
+        x = z.Left
+        t.transplant(z, z.Left)
+    } else {
+        // Find successor
+        y = t.minimum(z.Right)
+        yOriginalColor = y.Color
+        x = y.Right
+        
+        if y.Parent == z {
+            x.Parent = y
+        } else {
+            t.transplant(y, y.Right)
+            y.Right = z.Right
+            y.Right.Parent = y
+        }
+        
+        t.transplant(z, y)
+        y.Left = z.Left
+        y.Left.Parent = y
+        y.Color = z.Color
+    }
+    
+    if yOriginalColor == BLACK {
+        t.deleteFixup(x)
+    }
+}
+
+func (t *RBTree[T]) deleteFixup(x *Node[T]) {
+    for x != t.root && x.Color == BLACK {
+        if x == x.Parent.Left {
+            sibling := x.Parent.Right
+            
+            // Case 1: Sibling is red
+            if sibling.Color == RED {
+                sibling.Color = BLACK
+                x.Parent.Color = RED
+                t.rotateLeft(x.Parent)
+                sibling = x.Parent.Right
+            }
+            
+            // Case 2: Sibling black, both nephews black
+            if sibling.Left.Color == BLACK && sibling.Right.Color == BLACK {
+                sibling.Color = RED
+                x = x.Parent
+            } else {
+                // Case 3: Far nephew black
+                if sibling.Right.Color == BLACK {
+                    sibling.Left.Color = BLACK
+                    sibling.Color = RED
+                    t.rotateRight(sibling)
+                    sibling = x.Parent.Right
+                }
+                
+                // Case 4: Far nephew red
+                sibling.Color = x.Parent.Color
+                x.Parent.Color = BLACK
+                sibling.Right.Color = BLACK
+                t.rotateLeft(x.Parent)
+                x = t.root // Terminate loop
+            }
+        } else {
+            // Mirror cases (right subtree)
+            sibling := x.Parent.Left
+            
+            if sibling.Color == RED {
+                sibling.Color = BLACK
+                x.Parent.Color = RED
+                t.rotateRight(x.Parent)
+                sibling = x.Parent.Left
+            }
+            
+            if sibling.Right.Color == BLACK && sibling.Left.Color == BLACK {
+                sibling.Color = RED
+                x = x.Parent
+            } else {
+                if sibling.Left.Color == BLACK {
+                    sibling.Right.Color = BLACK
+                    sibling.Color = RED
+                    t.rotateLeft(sibling)
+                    sibling = x.Parent.Left
+                }
+                
+                sibling.Color = x.Parent.Color
+                x.Parent.Color = BLACK
+                sibling.Left.Color = BLACK
+                t.rotateRight(x.Parent)
+                x = t.root
+            }
+        }
+    }
+    x.Color = BLACK
+}
+
+func (t *RBTree[T]) transplant(u, v *Node[T]) {
+    if u.Parent == t.nil {
+        t.root = v
+    } else if u == u.Parent.Left {
+        u.Parent.Left = v
+    } else {
+        u.Parent.Right = v
+    }
+    v.Parent = u.Parent
+}
+
+func (t *RBTree[T]) minimum(node *Node[T]) *Node[T] {
+    for node.Left != t.nil {
+        node = node.Left
+    }
+    return node
+}
+```
+
+**Complexity**:
+
+- BST deletion: O(log n)
+- Fixup: O(log n) worst case
+- Rotations: At most 3
+- **Total: O(log n)**
+
+---
+
+## Search Operation
+
+Search is identical to BST search — RB properties don't affect it.
+
+```rust
+impl<T: Ord> RBTree<T> {
+    pub fn search(&self, key: &T) -> bool {
+        self.search_recursive(&self.root, key)
+    }
+    
+    fn search_recursive(&self, node: &Link<T>, key: &T) -> bool {
+        match node {
+            None => false,
+            Some(n) => match key.cmp(&n.key) {
+                Ordering::Equal => true,
+                Ordering::Less => self.search_recursive(&n.left, key),
+                Ordering::Greater => self.search_recursive(&n.right, key),
+            },
+        }
+    }
+}
+```
+
+**Time**: O(log n)  
+**Space**: O(log n) for recursion stack (O(1) if iterative)
+
+---
+
+## Traversals
+
+All standard tree traversals work:
+
+### In-Order (sorted output)
+
+```rust
+fn inorder_recursive(node: &Link<T>, result: &mut Vec<T>) 
+where T: Clone {
+    if let Some(n) = node {
+        inorder_recursive(&n.left, result);
+        result.push(n.key.clone());
+        inorder_recursive(&n.right, result);
+    }
+}
+```
+
+### Pre-Order
+```rust
+fn preorder(node: &Link<T>, result: &mut Vec<T>) 
+where T: Clone {
+    if let Some(n) = node {
+        result.push(n.key.clone());
+        preorder(&n.left, result);
+        preorder(&n.right, result);
+    }
+}
+```
+
+---
+
+## Complete Working Example: C Implementation
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef enum { RED, BLACK } Color;
+
+typedef struct Node {
+    int key;
+    Color color;
+    struct Node *left, *right, *parent;
+} Node;
+
+typedef struct {
+    Node *root;
+    Node *NIL;
+} RBTree;
+
+void init_tree(RBTree *t) {
+    t->NIL = (Node*)malloc(sizeof(Node));
+    t->NIL->color = BLACK;
+    t->NIL->left = t->NIL->right = t->NIL->parent = NULL;
+    t->root = t->NIL;
+}
+
+Node* create_node(RBTree *t, int key) {
+    Node *node = (Node*)malloc(sizeof(Node));
+    node->key = key;
+    node->color = RED;
+    node->left = node->right = node->parent = t->NIL;
+    return node;
+}
+
+void rotate_left(RBTree *t, Node *x) {
+    Node *y = x->right;
+    x->right = y->left;
+    
+    if (y->left != t->NIL)
+        y->left->parent = x;
+    
+    y->parent = x->parent;
+    
+    if (x->parent == t->NIL)
+        t->root = y;
+    else if (x == x->parent->left)
+        x->parent->left = y;
+    else
+        x->parent->right = y;
+    
+    y->left = x;
+    x->parent = y;
+}
+
+void rotate_right(RBTree *t, Node *y) {
+    Node *x = y->left;
+    y->left = x->right;
+    
+    if (x->right != t->NIL)
+        x->right->parent = y;
+    
+    x->parent = y->parent;
+    
+    if (y->parent == t->NIL)
+        t->root = x;
+    else if (y == y->parent->right)
+        y->parent->right = x;
+    else
+        y->parent->left = x;
+    
+    x->right = y;
+    y->parent = x;
+}
+
+void insert_fixup(RBTree *t, Node *z) {
+    while (z->parent->color == RED) {
+        if (z->parent == z->parent->parent->left) {
+            Node *uncle = z->parent->parent->right;
+            
+            if (uncle->color == RED) {
+                // Case 1
+                z->parent->color = BLACK;
+                uncle->color = BLACK;
+                z->parent->parent->color = RED;
+                z = z->parent->parent;
+            } else {
+                if (z == z->parent->right) {
+                    // Case 2
+                    z = z->parent;
+                    rotate_left(t, z);
+                }
+                // Case 3
+                z->parent->color = BLACK;
+                z->parent->parent->color = RED;
+                rotate_right(t, z->parent->parent);
+            }
+        } else {
+            // Symmetric cases
+            Node *uncle = z->parent->parent->left;
+            
+            if (uncle->color == RED) {
+                z->parent->color = BLACK;
+                uncle->color = BLACK;
+                z->parent->parent->color = RED;
+                z = z->parent->parent;
+            } else {
+                if (z == z->parent->left) {
+                    z = z->parent;
+                    rotate_right(t, z);
+                }
+                z->parent->color = BLACK;
+                z->parent->parent->color = RED;
+                rotate_left(t, z->parent->parent);
+            }
+        }
+    }
+    t->root->color = BLACK;
+}
+
+void insert(RBTree *t, int key) {
+    Node *z = create_node(t, key);
+    Node *y = t->NIL;
+    Node *x = t->root;
+    
+    while (x != t->NIL) {
+        y = x;
+        if (z->key < x->key)
+            x = x->left;
+        else
+            x = x->right;
+    }
+    
+    z->parent = y;
+    
+    if (y == t->NIL)
+        t->root = z;
+    else if (z->key < y->key)
+        y->left = z;
+    else
+        y->right = z;
+    insert_fixup(t, z);
+}
+void inorder(RBTree *t, Node *node) {
+    if (node != t->NIL) {
+        inorder(t, node->left);
+        printf("%d ", node->key);
+        inorder(t, node->right);
+    }
+}
+int main() {
+    RBTree tree;
+    init_tree(&tree);
+    
+    insert(&tree, 10);
+    insert(&tree, 20);
+    insert(&tree, 15);
+    insert(&tree, 30);
+    insert(&tree, 25);
+    
+    printf("In-order Traversal: ");
+    inorder(&tree, tree.root);
+    printf("\n");
+    
+    return 0;
+}
+```
