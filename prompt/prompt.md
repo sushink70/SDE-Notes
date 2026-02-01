@@ -745,3 +745,45 @@ I actively work with and contribute to projects similar to or part of the CNCF l
 ---
 
 I am a software engineer. I have experience in rust, go, python, c, cpp, java and other system programming languages. I am a security focused linux kernel software developer and main focus are server side security and cloud security. now I need a prompt for cloude personal preference. provide it and that must make me elite in it. add ideas and concepts those need for this field.
+
+[1] Caching and streaming experience
+
+- Why does Spotify keep playing in low network zones while YouTube buffers
+- How does Netflix resume exactly where you left off
+- How does Instagram preload the next few Reels so they play instantly when you swipe
+- Why do some video apps let you scrub back instantly but jumping far ahead takes longer
+
+[2] Data modeling and identity
+
+- How does WhatsApp guarantee a message goes to the right chat even if you change your phone
+- Why can you log into the same Netflix account on multiple devices with consistent profiles
+- How does Amazon track one order through cart, payment, shipping and delivery events
+- Why do ride hailing apps treat driver, rider and trip as separate entities instead of one big record
+
+[3] Scalable storage
+
+- How does Instagram store billions of images without one database table exploding
+- Why does a URL shortener not run out of unique short links at massive scale
+- How does Google Photos let you search across years of uploads without long delays
+- Why do apps split big tables into shards instead of just buying a bigger machine
+
+[4] Read vs write paths and consistency
+
+- How can you see your own new tweet immediately while others see it a bit later
+- Why does your bank show a pending transaction before it becomes final
+- How does a food delivery app avoid showing a restaurant as open when it just went offline
+- Why do some dashboards show last updated 2 minutes ago instead of real time numbers
+
+[5] Indexing and search
+
+- How does LinkedIn suggest profiles as soon as you type two or three characters
+- Why can Gmail search across years of emails in a second
+- How does Swiggy or Zomato filter restaurants by cuisine, rating and delivery time together
+- Why do some apps need a separate search service instead of querying the main database
+
+[6] Replication and geo distribution
+
+- How does Netflix keep your watch history in sync when you travel between countries
+- Why can you still read older WhatsApp messages when the service is facing an outage
+- How does a global game server keep players in different continents in the same match
+- Why do many systems talk about leader and follower replicas for data
