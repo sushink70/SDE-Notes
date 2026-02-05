@@ -16,6 +16,8 @@ Tarjan's papers on DFS applications
 Iterative - DP, Backtracking, Graph Traversals (BFS, DFS).
 Tabulation vs Memoization.
 
+randomization, approximation, online algorithms
+
 Iterative - Inorder, Preorder, Postorder traversals of a binary tree.
 Morris Traversal - Inorder, Preorder traversals of a binary tree without using stack or recursion.
 
