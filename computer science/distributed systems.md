@@ -3,6 +3,7 @@
 ## 1. Fundamentals of Distributed Systems
 
 ### 1.1 Definition and Characteristics
+
 A distributed system is a collection of independent computers that appears to users as a single coherent system. Key characteristics include:
 
 - **Resource Sharing**: Hardware, software, and data resources are shared across nodes
@@ -12,6 +13,7 @@ A distributed system is a collection of independent computers that appears to us
 - **Transparency**: Distribution is hidden from users
 
 ### 1.2 Core Challenges
+
 - **Network unreliability**: Messages can be delayed, lost, or duplicated
 - **Partial failures**: Some components fail while others continue
 - **Latency**: Communication delays between nodes
@@ -21,27 +23,33 @@ A distributed system is a collection of independent computers that appears to us
 ## 2. Architectural Patterns
 
 ### 2.1 Client-Server Architecture
+
 Traditional model where clients request services from centralized servers.
 
 **Security Considerations**:
+
 - Server becomes single point of attack
 - Requires strong authentication mechanisms
 - SSL/TLS for encrypted communications
 - Rate limiting to prevent DoS attacks
 
 ### 2.2 Peer-to-Peer (P2P)
+
 All nodes act as both clients and servers with equal responsibilities.
 
 **Security Considerations**:
+
 - No central authority for trust management
 - Vulnerable to Sybil attacks (fake identities)
 - Requires distributed authentication
 - Content verification mechanisms needed
 
 ### 2.3 Microservices Architecture
+
 Application broken into small, independent services.
 
 **Security Considerations**:
+
 - Larger attack surface with more endpoints
 - Service-to-service authentication required
 - API gateway for centralized security
@@ -49,9 +57,10 @@ Application broken into small, independent services.
 - Secret management across services
 
 ### 2.4 Service-Oriented Architecture (SOA)
+
 Enterprise-level services communicate via standardized protocols.
 
-**Security Considerations**:
+
 - WS-Security standards
 - Message-level encryption
 - SAML for federated identity
@@ -60,29 +69,35 @@ Enterprise-level services communicate via standardized protocols.
 ## 3. Communication Mechanisms
 
 ### 3.1 Remote Procedure Call (RPC)
+
 Allows programs to execute procedures on remote systems.
 
 **Common Implementations**:
+
 - gRPC (Google)
 - Apache Thrift
 - JSON-RPC
 
 **Security Measures**:
+
 - TLS encryption for data in transit
 - Authentication tokens (OAuth, JWT)
 - Input validation to prevent injection attacks
 - Rate limiting per client
 
 ### 3.2 Message Queuing
+
 Asynchronous communication via message brokers.
 
 **Popular Systems**:
+
 - RabbitMQ
 - Apache Kafka
 - Amazon SQS
 - Redis Streams
 
 **Security Measures**:
+
 - Message encryption at rest and in transit
 - Access control lists (ACLs) for topics/queues
 - Message authentication codes (MAC)
@@ -90,9 +105,11 @@ Asynchronous communication via message brokers.
 - Network segmentation for broker access
 
 ### 3.3 RESTful APIs
+
 HTTP-based stateless communication.
 
 **Security Best Practices**:
+
 - HTTPS everywhere (TLS 1.3)
 - OAuth 2.0 / OpenID Connect for authorization
 - JWT tokens with proper expiration
@@ -103,9 +120,11 @@ HTTP-based stateless communication.
 - API versioning to deprecate insecure versions
 
 ### 3.4 GraphQL
+
 Query language for APIs with flexible data fetching.
 
 **Security Considerations**:
+
 - Query complexity limits (prevent DoS)
 - Query depth limiting
 - Field-level authorization
@@ -116,12 +135,15 @@ Query language for APIs with flexible data fetching.
 ## 4. Data Management
 
 ### 4.1 CAP Theorem
+
 States that distributed systems can provide only two of three guarantees:
+
 - **Consistency**: All nodes see the same data
 - **Availability**: System responds to all requests
 - **Partition Tolerance**: System continues despite network partitions
 
 **Security Implications**:
+
 - CP systems: Risk of availability during attacks
 - AP systems: Risk of serving stale/inconsistent data
 - Trade-offs affect security model design
@@ -129,17 +151,20 @@ States that distributed systems can provide only two of three guarantees:
 ### 4.2 Data Replication Strategies
 
 **Master-Slave Replication**:
+
 - Single master for writes, multiple slaves for reads
 - Security: Protect master with strongest measures
 - Encrypt replication streams
 - Authenticate slave connections
 
 **Multi-Master Replication**:
+
 - Multiple nodes accept writes
 - Security: Conflict resolution must be tamper-proof
 - Requires strong consistency verification
 
 **Quorum-Based Replication**:
+
 - Majority agreement required for operations
 - Security: Byzantine fault tolerance considerations
 - Cryptographic verification of quorum responses
@@ -147,17 +172,20 @@ States that distributed systems can provide only two of three guarantees:
 ### 4.3 Distributed Databases
 
 **SQL Databases**:
+
 - Google Spanner
 - CockroachDB
 - TiDB
 
 **NoSQL Databases**:
+
 - MongoDB (document)
 - Cassandra (wide-column)
 - Neo4j (graph)
 - Redis (key-value)
 
 **Security Hardening**:
+
 - Encryption at rest (AES-256)
 - Encryption in transit (TLS)
 - Role-based access control (RBAC)
@@ -171,10 +199,12 @@ States that distributed systems can provide only two of three guarantees:
 ### 4.4 Distributed Transactions
 
 **Two-Phase Commit (2PC)**:
+
 1. Prepare phase: Coordinator asks participants to prepare
 2. Commit phase: If all agree, commit; otherwise abort
 
 **Security Concerns**:
+
 - Coordinator is critical target
 - Transaction logs must be tamper-proof
 - Timeout mechanisms prevent resource locking attacks
@@ -186,6 +216,7 @@ Adds pre-commit phase to reduce blocking.
 Long-running transactions as series of local transactions with compensating actions.
 
 **Security Measures**:
+
 - Idempotency to prevent replay attacks
 - Secure compensation logic
 - Audit trail of all transaction steps
@@ -194,12 +225,14 @@ Long-running transactions as series of local transactions with compensating acti
 ## 5. Consistency Models
 
 ### 5.1 Strong Consistency
+
 All reads return the most recent write.
 
 **Examples**: Traditional SQL databases, Zookeeper
 **Security**: Easier to reason about security invariants
 
 ### 5.2 Eventual Consistency
+
 System eventually becomes consistent given no new updates.
 
 **Examples**: DNS, Cassandra, DynamoDB
@@ -916,8 +949,11 @@ Security in distributed systems is not a one-time effort but an ongoing process 
 
 ## 2. Core Distributed Systems Implementations
 
-### 2.1 HTTP Servers### 2.2 gRPC Implementations
+### 2.1 HTTP Servers
 
+### 2.2 gRPC Implementations
+
+```rust
 // Cargo.toml dependencies:
 // [dependencies]
 // actix-web = "4.4"
@@ -1050,6 +1086,9 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+
+
+
 
 // user_service.proto
 syntax = "proto3";
@@ -1246,6 +1285,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+```
+
+```go
 // ===============================
 // GO IMPLEMENTATION
 // ===============================
@@ -1377,6 +1419,9 @@ func main() {
 	}
 }
 
+```
+
+```python
 // ===============================
 // PYTHON IMPLEMENTATION
 // ===============================
@@ -1488,6 +1533,9 @@ if __name__ == '__main__':
 # Generate Python code from proto:
 # python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. user_service.proto
 
+```
+
+```rust
 // ===============================
 // RUST - RabbitMQ Implementation
 // ===============================
@@ -1632,6 +1680,9 @@ async fn rabbitmq_consumer() -> LapinResult<()> {
     Ok(())
 }
 
+```
+
+```go
 // ===============================
 // GO - Kafka Implementation
 // ===============================
@@ -1808,6 +1859,9 @@ func main() {
 	select {}
 }
 
+```
+
+```python
 // ===============================
 // PYTHON - RabbitMQ & Kafka
 // ===============================
@@ -2003,6 +2057,9 @@ if __name__ == '__main__':
         time.sleep(0.5)
     kafka_producer.close()
 
+```
+
+```rust
 // ===============================
 // RUST - Redis Implementation
 // ===============================
@@ -2162,4 +2219,14 @@ impl CacheAsidePattern {
 async fn main() -> RedisResult<()> {
     let mut cache = RedisCache::new("redis://127.0.0.1:6379").await?;
     
-    // Basic operations
+    let mut cache_aside = CacheAsidePattern { cache };
+    // Example usage
+    let user_id = "123";
+    if let Some(user) = cache_aside.get_user(user_id).await? {
+        println!("User: {:?}", user);
+    } else {
+        println!("User not found");
+    }
+    Ok(())
+}
+```
