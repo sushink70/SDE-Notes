@@ -1,5 +1,7 @@
 # Prompt Engg
 
+In the case of encryption, api, connection you must ask with where the ternmination happens.
+
 monitoring tools: Prometheus, Grafana, Jaeger, Tempo, Loki, Fluentd, Fluent Bit, Thanos, Cortex, VictoriaMetrics, Datadog, New Relic, Elastic Stack (ELK), Kiali, Pixie 
 how monitoring tools works internally? provide data structures and algorithms used to build these tools? provide implementations in Rust, Go and C(optional only Python, C++). monitor file changes, resource usage, network traffic, application performance monitoring(APM), log aggregation, distributed tracing, alerting and visualization, rate limit, manual scaling, process monitoring, anomaly detection, data collection, data storage, data querying, data visualization etc, api, snap shot, application resorce limit, application access limit, 
 
