@@ -25,13 +25,6 @@ Morris Traversal - Inorder, Preorder traversals of a binary tree without using s
 
 B-Trees and B+ Trees.
 
-K-D Trees (k-dimensional trees).
-Quad Trees and Octrees.
-Suffix: Trees and Suffix Arrays.
-Rope Data Structure.
-Interval Trees.
-Bloom Filters.
-Splay Trees.
 
 Suffix
 
