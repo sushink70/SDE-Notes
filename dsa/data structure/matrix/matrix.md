@@ -1,75 +1,5 @@
 # Matrix
 
-## Summary of Artifacts Created:
-
-### 1. **Comprehensive Guide** (Markdown)
-
-- Detailed comparison of manual vs library implementations
-- Common errors and how to avoid them
-- Correct vs incorrect usage patterns
-- Performance comparisons
-- When to use which approach
-
-### 2. **Complete Python Implementation**
-
-- Manual `Matrix` class with all operations
-- `SafeMatrixNumPy` wrapper with proper error handling
-- Demonstrations of common errors
-- Performance comparison code
-- Best practices examples
-
-### 3. **Complete Rust Manual Implementation**
-
-- Full `Matrix` struct with proper Result types
-- Trait implementations (Add, Sub, Mul, Display)
-- Comprehensive error handling
-- Unit tests included
-- Ownership and borrowing patterns
-
-### 4. **Rust ndarray Implementation**
-
-- `SafeMatrix` wrapper around ndarray
-- Safe operations with dimension checking
-- Comparison with direct ndarray usage
-- Production-ready error handling
-- Complete test suite
-
-## Key Takeaways:
-
-**Benefits of Manual Implementation:**
-
-- Complete control and understanding
-- No dependencies
-- Educational value
-- Custom optimizations possible
-
-**Benefits of Using Libraries:**
-
-- 10-100x faster performance (optimized backends)
-- Battle-tested implementations
-- Rich ecosystems
-- Less code to maintain
-
-**Control Tradeoffs:**
-
-- Manual = More code, more control, slower
-- Library = Less code, less control, faster
-
-**Rust Advantages:**
-
-- Memory safety without garbage collection
-- Zero-cost abstractions
-- Compile-time error catching
-- No runtime overhead
-
-**Python Advantages:**
-
-- Rapid development
-- Massive ecosystem (NumPy, SciPy)
-- Easy prototyping
-
-All implementations include proper error handling, dimension checking, and demonstrate both correct and incorrect usage patterns!
-
 ## Comprehensive Matrix Guide: Rust & Python
 
 ## Table of Contents
@@ -883,6 +813,7 @@ Complete Matrix Implementation in Python
 Demonstrates both manual and NumPy approaches with error handling
 """
 
+```python
 import numpy as np
 from typing import List, Union
 
@@ -1304,6 +1235,9 @@ if __name__ == "__main__":
     demonstrate_correct_usage()
     compare_performance()
 
+```
+
+```rust
 // Complete Matrix Implementation in Rust
 // Demonstrates both manual and ndarray approaches with error handling
 //
@@ -2247,7 +2181,10 @@ mod tests {
     }
 }
 
-# Matrix Memory Model: Python vs Rust
+```
+
+## Matrix Memory Model: Python vs Rust
+
 ## Comprehensive ASCII Diagram
 
 ---
@@ -2255,6 +2192,7 @@ mod tests {
 ## 1. PYTHON MATRIX MEMORY MODEL
 
 ### Step 1: Matrix Creation (List of Lists)
+
 ```
 CODE: matrix = [[1, 2], [3, 4]]
 
@@ -2272,13 +2210,13 @@ STACK MEMORY                    HEAP MEMORY
                                │  └───────────┼─┼────┘           │
                                │              │ │                │
                                │    ┌─────────┘ └────────┐       │
-                               │    ▼                     ▼       │
+                               │    ▼                     ▼      │
                                │  ┌──────────────┐  ┌──────────────┐
                                │  │ List [1, 2]  │  │ List [3, 4]  │
                                │  │ refcount: 1  │  │ refcount: 1  │
-                               │  │ ┌──┐  ┌──┐  │  │ ┌──┐  ┌──┐  │
-                               │  │ │1 │  │2 │  │  │ │3 │  │4 │  │
-                               │  │ └──┘  └──┘  │  │ └──┘  └──┘  │
+                               │  │ ┌──┐  ┌──┐  │  │ ┌──┐  ┌──┐    │
+                               │  │ │1 │  │2 │  │  │ │3 │  │4 │    │
+                               │  │ └──┘  └──┘  │  │ └──┘  └──┘    │
                                │  └──────────────┘  └──────────────┘
                                └─────────────────────────────────┘
 ```
@@ -2301,7 +2239,7 @@ STACK MEMORY                    HEAP MEMORY
                                │  └───────────┼─┼────┘           │
                                │              │ │                │
                                │    ┌─────────┘ └────────┐       │
-                               │    ▼                     ▼       │
+                               │    ▼                     ▼      │
                                │  ┌──────────────┐  ┌──────────────┐
                                │  │ List [1, 2]  │  │ List [3, 4]  │
                                │  │ refcount: 2  │  │ refcount: 2  │
@@ -2357,7 +2295,7 @@ STACK MEMORY                    HEAP MEMORY
 ┌──────────────┐               ┌─────────────────────────────────┐
 │              │               │ NumPy Array Object              │
 │ np_matrix ───┼──────────────>│ ┌─────────────────────┐         │
-│  (reference) │               │ │ PyArrayObject        │         │
+│  (reference) │               │ │ PyArrayObject       │         │
 │              │               │ │ - refcount          │         │
 └──────────────┘               │ │ - dtype: int64      │         │
                                │ │ - shape: (2, 2)     │         │
@@ -2367,7 +2305,7 @@ STACK MEMORY                    HEAP MEMORY
                                │                            │    │
                                │ CONTIGUOUS DATA BUFFER     │    │
                                │ ┌──────────────────────┐◄──┘    │
-                               │ │  1  │  2  │  3  │  4  │       │
+                               │ │  1  │  2  │  3  │  4 │        │
                                │ └──────────────────────┘        │
                                │  Row 0    Row 1                 │
                                │  [0,0][0,1][1,0][1,1]           │
@@ -2388,20 +2326,20 @@ STACK MEMORY                    HEAP MEMORY
 ┌──────────────────────┐       ┌─────────────────────────────────┐
 │                      │       │                                 │
 │  matrix              │       │  Vec Buffer (outer vec)         │
-│  ┌────────────────┐  │       │  ┌───┬───┬────┐                │
-│  │ ptr        ────┼──┼──────>│  │ │ │ │ │    │ (capacity: 2)  │
-│  │ len: 2         │  │       │  └─┼─┴─┼─┴────┘                │
+│  ┌────────────────┐  │       │  ┌───┬───┬────┐                 │
+│  │ ptr        ────┼──┼──────>│  │ │ │ │ │    │ (capacity: 2)   │
+│  │ len: 2         │  │       │  └─┼─┴─┼─┴────┘                 │
 │  │ capacity: 2    │  │       │    │   │                        │
 │  └────────────────┘  │       │    │   │                        │
 │ (24 bytes on stack)  │       │    │   │                        │
 └──────────────────────┘       │    │   │                        │
                                │    ▼   ▼                        │
-                               │  ┌──────────┐  ┌──────────┐    │
-                               │  │Vec[1, 2] │  │Vec[3, 4] │    │
-                               │  │ ┌──┬──┐  │  │ ┌──┬──┐  │    │
-                               │  │ │1 │2 │  │  │ │3 │4 │  │    │
-                               │  │ └──┴──┘  │  │ └──┴──┘  │    │
-                               │  └──────────┘  └──────────┘    │
+                               │  ┌──────────┐  ┌──────────┐     │
+                               │  │Vec[1, 2] │  │Vec[3, 4] │     │
+                               │  │ ┌──┬──┐  │  │ ┌──┬──┐  │     │
+                               │  │ │1 │2 │  │  │ │3 │4 │  │     │
+                               │  │ └──┴──┘  │  │ └──┴──┘  │     │
+                               │  └──────────┘  └──────────┘     │
                                └─────────────────────────────────┘
 
 OWNERSHIP: 'matrix' OWNS the outer Vec, which OWNS the inner Vecs
@@ -2416,9 +2354,9 @@ STACK MEMORY                    HEAP MEMORY
 ┌──────────────────────┐       ┌─────────────────────────────────┐
 │  matrix              │       │                                 │
 │  ┌────────────────┐  │       │  Vec Buffer                     │
-│  │ ptr        ────┼──┼──────>│  ┌───┬───┬────┐                │
-│  │ len: 2         │  │       │  │ │ │ │ │    │                │
-│  │ capacity: 2    │  │       │  └─┼─┴─┼─┴────┘                │
+│  │ ptr        ────┼──┼──────>│  ┌───┬───┬────┐                 │
+│  │ len: 2         │  │       │  │ │ │ │ │    │                 │
+│  │ capacity: 2    │  │       │  └─┼─┴─┼─┴────┘                 │
 │  └────────────────┘  │       │    ▼   ▼                        │
 └──────────────────────┘       │  Inner Vecs...                  │
                                └─────────────────────────────────┘
@@ -2428,9 +2366,9 @@ STACK MEMORY                    HEAP MEMORY
 ┌──────────────────────┐       ┌─────────────────────────────────┐
 │  matrix (INVALID!)   │       │                                 │
 │  ┌────────────────┐  │       │  Vec Buffer                     │
-│  │ ⚠ MOVED! ⚠    │  │       │  ┌───┬───┬────┐                │
-│  │ Cannot use!    │  │       │  │ │ │ │ │    │                │
-│  └────────────────┘  │       │  └─┼─┴─┼─┴────┘                │
+│  │ ⚠ MOVED! ⚠     │  │       │  ┌───┬───┬────┐                 │
+│  │ Cannot use!    │  │       │  │ │ │ │ │    │                 │
+│  └────────────────┘  │       │  └─┼─┴─┼─┴────┘                 │
 │                      │       │    ▼   ▼                        │
 │  matrix2             │       │  Inner Vecs...                  │
 │  ┌────────────────┐  │       │                                 │
@@ -2664,3 +2602,73 @@ I'll create a comprehensive ASCII diagram showing how matrices work in Python an
    - How modifications propagate (or don't)
 
 The diagrams show step-by-step memory layout changes as operations are performed, making it clear how each language handles memory differently!
+
+## Summary of Artifacts Created:
+
+### 1. **Comprehensive Guide** (Markdown)
+
+- Detailed comparison of manual vs library implementations
+- Common errors and how to avoid them
+- Correct vs incorrect usage patterns
+- Performance comparisons
+- When to use which approach
+
+### 2. **Complete Python Implementation**
+
+- Manual `Matrix` class with all operations
+- `SafeMatrixNumPy` wrapper with proper error handling
+- Demonstrations of common errors
+- Performance comparison code
+- Best practices examples
+
+### 3. **Complete Rust Manual Implementation**
+
+- Full `Matrix` struct with proper Result types
+- Trait implementations (Add, Sub, Mul, Display)
+- Comprehensive error handling
+- Unit tests included
+- Ownership and borrowing patterns
+
+### 4. **Rust ndarray Implementation**
+
+- `SafeMatrix` wrapper around ndarray
+- Safe operations with dimension checking
+- Comparison with direct ndarray usage
+- Production-ready error handling
+- Complete test suite
+
+## Key Takeaways:
+
+**Benefits of Manual Implementation:**
+
+- Complete control and understanding
+- No dependencies
+- Educational value
+- Custom optimizations possible
+
+**Benefits of Using Libraries:**
+
+- 10-100x faster performance (optimized backends)
+- Battle-tested implementations
+- Rich ecosystems
+- Less code to maintain
+
+**Control Tradeoffs:**
+
+- Manual = More code, more control, slower
+- Library = Less code, less control, faster
+
+**Rust Advantages:**
+
+- Memory safety without garbage collection
+- Zero-cost abstractions
+- Compile-time error catching
+- No runtime overhead
+
+**Python Advantages:**
+
+- Rapid development
+- Massive ecosystem (NumPy, SciPy)
+- Easy prototyping
+
+All implementations include proper error handling, dimension checking, and demonstrate both correct and incorrect usage patterns!
