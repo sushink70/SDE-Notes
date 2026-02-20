@@ -121,522 +121,7 @@ This is why linked lists exist (O(1) insertion if you have the pointer), but arr
 
 ### 4.1 Static Arrays (Fixed Size)
 
-#### **C Implementation**#### **Go Implementation**#### **Rust Implementation**### 4.2 Dynamic Arrays (Growable)
-
-Now let's implement **dynamic arrays** (like C++'s vector, Go's slice, Rust's Vec). The key concept here is **amortized O(1) insertion**.
-
-**Amortized Analysis**: When we run out of space, we allocate a larger array (typically 2× size) and copy elements over. While this copy is O(n), it happens rarely enough that the average cost per insertion is still O(1).Now let's move to **advanced techniques and problem patterns**:Now let's create a comprehensive problem-solving framework document and then compile everything:Now let's create implementations of classic problems in all three languages:Now let's create a comprehensive README and move everything to the outputs directory:Now let's copy all files to the outputs directory and present them to you:Perfect! Now let's present all the files:# 🎯 Comprehensive Arrays Implementation Guide Complete
-
-I've created a **complete, production-grade arrays mastery guide** covering all fundamental and advanced concepts across **C, Go, and Rust**. Here's what you now have:
-
-## 📦 What's Included
-
-### **Core Implementations** (6 files)
-1. **Static Arrays** in C, Go, Rust — Fixed-size with all operations
-2. **Dynamic Arrays** in C, Go, Rust — Growable with amortized O(1) insertion
-
-### **Advanced Techniques** (3 files)
-3. **Two Pointer Patterns** — 5 essential patterns (Two Sum, Remove Duplicates, Container With Water, Dutch Flag, Trapping Rain Water)
-4. **Sliding Window Patterns** — 5 critical patterns (Fixed/Variable window, Longest Substring, Minimum Window, Max Sliding, Subarray Sum)
-5. **Classic Problems** — 6 battle-tested solutions (Two Sum, Kadane's, Product Except Self, Container, 3Sum, Rotate)
-
-### **Learning Resources** (2 files)
-6. **Problem-Solving Framework** — Complete mental model for pattern recognition
-7. **README** — Comprehensive guide with learning roadmap
-
----
-
-## 🧠 Key Concepts Covered
-
-### **Foundation**
-- Memory layout & cache locality (why arrays are fast)
-- Amortized analysis (why dynamic array push is O(1))
-- Time/space complexity for all operations
-- Language-specific optimizations
-
-### **Techniques Mastered**
-- **Two Pointers**: Opposite & same direction patterns
-- **Sliding Window**: Fixed & variable size windows
-- **Prefix Sum**: O(1) range queries
-- **Binary Search**: On sorted arrays
-- **Kadane's Algorithm**: Maximum subarray
-
-### **Mental Models**
-- **Chunking**: Group operations into patterns
-- **Invariant Maintenance**: Know what's true at each step
-- **State Machine Thinking**: Algorithm as state transitions
-- **Problem Decomposition**: Break into manageable pieces
-
----
-
-## 🎓 How to Use This Guide
-
-### **Week 1-2: Foundations**
-1. Read README.md for overview
-2. Study all static array implementations
-3. Study all dynamic array implementations
-4. Understand amortized analysis
-
-### **Week 3-4: Pattern Mastery**
-1. Work through two_pointer_patterns.rs
-2. Work through sliding_window_patterns.rs
-3. Solve 10 problems per pattern
-
-### **Week 5-6: Problem Solving**
-1. Study classic_problems.rs
-2. Use array_problem_solving_framework.txt as reference
-3. Solve 50 LeetCode array problems
-
-### **Week 7-8: Competition Ready**
-1. Timed practice
-2. Contest participation
-3. Review and optimize
-
----
-
-## 💡 What Makes This Guide Special
-
-1. **Language-specific best practices** — Idiomatic code in each language
-2. **Complete complexity analysis** — Every operation explained
-3. **Visual explanations** — ASCII diagrams for memory layout
-4. **Mental models** — Not just code, but HOW TO THINK
-5. **Pattern recognition framework** — Systematic approach to any problem
-6. **Production-quality code** — Heavily commented, organized, testable
-
----
-
-## 🚀 Next Steps
-
-1. **Compile and run** each file to see demonstrations
-2. **Modify code** to experiment with edge cases
-3. **Implement variations** to build muscle memory
-4. **Solve problems** using the framework
-5. **Track progress** — aim for 10 problems/week minimum
-
-Remember: **Top 1% comes from deliberate practice, not passive reading.** Code every day, even if just 30 minutes.
-
-The files are ready for you to download and start your journey. Good luck! 🔥
-
-
-COMPREHENSIVE ARRAYS MASTERY GUIDE
-        Rust, Go, and C Implementations
-
-
-Welcome to your journey toward top 1% DSA mastery. This guide covers
-arrays from fundamentals to advanced competitive programming techniques.
-
-
-📚 CONTENTS
-
-
-1. FOUNDATION
-   - What is an Array?
-   - Memory Layout & Cache Performance
-   - Time/Space Complexity Analysis
-   
-2. IMPLEMENTATIONS
-   - Static Arrays (Fixed Size)
-   - Dynamic Arrays (Growable)
-   - Language-Specific Optimizations
-
-3. CORE TECHNIQUES
-   - Two Pointers
-   - Sliding Window
-   - Prefix Sum
-   - Binary Search
-   - Sorting Applications
-
-4. CLASSIC PROBLEMS
-   - Two Sum
-   - Maximum Subarray (Kadane's)
-   - Product Except Self
-   - Container With Most Water
-   - 3Sum
-   - Rotate Array
-
-5. PROBLEM-SOLVING FRAMEWORK
-   - Pattern Recognition
-   - Complexity Analysis
-   - Implementation Strategy
-   - Debugging Approach
-
-
-🗂️ FILE STRUCTURE
-
-
-array_static.c           → Static array in C
-array_static.go          → Static array in Go
-array_static.rs          → Static array in Rust
-
-array_dynamic.c          → Dynamic array in C (manual memory management)
-array_dynamic.go         → Dynamic array in Go (slices)
-array_dynamic.rs         → Dynamic array in Rust (Vec)
-
-two_pointer_patterns.rs  → Two pointer technique + 5 patterns
-sliding_window_patterns.rs → Sliding window + 5 patterns
-classic_problems.rs      → 6 classic problems with multiple approaches
-
-array_problem_solving_framework.txt → Complete mental model guide
-
-
-🎯 LEARNING ROADMAP
-
-
-WEEK 1-2: FOUNDATIONS
----------------------
-□ Study memory layout section
-□ Implement static array in all 3 languages
-□ Implement dynamic array in all 3 languages
-□ Understand amortized analysis
-□ Complete time/space complexity quiz (create your own!)
-
-Focus: Understand WHY arrays are fast (cache locality)
-       Understand HOW dynamic arrays grow (amortized O(1))
-
-WEEK 3-4: CORE TECHNIQUES
---------------------------
-□ Master two pointers (10 problems)
-  - Two Sum (sorted)
-  - Remove Duplicates
-  - Container With Water
-  - Dutch National Flag
-  - Trapping Rain Water
-
-□ Master sliding window (10 problems)
-  - Max sum subarray (fixed)
-  - Longest substring without repeating
-  - Minimum window substring
-  - Sliding window maximum
-  - Subarray sum equals K
-
-Focus: Pattern recognition speed
-       Template implementation
-
-WEEK 5-6: PROBLEM SOLVING
---------------------------
-□ Solve 50 array problems on LeetCode/Codeforces
-□ For each problem:
-  1. Identify pattern BEFORE coding
-  2. Write brute force first
-  3. Optimize with learned techniques
-  4. Analyze complexity
-  5. Implement in all 3 languages
-
-Focus: Speed and accuracy
-       Handling edge cases
-
-WEEK 7-8: MASTERY
------------------
-□ Solve problems under time pressure
-□ Participate in contests
-□ Review and optimize old solutions
-□ Teach concepts to others (best learning method!)
-
-Focus: Performance under pressure
-       Communication skills
-
-
-🧠 KEY CONCEPTS EXPLAINED
-
-
-1. AMORTIZED ANALYSIS
-----------------------
-When we say dynamic array push is O(1) amortized:
-
-Insertions:  1  2  3  4  5  6  7  8  9 ...
-Capacity:    1  2  4  4  8  8  8  8 16 ...
-Resize cost: -  1  2  -  4  -  -  -  8 ...
-
-Total cost for n insertions = n + (1 + 2 + 4 + ... + n/2) < 2n
-Average cost = 2n/n = O(1) amortized
-
-Key insight: Expensive operations (resizing) happen rarely enough
-that average cost per operation is still constant.
-
-2. CACHE LOCALITY
------------------
-Modern CPUs have hierarchy:
-L1 Cache: ~1 cycle access, ~32KB
-L2 Cache: ~10 cycles, ~256KB
-L3 Cache: ~40 cycles, ~8MB
-RAM: ~100+ cycles, GBs
-
-When you access arr[0], CPU loads arr[0], arr[1], arr[2], ... into cache.
-Accessing arr[1] next is ~100x faster than random memory access!
-
-This is why:
-- Arrays >> Linked lists (even when both are O(n))
-- Sequential access >> Random access
-- Cache-oblivious algorithms matter
-
-3. TWO POINTERS INTUITION
---------------------------
-Think: "What can I eliminate at each step?"
-
-Example (Two Sum sorted):
-[1, 2, 3, 4, 5, 6], target=7
-
-left=0, right=5: sum=7 ✓ Found!
-
-If sum < target: Must move left (only way to increase)
-If sum > target: Must move right (only way to decrease)
-
-Each step eliminates one possibility → O(n) instead of O(n²)
-
-4. SLIDING WINDOW INTUITION
-----------------------------
-Think: "What do I need to add/remove as window moves?"
-
-Fixed window:
-window_sum = window_sum - left_element + right_element
-
-Variable window:
-Expand: Add element while valid
-Shrink: Remove element when invalid
-
-Maintains running state → O(n) instead of O(n*k)
-
-5. PREFIX SUM INTUITION
------------------------
-prefix[i] = sum of arr[0..i]
-
-Range sum [i, j] = prefix[j] - prefix[i-1]
-
-Why? Draw it out:
-[1, 2, 3, 4, 5]
-prefix: [0, 1, 3, 6, 10, 15]
-
-sum[1..3] = 2+3+4 = 9
-         = prefix[4] - prefix[1]
-         = 10 - 1 = 9 ✓
-
-One O(n) preprocessing → O(1) range queries!
-
-
-⚡ LANGUAGE-SPECIFIC NOTES
-
-
-C
----
-Strengths:
-+ Maximum control over memory
-+ Best for understanding fundamentals
-+ Fastest when optimized
-
-Challenges:
-- Manual memory management
-- No built-in dynamic arrays
-- Pointer arithmetic errors
-
-Key points:
-- Always free() what you malloc()
-- Use memcpy() for bulk operations
-- Watch for buffer overflows
-
-GO
----
-Strengths:
-+ Built-in slices (dynamic arrays)
-+ Garbage collection
-+ Clear syntax
-
-Challenges:
-- Array vs Slice confusion
-- Understanding slice internals
-- Value vs reference semantics
-
-Key points:
-- Slices are references to arrays
-- append() might change underlying array
-- Use make() for preallocation
-
-RUST
------
-Strengths:
-+ Memory safe without GC
-+ Zero-cost abstractions
-+ Excellent tooling
-
-Challenges:
-- Ownership/borrowing learning curve
-- Compiler strictness
-- Iterator trait complexity
-
-Key points:
-- Vec is moved, not copied
-- &mut exclusive access
-- Iterators compile to same code as loops
-
-
-🎓 COMPLEXITY CHEAT SHEET
-
-
-ARRAY OPERATIONS:
-Access:         O(1)
-Search:         O(n) unsorted, O(log n) sorted
-Insert end:     O(1) amortized (dynamic)
-Insert middle:  O(n)
-Delete end:     O(1)
-Delete middle:  O(n)
-
-COMMON ALGORITHMS:
-Two Pointers:        O(n)
-Sliding Window:      O(n)
-Binary Search:       O(log n)
-Quick Select:        O(n) average
-Sorting:             O(n log n)
-Kadane's:            O(n)
-
-SPACE TRADE-OFFS:
-Hash Table:          O(n) space for O(1) lookup
-Prefix Sum:          O(n) space for O(1) range query
-Two Pointers:        O(1) space vs O(n²) time reduction
-Sliding Window:      O(k) space for window state
-
-
-🔥 PRACTICE PROBLEMS (Difficulty Progression)
-
-
-EASY (Foundation Building)
----------------------------
-1. Remove Duplicates from Sorted Array
-2. Merge Sorted Array
-3. Best Time to Buy and Sell Stock
-4. Two Sum
-5. Contains Duplicate
-6. Move Zeroes
-7. Plus One
-8. Find Pivot Index
-9. Running Sum of 1D Array
-10. Squares of Sorted Array
-
-MEDIUM (Pattern Mastery)
--------------------------
-11. 3Sum
-12. Container With Most Water
-13. Product of Array Except Self
-14. Subarray Sum Equals K
-15. Longest Substring Without Repeating Characters
-16. Minimum Size Subarray Sum
-17. Find All Duplicates in Array
-18. Rotate Array
-19. Sort Colors (Dutch Flag)
-20. Maximum Subarray (Kadane's)
-
-HARD (Competition Level)
--------------------------
-21. Trapping Rain Water
-22. Median of Two Sorted Arrays
-23. Minimum Window Substring
-24. Sliding Window Maximum
-25. First Missing Positive
-26. Count of Smaller Numbers After Self
-27. Max Sum of Rectangle No Larger Than K
-28. Longest Consecutive Sequence
-29. Create Maximum Number
-30. Count of Range Sum
-
-
-💡 DEBUGGING TIPS
-
-
-1. TRACE WITH SMALL INPUT
-   Don't debug with [1..1000]
-   Use [1, 2, 3] and trace by hand
-
-2. CHECK INVARIANTS
-   Write what should be true at each point
-   Add assert() statements
-
-3. COMMON MISTAKES
-   □ Off-by-one errors (< vs <=)
-   □ Integer overflow in sum/mid
-   □ Not handling empty array
-   □ Index out of bounds
-   □ Not skipping duplicates
-
-4. VISUALIZATION
-   Draw array state at each step:
-   [1, 2, 3, 4, 5]
-    ^        ^
-   left    right
-
-5. EDGE CASES CHECKLIST
-   □ Empty array []
-   □ Single element [1]
-   □ Two elements [1, 2]
-   □ All same [5, 5, 5]
-   □ Already processed (sorted, etc.)
-
-
-🚀 OPTIMIZATION STRATEGIES
-
-
-TIME OPTIMIZATION:
-1. Eliminate nested loops → Two pointers / Sliding window
-2. Precompute values → Prefix sum / Hash table
-3. Use binary search on sorted data
-4. Cache frequently accessed values
-5. Early termination when possible
-
-SPACE OPTIMIZATION:
-1. Reuse input array (in-place)
-2. Use two variables instead of array
-3. Process in single pass
-4. Bit manipulation for flags
-
-CONSTANT FACTOR OPTIMIZATION:
-1. Reduce comparisons (check simple conditions first)
-2. Use bitwise operations where appropriate
-3. Avoid unnecessary memory allocation
-4. Use memcpy/memmove for bulk operations (C)
-
-
-📖 ADDITIONAL RESOURCES
-
-
-BOOKS:
-- "Introduction to Algorithms" (CLRS)
-- "Algorithm Design Manual" (Skiena)
-- "Programming Pearls" (Bentley)
-
-ONLINE:
-- LeetCode (practice problems)
-- Codeforces (competitive programming)
-- GeeksforGeeks (tutorials)
-- Visualgo (algorithm visualizations)
-
-COURSES:
-- MIT 6.006 (Introduction to Algorithms)
-- Stanford CS161 (Design and Analysis of Algorithms)
-- Coursera Algorithms Specialization
-
-
-🎯 FINAL WORDS
-
-
-Mastery comes from:
-1. UNDERSTANDING (why it works)
-2. PRACTICE (build muscle memory)
-3. REFLECTION (learn from mistakes)
-4. TEACHING (solidify knowledge)
-
-Your goal: See a problem → Recognize pattern → Implement in <10 min
-
-This happens through DELIBERATE PRACTICE:
-- 30-60 minutes daily
-- Just beyond current ability
-- Immediate feedback
-- Focused repetition
-
-Start today. Stay consistent. Trust the process.
-
-You're not just learning arrays.
-You're building problem-solving intuition that transfers to ALL of CS.
-
-Good luck on your journey to the top 1%!
-
-
+#### **C Implementation**
 
 ```c
 
@@ -920,6 +405,9 @@ int main() {
 }
 ```
 
+#### **Go Implementation**
+
+
 ```go
 package main
 
@@ -1201,6 +689,7 @@ func main() {
 	fmt.Println("  ", arr)
 }
 ```
+#### **Rust Implementation**
 
 ```rust
 /*
@@ -1878,10 +1367,9 @@ int main() {
  * Total cost ≤ n + (1 + 2 + 4 + ... + n) ≤ n + 2n = 3n
  * Amortized cost: 3n/n = O(1)
  */
- ```
+```
 
- ```go
-
+```go
 package main
 
 import (
@@ -3333,12 +2821,11 @@ OPTIMIZATION TIPS:
 */
 ```
 
-```rust
 
 
-                        CLASSIC ARRAY PROBLEMS
-                 Complete Solutions in C, Go, and Rust
+### CLASSIC ARRAY PROBLEMS
 
+#### Complete Solutions in C, Go, and Rust
 
 This file contains battle-tested solutions to the most important array
 problems. Each solution includes:
@@ -3357,7 +2844,6 @@ Assume exactly one solution exists.
 Example: nums = [2, 7, 11, 15], target = 9
 Output: [0, 1] (because nums[0] + nums[1] = 9)
 
------------------------------------------------------------------------------
 APPROACH 1: Brute Force
 Time: O(n²), Space: O(1)
 Try all pairs
@@ -3365,8 +2851,8 @@ Try all pairs
 APPROACH 2: Hash Table (Optimal)
 Time: O(n), Space: O(n)
 For each number, check if complement exists
------------------------------------------------------------------------------
 
+```rust
 // ============= RUST IMPLEMENTATION =============
 
 use std::collections::HashMap;
@@ -3413,6 +2899,7 @@ i=0: num=2, complement=7, map={}, not found, map={2:0}
 i=1: num=7, complement=2, map={2:0}, found! return (0,1)
 */
 
+```
 
 PROBLEM 2: MAXIMUM SUBARRAY (Kadane's Algorithm)
 
@@ -3422,7 +2909,6 @@ Problem: Find contiguous subarray with largest sum.
 Example: [-2, 1, -3, 4, -1, 2, 1, -5, 4]
 Output: 6 (subarray [4, -1, 2, 1])
 
------------------------------------------------------------------------------
 APPROACH 1: Brute Force
 Time: O(n²), Space: O(1)
 Try all subarrays
@@ -3430,8 +2916,8 @@ Try all subarrays
 APPROACH 2: Kadane's Algorithm (Optimal)
 Time: O(n), Space: O(1)
 At each position, choose to extend current or start new
------------------------------------------------------------------------------
 
+```rust
 // ============= RUST IMPLEMENTATION =============
 
 pub fn max_subarray_brute(nums: &[i32]) -> i32 {
@@ -3483,7 +2969,7 @@ num=-1: current=max(-1, 4-1)=3,   max=4
 num=2:  current=max(2, 3+2)=5,    max=5
 num=1:  current=max(1, 5+1)=6,    max=6
 */
-
+```
 
 PROBLEM 3: PRODUCT OF ARRAY EXCEPT SELF
 
@@ -3494,14 +2980,13 @@ Constraint: Don't use division, must be O(n).
 Example: [1, 2, 3, 4]
 Output: [24, 12, 8, 6]
 
------------------------------------------------------------------------------
 APPROACH: Prefix and Suffix Products
 Time: O(n), Space: O(1) (output doesn't count)
 
 Key insight:
 result[i] = (product of all left) × (product of all right)
------------------------------------------------------------------------------
 
+```rust
 // ============= RUST IMPLEMENTATION =============
 
 pub fn product_except_self(nums: &[i32]) -> Vec<i32> {
@@ -3547,6 +3032,7 @@ i=1: result[1] *= 12 (3*4 to right) = 1 * 12 = 12
 i=0: result[0] *= 24 (2*3*4 to right) = 1 * 24 = 24
 */
 
+```
 
 PROBLEM 4: CONTAINER WITH MOST WATER
 
@@ -3557,14 +3043,14 @@ Area = width × min(height1, height2)
 Example: [1,8,6,2,5,4,8,3,7]
 Output: 49 (indices 1 and 8: width=7, height=min(8,7)=7)
 
------------------------------------------------------------------------------
+
 APPROACH: Two Pointers (Greedy)
 Time: O(n), Space: O(1)
 
 Insight: Always move pointer with smaller height
 (moving taller pointer can only decrease area)
------------------------------------------------------------------------------
 
+```rust
 // ============= RUST IMPLEMENTATION =============
 
 pub fn max_area(heights: &[i32]) -> i32 {
@@ -3604,17 +3090,15 @@ Proof by contradiction:
 - So moving right pointer is suboptimal
 - We should move left pointer to potentially find taller line
 */
-
+```
 
 PROBLEM 5: 3SUM
-
 
 Problem: Find all unique triplets that sum to zero.
 
 Example: [-1, 0, 1, 2, -1, -4]
 Output: [[-1, -1, 2], [-1, 0, 1]]
 
------------------------------------------------------------------------------
 APPROACH: Sort + Two Pointers
 Time: O(n²), Space: O(1) excluding output
 
@@ -3622,8 +3106,8 @@ Algorithm:
 1. Sort array
 2. For each element, use two pointers for remaining array
 3. Skip duplicates to avoid duplicate triplets
------------------------------------------------------------------------------
 
+```rust
 // ============= RUST IMPLEMENTATION =============
 
 pub fn three_sum(mut nums: Vec<i32>) -> Vec<Vec<i32>> {
@@ -3687,17 +3171,15 @@ i=1 (num=-1):
 i=2: Skip (duplicate of i=1)
 i=3, i=4, i=5: No more triplets possible
 */
-
+```
 
 PROBLEM 6: ROTATE ARRAY
-
 
 Problem: Rotate array to right by k steps.
 
 Example: [1,2,3,4,5,6,7], k=3
 Output: [5,6,7,1,2,3,4]
 
------------------------------------------------------------------------------
 APPROACH: Three Reversals
 Time: O(n), Space: O(1)
 
@@ -3706,8 +3188,8 @@ Insight:
 reverse all: [7,6,5,4,3,2,1]
 reverse first k: [5,6,7,4,3,2,1]
 reverse remaining: [5,6,7,1,2,3,4]
------------------------------------------------------------------------------
 
+```rust
 // ============= RUST IMPLEMENTATION =============
 
 pub fn rotate(nums: &mut [i32], k: usize) {
@@ -3758,15 +3240,13 @@ General proof:
 - After step 2: first k elements back in correct relative order
 - After step 3: all elements in correct positions
 */
-
-
+```
 
 Next: Compile everything into organized files...
 
-```
+### ARRAY PROBLEM-SOLVING FRAMEWORK
 
-ARRAY PROBLEM-SOLVING FRAMEWORK
-            Pattern Recognition & Systematic Approach Guide
+#### Pattern Recognition & Systematic Approach Guide
 
 This guide teaches you HOW TO THINK about array problems like a top 1% engineer.
 
@@ -3934,7 +3414,8 @@ Variants:
   - Three pointers: low, mid, high
 
 Template:
-```
+
+```python
 left = 0
 right = n - 1
 while left < right:
@@ -3954,7 +3435,7 @@ Variants:
   - Variable size: expand while valid, shrink when invalid
 
 Template (Fixed):
-```
+```rust
 window_sum = sum of first k
 max_sum = window_sum
 for i in k..n:
@@ -3963,7 +3444,7 @@ for i in k..n:
 ```
 
 Template (Variable):
-```
+```rust
 left = 0
 for right in 0..n:
     add arr[right] to window
@@ -3980,7 +3461,7 @@ Concept: prefix[i] = sum of arr[0..i]
          sum(i, j) = prefix[j] - prefix[i-1]
 
 Template:
-```
+```rust
 prefix = [0] * (n+1)
 for i in 0..n:
     prefix[i+1] = prefix[i] + arr[i]
@@ -4449,10 +3930,10 @@ HARDWARE DIAGRAM:
 -----------------
 
 ┌─────────────────────────────────────────────────────────────┐
-│                          CPU                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
-│  │ R1: 0x1000│  │ R2: 20   │  │ R3: 4    │  │ R4: value│   │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
+│                          CPU                                │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │ R1: 0x1000│  │ R2: 20   │  │ R3: 4    │  │ R4: value│    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘     │
 │         │              │                           ▲        │
 │         └──────┬───────┘                           │        │
 │                │                                   │        │
@@ -6406,4 +5887,520 @@ It's computer science's most successful abstraction.
                         └────────┬─────────┘
                                  │
                     Simple syntax, profound engineering.
+
+
+### 4.2 Dynamic Arrays (Growable)
+
+Now let's implement **dynamic arrays** (like C++'s vector, Go's slice, Rust's Vec). The key concept here is **amortized O(1) insertion**.
+
+**Amortized Analysis**: When we run out of space, we allocate a larger array (typically 2× size) and copy elements over. While this copy is O(n), it happens rarely enough that the average cost per insertion is still O(1).Now let's move to **advanced techniques and problem patterns**:Now let's create a comprehensive problem-solving framework document and then compile everything:Now let's create implementations of classic problems in all three languages:Now let's create a comprehensive README and move everything to the outputs directory:Now let's copy all files to the outputs directory and present them to you:Perfect! Now let's present all the files:# 🎯 Comprehensive Arrays Implementation Guide Complete
+
+I've created a **complete, production-grade arrays mastery guide** covering all fundamental and advanced concepts across **C, Go, and Rust**. Here's what you now have:
+
+## 📦 What's Included
+
+### **Core Implementations** (6 files)
+1. **Static Arrays** in C, Go, Rust — Fixed-size with all operations
+2. **Dynamic Arrays** in C, Go, Rust — Growable with amortized O(1) insertion
+
+### **Advanced Techniques** (3 files)
+3. **Two Pointer Patterns** — 5 essential patterns (Two Sum, Remove Duplicates, Container With Water, Dutch Flag, Trapping Rain Water)
+4. **Sliding Window Patterns** — 5 critical patterns (Fixed/Variable window, Longest Substring, Minimum Window, Max Sliding, Subarray Sum)
+5. **Classic Problems** — 6 battle-tested solutions (Two Sum, Kadane's, Product Except Self, Container, 3Sum, Rotate)
+
+### **Learning Resources** (2 files)
+6. **Problem-Solving Framework** — Complete mental model for pattern recognition
+7. **README** — Comprehensive guide with learning roadmap
+
+---
+
+## 🧠 Key Concepts Covered
+
+### **Foundation**
+- Memory layout & cache locality (why arrays are fast)
+- Amortized analysis (why dynamic array push is O(1))
+- Time/space complexity for all operations
+- Language-specific optimizations
+
+### **Techniques Mastered**
+- **Two Pointers**: Opposite & same direction patterns
+- **Sliding Window**: Fixed & variable size windows
+- **Prefix Sum**: O(1) range queries
+- **Binary Search**: On sorted arrays
+- **Kadane's Algorithm**: Maximum subarray
+
+### **Mental Models**
+- **Chunking**: Group operations into patterns
+- **Invariant Maintenance**: Know what's true at each step
+- **State Machine Thinking**: Algorithm as state transitions
+- **Problem Decomposition**: Break into manageable pieces
+
+---
+
+## 🎓 How to Use This Guide
+
+### **Week 1-2: Foundations**
+1. Read README.md for overview
+2. Study all static array implementations
+3. Study all dynamic array implementations
+4. Understand amortized analysis
+
+### **Week 3-4: Pattern Mastery**
+1. Work through two_pointer_patterns.rs
+2. Work through sliding_window_patterns.rs
+3. Solve 10 problems per pattern
+
+### **Week 5-6: Problem Solving**
+1. Study classic_problems.rs
+2. Use array_problem_solving_framework.txt as reference
+3. Solve 50 LeetCode array problems
+
+### **Week 7-8: Competition Ready**
+1. Timed practice
+2. Contest participation
+3. Review and optimize
+
+---
+
+## 💡 What Makes This Guide Special
+
+1. **Language-specific best practices** — Idiomatic code in each language
+2. **Complete complexity analysis** — Every operation explained
+3. **Visual explanations** — ASCII diagrams for memory layout
+4. **Mental models** — Not just code, but HOW TO THINK
+5. **Pattern recognition framework** — Systematic approach to any problem
+6. **Production-quality code** — Heavily commented, organized, testable
+
+---
+
+## 🚀 Next Steps
+
+1. **Compile and run** each file to see demonstrations
+2. **Modify code** to experiment with edge cases
+3. **Implement variations** to build muscle memory
+4. **Solve problems** using the framework
+5. **Track progress** — aim for 10 problems/week minimum
+
+Remember: **Top 1% comes from deliberate practice, not passive reading.** Code every day, even if just 30 minutes.
+
+The files are ready for you to download and start your journey. Good luck! 🔥
+
+
+COMPREHENSIVE ARRAYS MASTERY GUIDE
+        Rust, Go, and C Implementations
+
+
+Welcome to your journey toward top 1% DSA mastery. This guide covers
+arrays from fundamentals to advanced competitive programming techniques.
+
+
+📚 CONTENTS
+
+
+1. FOUNDATION
+   - What is an Array?
+   - Memory Layout & Cache Performance
+   - Time/Space Complexity Analysis
+   
+2. IMPLEMENTATIONS
+   - Static Arrays (Fixed Size)
+   - Dynamic Arrays (Growable)
+   - Language-Specific Optimizations
+
+3. CORE TECHNIQUES
+   - Two Pointers
+   - Sliding Window
+   - Prefix Sum
+   - Binary Search
+   - Sorting Applications
+
+4. CLASSIC PROBLEMS
+   - Two Sum
+   - Maximum Subarray (Kadane's)
+   - Product Except Self
+   - Container With Most Water
+   - 3Sum
+   - Rotate Array
+
+5. PROBLEM-SOLVING FRAMEWORK
+   - Pattern Recognition
+   - Complexity Analysis
+   - Implementation Strategy
+   - Debugging Approach
+
+
+🗂️ FILE STRUCTURE
+
+
+array_static.c           → Static array in C
+array_static.go          → Static array in Go
+array_static.rs          → Static array in Rust
+
+array_dynamic.c          → Dynamic array in C (manual memory management)
+array_dynamic.go         → Dynamic array in Go (slices)
+array_dynamic.rs         → Dynamic array in Rust (Vec)
+
+two_pointer_patterns.rs  → Two pointer technique + 5 patterns
+sliding_window_patterns.rs → Sliding window + 5 patterns
+classic_problems.rs      → 6 classic problems with multiple approaches
+
+array_problem_solving_framework.txt → Complete mental model guide
+
+
+🎯 LEARNING ROADMAP
+
+
+WEEK 1-2: FOUNDATIONS
+---------------------
+□ Study memory layout section
+□ Implement static array in all 3 languages
+□ Implement dynamic array in all 3 languages
+□ Understand amortized analysis
+□ Complete time/space complexity quiz (create your own!)
+
+Focus: Understand WHY arrays are fast (cache locality)
+       Understand HOW dynamic arrays grow (amortized O(1))
+
+WEEK 3-4: CORE TECHNIQUES
+--------------------------
+□ Master two pointers (10 problems)
+  - Two Sum (sorted)
+  - Remove Duplicates
+  - Container With Water
+  - Dutch National Flag
+  - Trapping Rain Water
+
+□ Master sliding window (10 problems)
+  - Max sum subarray (fixed)
+  - Longest substring without repeating
+  - Minimum window substring
+  - Sliding window maximum
+  - Subarray sum equals K
+
+Focus: Pattern recognition speed
+       Template implementation
+
+WEEK 5-6: PROBLEM SOLVING
+--------------------------
+□ Solve 50 array problems on LeetCode/Codeforces
+□ For each problem:
+  1. Identify pattern BEFORE coding
+  2. Write brute force first
+  3. Optimize with learned techniques
+  4. Analyze complexity
+  5. Implement in all 3 languages
+
+Focus: Speed and accuracy
+       Handling edge cases
+
+WEEK 7-8: MASTERY
+-----------------
+□ Solve problems under time pressure
+□ Participate in contests
+□ Review and optimize old solutions
+□ Teach concepts to others (best learning method!)
+
+Focus: Performance under pressure
+       Communication skills
+
+
+🧠 KEY CONCEPTS EXPLAINED
+
+
+1. AMORTIZED ANALYSIS
+----------------------
+When we say dynamic array push is O(1) amortized:
+
+Insertions:  1  2  3  4  5  6  7  8  9 ...
+Capacity:    1  2  4  4  8  8  8  8 16 ...
+Resize cost: -  1  2  -  4  -  -  -  8 ...
+
+Total cost for n insertions = n + (1 + 2 + 4 + ... + n/2) < 2n
+Average cost = 2n/n = O(1) amortized
+
+Key insight: Expensive operations (resizing) happen rarely enough
+that average cost per operation is still constant.
+
+2. CACHE LOCALITY
+-----------------
+Modern CPUs have hierarchy:
+L1 Cache: ~1 cycle access, ~32KB
+L2 Cache: ~10 cycles, ~256KB
+L3 Cache: ~40 cycles, ~8MB
+RAM: ~100+ cycles, GBs
+
+When you access arr[0], CPU loads arr[0], arr[1], arr[2], ... into cache.
+Accessing arr[1] next is ~100x faster than random memory access!
+
+This is why:
+- Arrays >> Linked lists (even when both are O(n))
+- Sequential access >> Random access
+- Cache-oblivious algorithms matter
+
+3. TWO POINTERS INTUITION
+--------------------------
+Think: "What can I eliminate at each step?"
+
+Example (Two Sum sorted):
+[1, 2, 3, 4, 5, 6], target=7
+
+left=0, right=5: sum=7 ✓ Found!
+
+If sum < target: Must move left (only way to increase)
+If sum > target: Must move right (only way to decrease)
+
+Each step eliminates one possibility → O(n) instead of O(n²)
+
+4. SLIDING WINDOW INTUITION
+----------------------------
+Think: "What do I need to add/remove as window moves?"
+
+Fixed window:
+window_sum = window_sum - left_element + right_element
+
+Variable window:
+Expand: Add element while valid
+Shrink: Remove element when invalid
+
+Maintains running state → O(n) instead of O(n*k)
+
+5. PREFIX SUM INTUITION
+-----------------------
+prefix[i] = sum of arr[0..i]
+
+Range sum [i, j] = prefix[j] - prefix[i-1]
+
+Why? Draw it out:
+[1, 2, 3, 4, 5]
+prefix: [0, 1, 3, 6, 10, 15]
+
+sum[1..3] = 2+3+4 = 9
+         = prefix[4] - prefix[1]
+         = 10 - 1 = 9 ✓
+
+One O(n) preprocessing → O(1) range queries!
+
+
+⚡ LANGUAGE-SPECIFIC NOTES
+
+
+C
+---
+Strengths:
++ Maximum control over memory
++ Best for understanding fundamentals
++ Fastest when optimized
+
+Challenges:
+- Manual memory management
+- No built-in dynamic arrays
+- Pointer arithmetic errors
+
+Key points:
+- Always free() what you malloc()
+- Use memcpy() for bulk operations
+- Watch for buffer overflows
+
+GO
+---
+Strengths:
++ Built-in slices (dynamic arrays)
++ Garbage collection
++ Clear syntax
+
+Challenges:
+- Array vs Slice confusion
+- Understanding slice internals
+- Value vs reference semantics
+
+Key points:
+- Slices are references to arrays
+- append() might change underlying array
+- Use make() for preallocation
+
+RUST
+-----
+Strengths:
++ Memory safe without GC
++ Zero-cost abstractions
++ Excellent tooling
+
+Challenges:
+- Ownership/borrowing learning curve
+- Compiler strictness
+- Iterator trait complexity
+
+Key points:
+- Vec is moved, not copied
+- &mut exclusive access
+- Iterators compile to same code as loops
+
+
+🎓 COMPLEXITY CHEAT SHEET
+
+
+ARRAY OPERATIONS:
+Access:         O(1)
+Search:         O(n) unsorted, O(log n) sorted
+Insert end:     O(1) amortized (dynamic)
+Insert middle:  O(n)
+Delete end:     O(1)
+Delete middle:  O(n)
+
+COMMON ALGORITHMS:
+Two Pointers:        O(n)
+Sliding Window:      O(n)
+Binary Search:       O(log n)
+Quick Select:        O(n) average
+Sorting:             O(n log n)
+Kadane's:            O(n)
+
+SPACE TRADE-OFFS:
+Hash Table:          O(n) space for O(1) lookup
+Prefix Sum:          O(n) space for O(1) range query
+Two Pointers:        O(1) space vs O(n²) time reduction
+Sliding Window:      O(k) space for window state
+
+
+🔥 PRACTICE PROBLEMS (Difficulty Progression)
+
+
+EASY (Foundation Building)
+---------------------------
+1. Remove Duplicates from Sorted Array
+2. Merge Sorted Array
+3. Best Time to Buy and Sell Stock
+4. Two Sum
+5. Contains Duplicate
+6. Move Zeroes
+7. Plus One
+8. Find Pivot Index
+9. Running Sum of 1D Array
+10. Squares of Sorted Array
+
+MEDIUM (Pattern Mastery)
+-------------------------
+11. 3Sum
+12. Container With Most Water
+13. Product of Array Except Self
+14. Subarray Sum Equals K
+15. Longest Substring Without Repeating Characters
+16. Minimum Size Subarray Sum
+17. Find All Duplicates in Array
+18. Rotate Array
+19. Sort Colors (Dutch Flag)
+20. Maximum Subarray (Kadane's)
+
+HARD (Competition Level)
+-------------------------
+21. Trapping Rain Water
+22. Median of Two Sorted Arrays
+23. Minimum Window Substring
+24. Sliding Window Maximum
+25. First Missing Positive
+26. Count of Smaller Numbers After Self
+27. Max Sum of Rectangle No Larger Than K
+28. Longest Consecutive Sequence
+29. Create Maximum Number
+30. Count of Range Sum
+
+
+💡 DEBUGGING TIPS
+
+
+1. TRACE WITH SMALL INPUT
+   Don't debug with [1..1000]
+   Use [1, 2, 3] and trace by hand
+
+2. CHECK INVARIANTS
+   Write what should be true at each point
+   Add assert() statements
+
+3. COMMON MISTAKES
+   □ Off-by-one errors (< vs <=)
+   □ Integer overflow in sum/mid
+   □ Not handling empty array
+   □ Index out of bounds
+   □ Not skipping duplicates
+
+4. VISUALIZATION
+   Draw array state at each step:
+   [1, 2, 3, 4, 5]
+    ^        ^
+   left    right
+
+5. EDGE CASES CHECKLIST
+   □ Empty array []
+   □ Single element [1]
+   □ Two elements [1, 2]
+   □ All same [5, 5, 5]
+   □ Already processed (sorted, etc.)
+
+
+🚀 OPTIMIZATION STRATEGIES
+
+
+TIME OPTIMIZATION:
+1. Eliminate nested loops → Two pointers / Sliding window
+2. Precompute values → Prefix sum / Hash table
+3. Use binary search on sorted data
+4. Cache frequently accessed values
+5. Early termination when possible
+
+SPACE OPTIMIZATION:
+1. Reuse input array (in-place)
+2. Use two variables instead of array
+3. Process in single pass
+4. Bit manipulation for flags
+
+CONSTANT FACTOR OPTIMIZATION:
+1. Reduce comparisons (check simple conditions first)
+2. Use bitwise operations where appropriate
+3. Avoid unnecessary memory allocation
+4. Use memcpy/memmove for bulk operations (C)
+
+
+📖 ADDITIONAL RESOURCES
+
+
+BOOKS:
+- "Introduction to Algorithms" (CLRS)
+- "Algorithm Design Manual" (Skiena)
+- "Programming Pearls" (Bentley)
+
+ONLINE:
+- LeetCode (practice problems)
+- Codeforces (competitive programming)
+- GeeksforGeeks (tutorials)
+- Visualgo (algorithm visualizations)
+
+COURSES:
+- MIT 6.006 (Introduction to Algorithms)
+- Stanford CS161 (Design and Analysis of Algorithms)
+- Coursera Algorithms Specialization
+
+
+🎯 FINAL WORDS
+
+
+Mastery comes from:
+1. UNDERSTANDING (why it works)
+2. PRACTICE (build muscle memory)
+3. REFLECTION (learn from mistakes)
+4. TEACHING (solidify knowledge)
+
+Your goal: See a problem → Recognize pattern → Implement in <10 min
+
+This happens through DELIBERATE PRACTICE:
+- 30-60 minutes daily
+- Just beyond current ability
+- Immediate feedback
+- Focused repetition
+
+Start today. Stay consistent. Trust the process.
+
+You're not just learning arrays.
+You're building problem-solving intuition that transfers to ALL of CS.
+
+Good luck on your journey to the top 1%!
 

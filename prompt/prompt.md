@@ -9,22 +9,10 @@ Rust, Go and C(optional only Python, C++)
 
 no need to provide Practice Strategy, Daily Training Protocol, Psychological Models, Final Wisdom, Practice Roadmap, Deliberate Practice Strategy.
 
-Segment Tree - Range query and update operations
-
-Cormen, Leiserson, Rivest, Stein: "Introduction to Algorithms" (CLRS)
-
-Tarjan's papers on DFS applications
-
-Iterative - DP, Backtracking, Graph Traversals (BFS, DFS).
-Tabulation vs Memoization.
-
 randomization, approximation, online algorithms
 
 Iterative - Inorder, Preorder, Postorder traversals of a binary tree.
 Morris Traversal - Inorder, Preorder traversals of a binary tree without using stack or recursion.
-
-B-Trees and B+ Trees.
-
 
 Suffix
 
@@ -58,7 +46,7 @@ ascii Visualization
 Algorithm Flow & Flowcharts
 Decision Tree
 
-Kadane-Style Greedy
+
 
 Practical Takeaway: We use probabilistic or time-bounded algorithms (Paxos, Raft, etc.)
 
@@ -68,8 +56,6 @@ code to Decision Tree
 code to Algorithm Flow & Flowcharts
 
 how serverless works?
-
-OrderedDict/LinkedHashSet
 
 Floyd-Warshall
 If you literally mean *every* algorithm ever created, that is impossible—there are thousands, constantly evolving.
