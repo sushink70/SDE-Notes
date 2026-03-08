@@ -239,3 +239,290 @@ Actor model: `init()` registers handlers in global map (sync.Map for concurrency
 Packages aren't boilerplate—they're Go's encapsulation engine, forging resilient boundaries from eBPF kernels to Istio meshes. Innovate: Embed Rust crates as subpackages via CGO for hybrid memory safety, or package-level eBPF VMs for dynamic policy loading. Source-dive `go/build` for path resolution; pair with Torvalds' modularity rants for depth.
 
 Refactor your modules (`go mod tidy -e`); benchmark builds (`go test -bench=Build`). With workspaces, they scale as ecosystems—package wisely for unassailable infra.
+
+# Go Package Declaration — Deep Dive with Examples
+
+The `package` declaration is the **first statement in every Go file** — it tells the compiler which package this file belongs to. It's Go's fundamental unit of code organization and encapsulation.
+
+---
+
+## The Anatomy
+
+```go
+package <name>
+```
+
+That's it. One line. But the implications are deep.
+
+---
+
+## 1. `package main` — The Executable Entry Point
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("I am an executable binary")
+}
+```
+
+**Rule:** Only a package named `main` with a `func main()` produces an executable. Every other package name produces a **library** (importable, not runnable directly).
+
+---
+
+## 2. Library Package — Reusable Logic
+
+```go
+// File: mathutils/add.go
+package mathutils
+
+func Add(a, b int) int {
+    return a + b
+}
+
+func subtract(a, b int) int { // unexported — lowercase = package-private
+    return a - b
+}
+```
+
+```go
+// File: mathutils/multiply.go
+package mathutils  // same package name — same logical unit
+
+func Multiply(a, b int) int {
+    return a * b
+}
+```
+
+> **Key insight:** Multiple files can share the same package name. The package is the **directory**, not the file. All files in one directory must have the same package name.
+
+---
+
+## 3. Package Name ≠ Directory Name (But Usually Should Match)
+
+```go
+// Directory: src/collections/
+// File: src/collections/stack.go
+
+package collections  // matches directory — idiomatic
+
+type Stack[T any] struct {
+    items []T
+}
+
+func (s *Stack[T]) Push(item T) {
+    s.items = append(s.items, item)
+}
+
+func (s *Stack[T]) Pop() (T, bool) {
+    var zero T
+    if len(s.items) == 0 {
+        return zero, false
+    }
+    item := s.items[len(s.items)-1]
+    s.items = s.items[:len(s.items)-1]
+    return item, true
+}
+```
+
+---
+
+## 4. `package main` in Subdirectories — Multiple Binaries
+
+A large project can have multiple `main` packages in different subdirectories:
+
+```
+myproject/
+├── cmd/
+│   ├── server/
+│   │   └── main.go    → package main (binary: server)
+│   ├── cli/
+│   │   └── main.go    → package main (binary: cli)
+│   └── worker/
+│       └── main.go    → package main (binary: worker)
+└── internal/
+    └── core/
+        └── core.go    → package core (library)
+```
+
+```go
+// cmd/server/main.go
+package main
+
+import (
+    "fmt"
+    "myproject/internal/core"
+)
+
+func main() {
+    fmt.Println("Server starting...")
+    core.Initialize()
+}
+```
+
+```go
+// internal/core/core.go
+package core
+
+func Initialize() {
+    // shared initialization logic
+}
+```
+
+---
+
+## 5. `package` with Import Alias (Consumer Side)
+
+```go
+// File: algorithms/graph/bfs.go
+package graph  // package name is "graph"
+
+type Graph struct {
+    adj map[int][]int
+}
+
+func NewGraph() *Graph {
+    return &Graph{adj: make(map[int][]int)}
+}
+
+func (g *Graph) AddEdge(u, v int) {
+    g.adj[u] = append(g.adj[u], v)
+}
+
+func (g *Graph) BFS(start int) []int {
+    visited := make(map[int]bool)
+    queue := []int{start}
+    result := []int{}
+
+    for len(queue) > 0 {
+        node := queue[0]
+        queue = queue[1:]
+        if visited[node] {
+            continue
+        }
+        visited[node] = true
+        result = append(result, node)
+        for _, neighbor := range g.adj[node] {
+            if !visited[neighbor] {
+                queue = append(queue, neighbor)
+            }
+        }
+    }
+    return result
+}
+```
+
+```go
+// main.go — consuming the graph package with alias
+package main
+
+import (
+    "fmt"
+    g "myproject/algorithms/graph"  // aliased as 'g'
+)
+
+func main() {
+    graph := g.NewGraph()
+    graph.AddEdge(0, 1)
+    graph.AddEdge(0, 2)
+    graph.AddEdge(1, 3)
+    fmt.Println(graph.BFS(0)) // [0 1 2 3]
+}
+```
+
+---
+
+## 6. `package` with `_` Blank Import — Side Effects Only
+
+```go
+package main
+
+import (
+    "database/sql"
+    _ "github.com/lib/pq" // imported ONLY for its init() side effect
+)
+
+func main() {
+    db, _ := sql.Open("postgres", "user=admin dbname=mydb")
+    defer db.Close()
+}
+```
+
+> The `_` import runs the package's `init()` function (which registers the postgres driver) without exposing any of its identifiers.
+
+---
+
+## 7. `internal` Package — Restricted Visibility
+
+```go
+// File: myproject/internal/secret/vault.go
+package secret  // can ONLY be imported by code inside myproject/
+
+var apiKey = "hidden-key"
+
+func GetKey() string {
+    return apiKey
+}
+```
+
+Go **enforces** this at compile time. Code outside `myproject/` cannot import `myproject/internal/secret`. This is architectural encapsulation baked into the language.
+
+---
+
+## 8. Test Files — `package foo` vs `package foo_test`
+
+```go
+// File: mathutils/add_test.go
+
+// WHITE-BOX testing — same package, accesses unexported symbols
+package mathutils
+
+import "testing"
+
+func TestSubtract(t *testing.T) {
+    if subtract(5, 3) != 2 {  // can access unexported 'subtract'
+        t.Fail()
+    }
+}
+```
+
+```go
+// File: mathutils/add_external_test.go
+
+// BLACK-BOX testing — separate package, only exported API
+package mathutils_test
+
+import (
+    "testing"
+    "myproject/mathutils"
+)
+
+func TestAdd(t *testing.T) {
+    if mathutils.Add(2, 3) != 5 {
+        t.Fail()
+    }
+}
+```
+
+> **Expert insight:** The `_test` suffix is the **only** case where two different package names can coexist in the same directory. Go's test tooling handles this specially.
+
+---
+
+## Mental Model Summary
+
+| Package Name | Produces | Purpose |
+|---|---|---|
+| `main` | Binary executable | Entry point |
+| `<anything>` | Library `.a` archive | Reusable code |
+| `<name>_test` | Test binary | Black-box testing only |
+| `internal/<name>` | Library (restricted) | Encapsulated internals |
+
+---
+
+## The Core Law
+
+> **One directory = One package.** All `.go` files in the same directory must declare the same package name (exception: `_test` suffix). The package name controls **visibility**, **linkage**, and **API surface**.
+
+This is Go's answer to the complexity that plagues C (header files) and Java (class-per-file). Simple, enforced, elegant.

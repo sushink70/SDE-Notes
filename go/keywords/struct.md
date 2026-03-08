@@ -2602,3 +2602,379 @@ func handler(w http.ResponseWriter, r *http.Request) {
 2. **Implement constructor pattern for domain models**: Add `New*()` functions for all public structs with validation, default values, and invariant enforcement—prevents invalid state across your API surface (catches 70% of config bugs at compile time).
 
 3. **Audit struct tags for security**: Search codebase for `json:"-"` tags and verify all sensitive fields (passwords, tokens, keys) are excluded from serialization—add tests to assert these fields never appear in marshaled output.
+
+## Breaking Down the Go Struct
+
+```go
+type User struct {
+    ID       UserID                 `json:"id" db:"id"`
+    Email    Email                  `json:"email" db:"email"`
+    Balance  Money                  `json:"balance" db:"balance"`
+    Created  time.Time              `json:"created" db:"created"`
+    Metadata map[string]interface{} `json:"metadata" db:"metadata"`
+}
+```
+
+---
+
+### 1. `type User struct { ... }`
+Declares a **named composite type** called `User`. A struct is a collection of fields grouped under one type — Go's primary mechanism for modeling real-world entities.
+
+---
+
+### 2. The Fields
+
+| Field | Type | Meaning |
+|---|---|---|
+| `ID` | `UserID` | Unique identifier for a user |
+| `Email` | `Email` | User's email address |
+| `Balance` | `Money` | Financial balance |
+| `Created` | `time.Time` | Timestamp of creation |
+| `Metadata` | `map[string]interface{}` | Arbitrary key-value data |
+
+---
+
+### 3. The Types — The Critical Insight
+
+`UserID`, `Email`, and `Money` are **not** primitive types (`int`, `string`, `float64`). They are **custom defined types**, likely declared somewhere as:
+
+```go
+type UserID  int64
+type Email   string
+type Money   int64  // often stored as cents, e.g. 1000 = $10.00
+```
+
+**Why does this matter?** This is called the **Newtype Pattern** — wrapping a primitive to gain:
+- **Type safety** → you cannot accidentally pass an `Email` where a `UserID` is expected, even though both may be strings underneath
+- **Semantic clarity** → the code reads like a domain model, not raw data
+- **Method attachment** → you can add methods like `func (e Email) IsValid() bool`
+
+---
+
+### 4. `time.Time`
+A struct from Go's standard library (`package time`) representing an **exact point in time** with nanosecond precision. Used here to record when the user was created.
+
+---
+
+### 5. `map[string]interface{}`
+A **hash map** where:
+- Keys are `string`
+- Values are `interface{}` (Go 1.17 and below) / `any` (Go 1.18+) — meaning **any type at all**
+
+This is used for **schema-flexible data** — things you don't know at compile time, like user preferences, feature flags, or third-party attributes. The trade-off: you lose compile-time type safety and must use **type assertions** to read values:
+
+```go
+name, ok := user.Metadata["name"].(string)
+```
+
+---
+
+### 6. Struct Tags — `` `json:"..."` `` and `` `db:"..."` ``
+
+These are **struct tags** — metadata attached to fields, read at runtime via **reflection**.
+
+```go
+ID UserID `json:"id" db:"id"`
+```
+
+| Tag | Used By | Purpose |
+|---|---|---|
+| `` `json:"id"` `` | `encoding/json` | Serializes/deserializes field as `"id"` in JSON |
+| `` `db:"id"` `` | `sqlx` / database libs | Maps field to the `id` column in a SQL table |
+
+Without the json tag, Go would serialize it as `"ID"` (uppercase) by default — which would break most API contracts expecting lowercase keys.
+
+---
+
+### The Bigger Picture
+
+This struct is a **domain model** following **Domain-Driven Design (DDD)** principles. The author intentionally avoided raw primitives to make invalid states unrepresentable at the type level. This is a sign of senior-level Go design — you'll see this pattern extensively in production codebases.
+
+## `interface{}` — The Empty Interface in Go
+
+---
+
+### What is an Interface in Go?
+
+In Go, an **interface** is a type that defines a **set of method signatures**. Any type that implements those methods **satisfies** the interface — implicitly, no `implements` keyword needed.
+
+```go
+type Animal interface {
+    Speak() string
+    Move()
+}
+```
+
+Any type with `Speak()` and `Move()` methods automatically satisfies `Animal`.
+
+---
+
+### Now — What is `interface{}`?
+
+`interface{}` is an interface with **zero methods**.
+
+```go
+interface{}  // "implement nothing" — every type qualifies
+```
+
+Since every type in Go has *at least* zero methods, **every type satisfies `interface{}`** automatically.
+
+```go
+var x interface{}
+
+x = 42          // int
+x = "hello"     // string
+x = 3.14        // float64
+x = true        // bool
+x = []int{1,2}  // slice
+x = User{}      // your own struct
+```
+
+All valid. `interface{}` is Go's way of saying **"I don't know or care about the type at compile time."**
+
+---
+
+### In Your Struct — Why `map[string]interface{}`?
+
+```go
+Metadata map[string]interface{}
+```
+
+This means: *"Each key is a string, and each value can be absolutely anything."*
+
+Think of JSON like this:
+```json
+{
+  "metadata": {
+    "age": 25,
+    "premium": true,
+    "nickname": "monk",
+    "scores": [10, 20, 30]
+  }
+}
+```
+
+All four values have **different types** — `int`, `bool`, `string`, `[]int`. A single concrete type cannot hold all of them. `interface{}` solves this.
+
+---
+
+### The Cost — You Must Use Type Assertions
+
+When you read from an `interface{}`, Go has **no idea** what's inside at compile time. You must **assert** the type yourself:
+
+```go
+// Safe assertion (recommended)
+nickname, ok := user.Metadata["nickname"].(string)
+if !ok {
+    // value was not a string — handle gracefully
+}
+
+// Unsafe assertion (panics if wrong type)
+age := user.Metadata["age"].(int)
+```
+
+---
+
+### Type Switch — Handling Multiple Types Cleanly
+
+```go
+func describe(v interface{}) {
+    switch val := v.(type) {
+    case int:
+        fmt.Println("int:", val)
+    case string:
+        fmt.Println("string:", val)
+    case bool:
+        fmt.Println("bool:", val)
+    default:
+        fmt.Printf("unknown type: %T\n", val)
+    }
+}
+```
+
+This is the idiomatic Go way to handle `interface{}` values when the type is unknown.
+
+---
+
+### `interface{}` vs `any` (Go 1.18+)
+
+In Go 1.18, `any` was introduced as a **type alias** for `interface{}`. They are 100% identical:
+
+```go
+// These are exactly the same
+var a interface{}
+var b any
+```
+
+Modern Go code prefers `any` — it's cleaner and signals intent more clearly.
+
+---
+
+### The Trade-off Table
+
+| | Concrete Type | `interface{}` |
+|---|---|---|
+| Type safety | ✅ Compile-time | ❌ Runtime only |
+| Performance | ✅ Direct access | ⚠️ Slight overhead (boxing) |
+| Flexibility | ❌ Fixed type | ✅ Any type |
+| Code clarity | ✅ Self-documenting | ⚠️ Requires assertion |
+
+---
+
+### The Mental Model
+
+Think of `interface{}` as a **sealed box**. You can put anything inside. But when you want to use what's inside, you must **open the box and verify** what's actually there — that's the type assertion. The compiler cannot help you; the responsibility shifts entirely to you at runtime.
+
+> Use `interface{}` / `any` **only when true type flexibility is required** — like deserializing unknown JSON, plugin systems, or generic containers pre-Go 1.18. Prefer concrete types or Go 1.18 generics (`[T any]`) everywhere else.
+
+## Alternatives to `map[string]interface{}` for Metadata in Go
+
+---
+
+### 1. Concrete Struct (Best — when schema is known)
+
+If you **know** what metadata fields exist, model them explicitly:
+
+```go
+type UserMetadata struct {
+    Nickname  string `json:"nickname" db:"nickname"`
+    IsPremium bool   `json:"is_premium" db:"is_premium"`
+    Age       int    `json:"age" db:"age"`
+}
+
+type User struct {
+    // ...
+    Metadata UserMetadata `json:"metadata" db:"metadata"`
+}
+```
+
+**✅ Full compile-time safety. Zero guessing. IDE autocomplete works.**
+The best choice when your metadata shape is stable and known.
+
+---
+
+### 2. `json.RawMessage` (when schema is unknown but JSON is the source)
+
+```go
+import "encoding/json"
+
+type User struct {
+    // ...
+    Metadata json.RawMessage `json:"metadata" db:"metadata"`
+}
+```
+
+Stores the raw JSON bytes **as-is**, deferring parsing to later. You decode only what you need, when you need it:
+
+```go
+var meta struct {
+    Nickname string `json:"nickname"`
+}
+json.Unmarshal(user.Metadata, &meta)
+```
+
+**✅ Flexible. No data loss. Efficient — avoids double parsing.**
+Common in APIs that pass metadata through without caring about its shape.
+
+---
+
+### 3. Generics `map[string]T` (Go 1.18+)
+
+```go
+type MetadataStore[T any] map[string]T
+
+type User struct {
+    // ...
+    Metadata MetadataStore[string] // all values must be strings
+}
+```
+
+Useful when values **share a type** but keys are dynamic:
+
+```go
+// All string values
+settings := MetadataStore[string]{
+    "theme":    "dark",
+    "language": "en",
+}
+```
+
+**✅ Type-safe. Clean. But values must be homogeneous.**
+
+---
+
+### 4. Custom Type with Methods (Newtype Pattern)
+
+```go
+type Metadata map[string]string
+
+func (m Metadata) Get(key string) (string, bool) {
+    v, ok := m[key]
+    return v, ok
+}
+
+func (m Metadata) Set(key, value string) {
+    m[key] = value
+}
+
+type User struct {
+    // ...
+    Metadata Metadata `json:"metadata" db:"metadata"`
+}
+```
+
+**✅ Encapsulated. You control access. Adds domain logic.**
+Values are constrained to `string` — serialize complex values as JSON strings if needed.
+
+---
+
+### 5. `map[string]json.RawMessage` (Maximum Flexibility + Type Safety Per Key)
+
+```go
+type User struct {
+    // ...
+    Metadata map[string]json.RawMessage `json:"metadata" db:"metadata"`
+}
+```
+
+Each value is raw JSON independently. You decode each key into whatever type makes sense:
+
+```go
+var age int
+json.Unmarshal(user.Metadata["age"], &age)
+
+var tags []string
+json.Unmarshal(user.Metadata["tags"], &tags)
+```
+
+**✅ Per-key type flexibility without losing structure.**
+
+---
+
+### Decision Map
+
+```
+Do you know the metadata shape at compile time?
+│
+├── YES → Concrete struct  ← Always prefer this
+│
+└── NO → Is the data coming from JSON?
+         │
+         ├── YES, passing through untouched → json.RawMessage
+         │
+         ├── YES, need per-key flexibility  → map[string]json.RawMessage
+         │
+         └── NO, all values same type?
+                  │
+                  ├── YES → map[string]T  (generics)
+                  │
+                  └── NO  → map[string]interface{}  ← last resort
+```
+
+---
+
+### The Core Principle
+
+> `interface{}` is the **escape hatch** — it tells the compiler *"I'll handle this myself."* Every alternative above trades some flexibility for **correctness guarantees**. A disciplined engineer reaches for `interface{}` only after exhausting all typed alternatives.
+
+In production Go codebases, `map[string]interface{}` in a domain model is often a **design smell** — a signal that the schema wasn't fully thought through.

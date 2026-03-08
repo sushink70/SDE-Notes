@@ -1,0 +1,87 @@
+## Memory Layout — ASCII Diagrams
+
+### `struct Point` — Sequential Layout (8 bytes)
+
+```
+Memory Address →
+
+┌─────────────────────────────────────────────────────────────────┐
+│                        struct Point                             │
+├────────────────────────┬────────────────────────────────────────┤
+│         int x          │               int y                    │
+│       (4 bytes)        │             (4 bytes)                  │
+├──────┬──────┬──────┬───┴──┬──────┬──────┬──────┬─────────── ────┤
+│  B0  │  B1  │  B2  │  B3  │  B4  │  B5  │  B6  │      B7       │
+├──────┴──────┴──────┴──────┼──────┴──────┴──────┴───────────────┤
+│       x lives here        │         y lives here               │
+│     offset 0 → 3          │        offset 4 → 7                │
+└───────────────────────────┴────────────────────────────────────┘
+
+Offset:  0     1     2     3     4     5     6     7
+         └─────────────────┘     └─────────────────┘
+                 x                        y
+```
+
+---
+
+### `union Data` — Overlapping Layout (4 bytes)
+
+```
+Memory Address →
+
+┌─────────────────────────────────────────────────────────────────┐
+│                         union Data                              │
+│                    ALL share offset 0                           │
+├──────┬──────┬──────┬────────────────────────────────────  ──────┤
+│  B0  │  B1  │  B2  │  B3                                        │
+└──────┴──────┴──────┴─────────────────────────────────────  ─────┘
+
+Viewed as   int i   → [  B0  │  B1  │  B2  │  B3  ]  (4 bytes)
+                        └────────────────────────┘
+                             one integer
+
+Viewed as float f   → [  B0  │  B1  │  B2  │  B3  ]  (4 bytes)
+                        └────────────────────────┘
+                           IEEE 754 float bits
+
+Viewed as char c[4] → [  c[0]│  c[1]│  c[2]│  c[3] ]  (4 bytes)
+                        └─────┘└─────┘└─────┘└──────┘
+                          individual bytes exposed
+
+Offset:       0     1     2     3
+              │     │     │     │
+              └─────┴─────┴─────┘
+                All members BEGIN
+                at the SAME byte
+```
+
+---
+
+### Side-by-Side Conceptual Contrast
+
+```
+  STRUCT (sequential)           UNION (overlapping)
+  ┌────────┬────────┐           ┌────────────────┐
+  │   x    │   y    │           │ i  (4 bytes)   │
+  │        │        │           ├────────────────┤
+  └────────┴────────┘           │ f  (4 bytes)   │
+  offset: 0        7            ├────────────────┤
+  size  = sum of members        │ c  (4 bytes)   │
+        = 4 + 4 = 8 bytes       └────────────────┘
+                                offset: all at 0
+                                size  = largest member
+                                      = 4 bytes
+```
+
+---
+
+### The Core Mental Model
+
+| Property | `struct` | `union` |
+|---|---|---|
+| Member storage | **Sequential** | **Overlapping** |
+| Size | Sum of members (+ padding) | Largest member |
+| Members active | **All simultaneously** | **Only one at a time** |
+| Use case | Group related data | Reinterpret same memory |
+
+> **Key insight:** A `union` is a **single memory region with multiple lenses** — writing through `i` and reading through `c` gives you raw byte access to that integer. This is the foundation of **type punning**, used heavily in network serialization, embedded systems, and low-level Rust `unsafe` blocks.
