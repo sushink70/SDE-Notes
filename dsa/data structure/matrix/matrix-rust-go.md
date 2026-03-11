@@ -170,6 +170,56 @@ func (m *Matrix) Row(i int) []float64 {
 }
 ```
 
+```go
+package main
+
+import (
+	"fmt"
+	"project/matrix" // change to your module name
+)
+
+func main() {
+
+	// Create a 3x3 matrix
+	m := matrix.New(3, 3)
+
+	// Set some values
+	m.Set(0, 0, 1)
+	m.Set(0, 1, 2)
+	m.Set(0, 2, 3)
+
+	m.Set(1, 0, 4)
+	m.Set(1, 1, 5)
+	m.Set(1, 2, 6)
+
+	m.Set(2, 0, 7)
+	m.Set(2, 1, 8)
+	m.Set(2, 2, 9)
+
+	fmt.Println("Matrix:")
+	m.Print()
+
+	// Access element
+	fmt.Println("\nElement (1,2):", m.At(1, 2))
+
+	// Clone test
+	fmt.Println("\nCloned matrix:")
+	clone := m.Clone()
+	clone.Print()
+
+	// Identity matrix test
+	fmt.Println("\nIdentity Matrix:")
+	id := matrix.Identity(4)
+	id.Print()
+
+	// Row slice test
+	fmt.Println("\nRow 1:")
+	row := m.Row(1)
+	fmt.Println(row)
+
+}
+```
+
 **Rust Implementation:**
 ```rust
 use std::fmt;

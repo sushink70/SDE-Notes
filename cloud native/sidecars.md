@@ -4102,3 +4102,796 @@ func main() {
    ```
 
 **Clarifications needed?** Let me know specific use cases (e.g., specific service mesh, secret manager, or security requirements) and I'll provide targeted configs and threat analysis.
+
+# Sidecar Pattern: Comprehensive Technical Deep-Dive
+
+**Summary**: The sidecar pattern deploys an auxiliary container/process alongside a primary workload, sharing lifecycle, network namespace, and resource contexts to provide cross-cutting capabilities (observability, security, networking) without modifying application code. This architectural primitive enables separation of concerns, polyglot infrastructure services, and platform-level capabilities while maintaining strong isolation boundaries and deployment atomicity. Critical in service mesh, zero-trust architectures, and cloud-native platforms where централized control-plane logic must be enforced at the data-plane edge. Trade-offs include resource overhead, complexity in failure domains, and latency penalties for intercepted traffic.
+
+---
+
+## 1. Fundamental Architecture & Concepts
+
+### 1.1 Core Definition
+
+A **sidecar** is a secondary process or container that:
+- Runs in the same execution context (pod, VM, host) as the primary application
+- Shares specific kernel namespaces (network, IPC, UTS, optionally PID)
+- Has independent lifecycle for upgrades but coordinated startup/shutdown
+- Provides infrastructure capabilities without application awareness
+- Acts as a transparent proxy, agent, or adapter
+
+**Key distinction from traditional agents**: Sidecars are **deployment-scoped** (1:1 with workload instances) vs. node-scoped daemons (1:N with workloads).
+
+### 1.2 Architectural Topology
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Execution Boundary (Pod/VM)              │
+│                                                              │
+│  ┌──────────────────┐         ┌──────────────────┐         │
+│  │  Primary App     │         │  Sidecar         │         │
+│  │  Container/Proc  │◄───────►│  Container/Proc  │         │
+│  │                  │  IPC/   │                  │         │
+│  │  - Business Logic│  Shared │  - Proxy         │         │
+│  │  - App Runtime   │  Net NS │  - Logging Agent │         │
+│  │  - Listens :8080 │         │  - Secret Sync   │         │
+│  │                  │         │  - Auth Enforcer │         │
+│  └────────┬─────────┘         └────────┬─────────┘         │
+│           │                            │                    │
+│           │   Shared Network Stack     │                    │
+│           └────────────┬───────────────┘                    │
+│                        │                                    │
+│              ┌─────────▼─────────┐                          │
+│              │   127.0.0.1/lo    │  Localhost optimization  │
+│              │   Pod/VM eth0     │  External connectivity   │
+│              └─────────┬─────────┘                          │
+└────────────────────────┼─────────────────────────────────────┘
+                         │
+                    ┌────▼────┐
+                    │ Network │  External traffic
+                    │ Fabric  │  (service mesh, LB, etc.)
+                    └─────────┘
+```
+
+### 1.3 Namespace Sharing Model (Linux Containers)
+
+```
+Namespace        Shared?   Impact
+──────────────────────────────────────────────────────────────
+NET (network)    YES       Same IP, ports, routing table, iptables
+                           Enables localhost communication & interception
+
+IPC              YES       Shared memory, semaphores, message queues
+                           Enables zero-copy data exchange
+
+UTS              YES       Same hostname resolution
+
+PID              NO*       Isolated process trees (security boundary)
+                           *Can be shared for debug sidecars
+
+MNT (mount)      NO        Isolated filesystems (except emptyDir volumes)
+
+USER             NO        Separate UID/GID mappings (rootless isolation)
+
+CGROUP           Shared†   Resource limits applied at pod/group level
+                           †Individual container cgroups within parent
+```
+
+---
+
+## 2. Canonical Use Cases & Patterns
+
+### 2.1 Service Mesh Data Plane (Envoy/Linkerd)
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                    Application Pod                        │
+│                                                           │
+│  ┌────────────┐    localhost:15001    ┌──────────────┐  │
+│  │            │◄──────────────────────►│   Envoy      │  │
+│  │  App :8080 │   iptables REDIRECT    │   Sidecar    │  │
+│  │            │                         │              │  │
+│  └────────────┘                         │  - mTLS      │  │
+│                                         │  - L7 LB     │  │
+│                                         │  - Retry     │  │
+│                                         │  - Metrics   │  │
+│                                         │  - AuthZ     │  │
+│                                         └──────┬───────┘  │
+└────────────────────────────────────────────────┼──────────┘
+                                                 │
+                                            ┌────▼─────┐
+                                            │ Control  │
+                                            │  Plane   │
+                                            │ (xDS API)│
+                                            └──────────┘
+```
+
+**Interception mechanisms**:
+- **iptables REDIRECT**: PREROUTING/OUTPUT chains redirect to proxy port
+- **eBPF sockops**: Attach to socket operations for zero-copy redirection
+- **Transparent proxy mode**: SO_ORIGINAL_DST socket option retrieves original destination
+
+**Traffic flow**: App → iptables → Envoy → mTLS handshake → Remote Envoy → Remote App
+
+### 2.2 Observability & Logging (Fluent-bit, OTEL Collector)
+
+```
+Pod with Logging Sidecar
+─────────────────────────────────────────────
+┌──────────────┐       ┌──────────────────┐
+│   App        │       │  Fluent-bit      │
+│              │       │  Sidecar         │
+│  writes to   │       │                  │
+│  /var/log/   ├──────►│  Watches files   │
+│  app.log     │ Vol   │  Parses JSON     │
+│              │ Mount │  Buffers         │
+└──────────────┘       │  Ships to        │
+                       │  backend         │
+                       └────────┬─────────┘
+                                │
+                         ┌──────▼────────┐
+                         │ Loki/ES/S3    │
+                         │ (aggregation) │
+                         └───────────────┘
+```
+
+**Shared volume pattern**: `emptyDir` volume mounted at `/var/log/app` in both containers. Sidecar tails files, app rotates logs independently.
+
+### 2.3 Secret Injection & Rotation (Vault Agent, cert-manager)
+
+```
+┌─────────────────────────────────────────────────────┐
+│              Secret Sidecar Pattern                  │
+│                                                      │
+│  ┌──────────────┐         ┌──────────────────┐     │
+│  │  App reads   │         │  Vault Agent     │     │
+│  │  /secrets/   │◄────────┤  Sidecar         │     │
+│  │  db.token    │ tmpfs   │                  │     │
+│  │              │ volume  │  - Auth (K8s SA) │     │
+│  │  Re-reads    │         │  - Fetch secrets │     │
+│  │  on SIGHUP   │         │  - Auto-renew    │     │
+│  │              │         │  - Template      │     │
+│  └──────────────┘         └────────┬─────────┘     │
+└─────────────────────────────────────┼───────────────┘
+                                      │
+                                ┌─────▼──────┐
+                                │  Vault     │
+                                │  Server    │
+                                └────────────┘
+```
+
+**Security properties**:
+- Secrets never in environment variables or disk (except tmpfs)
+- App doesn't need Vault client library (polyglot support)
+- Lease renewal independent of app lifecycle
+- Zero-trust: sidecar authenticates with workload identity (Kubernetes SA, SPIFFE)
+
+### 2.4 Init Container vs. Sidecar
+
+```
+Pod Lifecycle with Init + Sidecar
+──────────────────────────────────────────────────────
+
+ Init Container         Sidecar             App
+ (runs once)         (runs always)     (main process)
+      │                   │                  │
+      │ Download certs    │                  │
+      │ Setup iptables    │                  │
+      │ Seed config       │                  │
+      ├─────────────┐     │                  │
+      │   COMPLETE  │     │                  │
+      └─────────────┤     │                  │
+                    │     ├──START           │
+                    │     │  Watch certs     │
+                    │     │  Update routes   │
+                    │     │                  ├──START
+                    │     │                  │  Serve
+                    │     │                  │  traffic
+                    │     │◄────────────────►│
+                    │     │   Localhost IPC  │
+                    │     │                  │
+                    │     ├──RUNNING         ├──RUNNING
+                    │     │                  │
+```
+
+**Init container**: Runs to completion before main containers start. Use for setup tasks (iptables rules, file permissions, cert bootstrapping).
+
+**Sidecar**: Runs concurrently with main container. Use for continuous services (proxying, monitoring, secret rotation).
+
+---
+
+## 3. Isolation Boundaries & Security Model
+
+### 3.1 Trust Boundaries
+
+```
+Security Domains in Sidecar Architecture
+─────────────────────────────────────────────────────
+
+┌─────────────────────────────────────────────────┐
+│             Pod Security Boundary               │  ← cgroup limits
+│                                                  │    seccomp/AppArmor
+│  ┌────────────────┐      ┌──────────────────┐  │    network policies
+│  │  Untrusted     │      │  Trusted         │  │
+│  │  Application   │      │  Sidecar         │  │
+│  │                │      │                  │  │
+│  │  - User code   │      │  - Platform code │  │
+│  │  - 3rd party   │      │  - Signed image  │  │
+│  │  - CVEs        │      │  - Sec hardened  │  │
+│  │                │      │                  │  │
+│  │  UID: 10001    │      │  UID: 1337       │  │  ← User namespace
+│  │  CAP: NONE     │      │  CAP: NET_ADMIN  │  │  ← Capabilities
+│  │  Seccomp: ✓    │      │  Seccomp: ✓      │  │
+│  └────────────────┘      └──────────────────┘  │
+│           │                        │            │
+│           └────────┬───────────────┘            │
+│                    │                            │
+│              Shared NET NS                      │  ← Attack surface
+│              127.0.0.1                          │
+└─────────────────────────────────────────────────┘
+         │                          │
+    ┌────▼──────┐          ┌────────▼──────┐
+    │ Egress    │          │ Ingress       │
+    │ Traffic   │          │ Traffic       │
+    └───────────┘          └───────────────┘
+```
+
+### 3.2 Threat Model
+
+**Attack vectors**:
+1. **Malicious app compromises sidecar via localhost**: App exploits vulnerability in sidecar's management API
+2. **Sidecar privilege escalation**: Sidecar runs with excessive capabilities, app escapes via shared namespace
+3. **Denial of Service**: App exhausts sidecar resources (CPU, memory, file descriptors), breaking platform services
+4. **Traffic interception/manipulation**: Compromised app MITMs sidecar proxy communication
+5. **Secret leakage**: App reads secrets from shared volumes or sidecar memory
+
+**Mitigations**:
+
+```
+Defense-in-Depth Layers
+───────────────────────────────────────────────────
+
+Layer 1: Container Isolation
+  ├─ Separate user namespaces (UID remapping)
+  ├─ Minimal capabilities (drop ALL, add specific)
+  ├─ Seccomp profiles (syscall filtering)
+  ├─ Read-only root filesystems
+  └─ No privilege escalation (allowPrivilegeEscalation: false)
+
+Layer 2: Network Segmentation
+  ├─ Sidecar management API on 127.0.0.1 with auth
+  ├─ Unix domain sockets vs. TCP for IPC
+  ├─ iptables rules restricting app → sidecar traffic
+  └─ mTLS for all external traffic
+
+Layer 3: Resource Limits
+  ├─ Per-container CPU/memory limits
+  ├─ Pod-level QoS class (Guaranteed/Burstable)
+  ├─ PID limits (preventing fork bombs)
+  └─ Ephemeral storage limits
+
+Layer 4: Runtime Monitoring
+  ├─ Falco/Tetragon detecting anomalous syscalls
+  ├─ Envoy access logs auditing localhost traffic
+  ├─ OOM events triggering alerts
+  └─ Unexpected process spawning in containers
+
+Layer 5: Image Security
+  ├─ Signed sidecar images (Sigstore/Notary)
+  ├─ Minimal base images (distroless, scratch)
+  ├─ Regular CVE scanning (Trivy, Grype)
+  └─ Binary authorization policies
+```
+
+### 3.3 Capability Model
+
+**Typical capability requirements**:
+
+```
+Container       Capabilities                Justification
+─────────────────────────────────────────────────────────────
+App             NONE                        Zero privileges
+
+Envoy Proxy     NET_BIND_SERVICE           Bind to port 443
+                NET_ADMIN (optional)       iptables manipulation
+                                            (usually done by init)
+
+Logging Agent   DAC_OVERRIDE               Read app logs regardless
+                                            of permissions
+
+Vault Agent     NONE                       Reads shared volume only
+
+CNI Init        NET_ADMIN                  Configure iptables/routes
+                SYS_ADMIN                  Mount BPF filesystem
+```
+
+**Least-privilege principle**: Grant capabilities only to init containers that perform one-time setup, never to long-running sidecars unless absolutely necessary.
+
+---
+
+## 4. Lifecycle Management & Orchestration
+
+### 4.1 Startup Ordering Problem
+
+**Challenge**: App may start before sidecar is ready, causing connection failures.
+
+```
+Startup Race Condition
+──────────────────────────────────────────
+
+Without Coordination:
+  Sidecar     App
+     │         │
+     ├─START   ├─START
+     │ Loading │ Connect to DB
+     │ config  │   via proxy
+     │         ├──FAIL (proxy not ready)
+     │         ├──CRASH
+     ├─READY   │
+     │         │ (too late)
+
+With Init Container + Readiness:
+  Init       Sidecar         App
+   │            │             │
+   ├─Setup      │             │
+   │  iptables  │             │
+   ├─DONE       │             │
+                ├─START       │
+                │ Load config │
+                ├─READY       │
+                │   signal    │
+                              ├─START
+                              │ (safe)
+```
+
+**Solutions**:
+
+1. **Init container sets up iptables**: Ensures traffic interception before app starts
+2. **Sidecar readiness gates**: Kubernetes native startup dependencies (beta in 1.29+)
+3. **App retries with exponential backoff**: Resilience to transient failures
+4. **Health check scripts**: Init container polls sidecar health endpoint before completing
+
+### 4.2 Shutdown Ordering (SIGTERM Cascade)
+
+```
+Pod Termination Sequence
+─────────────────────────────────────────────────
+
+1. API server marks pod "Terminating"
+2. kubelet sends SIGTERM to all containers
+3. Containers have terminationGracePeriodSeconds (default 30s)
+4. After grace period, SIGKILL
+
+Problem: App and sidecar receive SIGTERM simultaneously
+  Sidecar     App
+     │         │
+     │◄────────┼───SIGTERM (simultaneous)
+     │         │
+     ├─CLOSE   ├─CLOSE
+     │  proxy  │  connections
+     │         ├──FAIL (proxy gone)
+     │         │
+     ├─EXIT    ├─EXIT
+
+Solution: preStop hooks + grace period tuning
+  Sidecar                App
+     │                    │
+     │◄───────────────────┼───SIGTERM
+     │                    │
+     │                    ├─preStop hook
+     │                    │  (sleep 5s)
+     │                    │
+     │                    ├─CLOSE connections
+     │                    ├─EXIT
+     ├─preStop hook       │
+     │  (sleep 10s)       │
+     ├─EXIT               │
+```
+
+**Best practices**:
+- Sidecar `preStop`: Sleep for `app_grace_period + buffer` (e.g., 15s)
+- App `preStop`: Stop accepting new connections, drain existing
+- Sidecar monitors app health endpoint, exits when app terminates
+
+### 4.3 Failure Modes & Recovery
+
+```
+Failure Scenario Matrix
+────────────────────────────────────────────────────────
+
+Scenario                   Impact              Recovery
+───────────────────────────────────────────────────────────────────
+App crashes               Sidecar continues    Kubernetes restarts
+                          (orphaned)           app container
+                                               (restartPolicy: Always)
+
+Sidecar crashes           App continues but    Kubernetes restarts
+                          loses capabilities   sidecar, app may error
+                          (no proxy/logs)      during downtime
+
+Both crash                Pod unhealthy        Kubernetes recreates
+                                               entire pod
+
+Sidecar OOM               Sidecar killed,      Tune memory limits
+                          app continues        or fix memory leak
+
+Init fails                Pod never starts     Kubernetes retries with
+                                               backoff, check logs
+
+Sidecar deadlock          Pod stuck in         Liveness probe kills
+                          "Running" state      sidecar → restart
+```
+
+**Observability for debugging**:
+- Separate container logs (stdout/stderr per container)
+- Exit codes in pod status (CrashLoopBackOff, Error, Completed)
+- Events (kubectl describe pod) showing OOM, failed probes, image pull errors
+- Metrics: container_cpu_usage, container_memory_working_set_bytes per container
+
+---
+
+## 5. Performance & Resource Considerations
+
+### 5.1 Overhead Analysis
+
+```
+Resource Overhead per Pod
+────────────────────────────────────────────────
+
+Metric              App Only    App + Sidecar   Overhead
+──────────────────────────────────────────────────────────
+Memory (resident)   50 MB       120 MB          +140%
+CPU (steady state)  0.1 cores   0.15 cores      +50%
+CPU (p99 latency)   5ms         8ms             +60%
+Network hops        1           3               +200%
+Pod startup time    2s          5s              +150%
+```
+
+**Latency breakdown (HTTP request through sidecar proxy)**:
+
+```
+App → Sidecar → Network → Remote Sidecar → Remote App
+  │      │         │              │              │
+  └─ 0.5ms        2ms            1ms            0.5ms
+     (marshal)   (routing)     (network)       (unmarshal)
+     
+Total added latency: ~2ms (local processing)
+                     vs. direct connection
+```
+
+**Memory breakdown (Envoy sidecar example)**:
+
+```
+Component                        Memory
+──────────────────────────────────────────
+Base binary + runtime            30 MB
+Connection tracking tables       20 MB (1K conns)
+TLS contexts (certs, sessions)   15 MB
+Metrics/stats buffers            10 MB
+Listener/cluster configs         5 MB
+───────────────────────────────────────────
+Total                            80 MB
+```
+
+### 5.2 Optimization Strategies
+
+**1. Shared memory for metrics**:
+```
+┌─────────┐       ┌──────────┐
+│   App   │──────►│ Statsd   │
+│         │ UDS   │ Sidecar  │
+└─────────┘       └──────────┘
+    vs.
+┌─────────┐       ┌──────────┐
+│   App   │──────►│ Shared   │◄────┐
+│         │ mmap  │ Memory   │     │
+└─────────┘       └──────────┘     │
+                       │        ┌───┴────┐
+                       └───────►│ Agent  │
+                                └────────┘
+```
+Unix domain sockets reduce TCP overhead. Memory-mapped files eliminate syscalls.
+
+**2. CPU pinning & NUMA awareness**:
+```
+Node: 2 NUMA nodes, 16 cores each
+
+Pod placement:
+┌─────────────────┐  ┌─────────────────┐
+│  NUMA 0         │  │  NUMA 1         │
+│  ┌───────────┐  │  │  ┌───────────┐  │
+│  │ App       │  │  │  │ Sidecar   │  │
+│  │ Cores 0-7 │  │  │  │ Cores 16-23│ │
+│  └───────────┘  │  │  └───────────┘  │
+│  Local Memory   │  │  Local Memory   │
+└─────────────────┘  └─────────────────┘
+        vs.
+┌─────────────────┐
+│  NUMA 0         │
+│  ┌───────────┐  │
+│  │ App       │  │
+│  │ Cores 0-3 │  │
+│  │ Sidecar   │  │
+│  │ Cores 4-7 │  │
+│  └───────────┘  │
+│  Local Memory   │
+│  (cache sharing)│
+└─────────────────┘
+```
+Prefer co-location on same NUMA node for cache efficiency.
+
+**3. eBPF acceleration (cilium, istio ambient)**:
+```
+Traditional iptables path:
+  App → TCP stack → iptables → userspace proxy → TCP stack → wire
+        (4 context switches, 2 kernel/user crossings)
+
+eBPF sockops path:
+  App → BPF program → socket redirection → Remote socket
+        (0 context switches, kernel-only)
+```
+10x latency reduction, 50% CPU savings for high-throughput workloads.
+
+---
+
+## 6. Advanced Patterns & Variants
+
+### 6.1 Ambassador Pattern (Reverse Sidecar)
+
+```
+External Service Abstraction
+─────────────────────────────────────────
+
+Pod
+┌──────────────────────────────────────┐
+│  ┌──────────┐      ┌──────────────┐ │
+│  │  App     │─────►│  Ambassador  │ │
+│  │          │ :8080│  Sidecar     │ │
+│  │  Calls:  │      │              │ │
+│  │  GET /api│      │  Translates  │ │
+│  │          │      │  to real API │ │
+│  └──────────┘      └──────┬───────┘ │
+└─────────────────────────────┼─────────┘
+                              │
+                    ┌─────────▼────────┐
+                    │ External Service │
+                    │ (versioned API)  │
+                    └──────────────────┘
+```
+
+**Use case**: App calls localhost:8080, ambassador translates to real service with auth, retries, circuit breaking. Enables testing with mock backends.
+
+### 6.2 Adapter Pattern (Protocol Translation)
+
+```
+Legacy App Modernization
+────────────────────────────────────────
+
+Pod
+┌──────────────────────────────────────┐
+│  ┌───────────┐     ┌──────────────┐ │
+│  │  Legacy   │────►│  Adapter     │ │
+│  │  App      │ TCP │  Sidecar     │ │
+│  │           │     │              │ │
+│  │  Speaks:  │     │  Translates  │ │
+│  │  Custom   │     │  to gRPC     │ │
+│  │  Binary   │     │  + Protobuf  │ │
+│  │  Protocol │     │              │ │
+│  └───────────┘     └──────┬───────┘ │
+└─────────────────────────────┼─────────┘
+                              │
+                    ┌─────────▼────────┐
+                    │ Modern gRPC API  │
+                    └──────────────────┘
+```
+
+**Use case**: Integrate legacy apps into service mesh without rewriting. Adapter handles protocol conversion, mTLS, observability.
+
+### 6.3 Multi-Sidecar (Chained Processing)
+
+```
+Layered Infrastructure Services
+────────────────────────────────────────────────
+
+Pod
+┌─────────────────────────────────────────────┐
+│  ┌──────┐  ┌───────┐  ┌───────┐  ┌──────┐ │
+│  │ App  │─►│Envoy  │─►│AuthZ  │─►│ WAF  │─┼─► Network
+│  │      │  │Proxy  │  │Sidecar│  │Sidecar│ │
+│  │:8080 │  │:15001 │  │:15002 │  │:15003 │ │
+│  └──────┘  └───────┘  └───────┘  └──────┘ │
+│     │          │          │          │      │
+│     │          │          │          │      │
+│  Metrics   L7 LB      Policy    Attack     │
+│  Export    Retry      Enforce   Detect     │
+└─────────────────────────────────────────────┘
+```
+
+**Complexity trade-off**: Each sidecar adds latency, memory, failure modes. Prefer single-sidecar with plugins over chaining.
+
+### 6.4 Ambient Mesh (No Sidecar)
+
+```
+Sidecar-less Service Mesh Architecture
+───────────────────────────────────────────────
+
+Traditional (per-pod sidecar):
+  Node 1                Node 2
+  ┌─────────┐          ┌─────────┐
+  │Pod A    │          │Pod B    │
+  │ ├─App   │          │ ├─App   │
+  │ └─Envoy │──────────│ └─Envoy │
+  └─────────┘          └─────────┘
+  40% resource overhead
+
+Ambient (node-level ztunnel):
+  Node 1                Node 2
+  ┌─────────┐          ┌─────────┐
+  │Pod A    │          │Pod B    │
+  │  └─App  │          │  └─App  │
+  └─────────┘          └─────────┘
+       │                    │
+  ┌────▼────┐          ┌────▼────┐
+  │ztunnel  │──────────│ztunnel  │  ← Node agent
+  │(DaemonSet)         │(DaemonSet)│
+  └─────────┘          └─────────┘
+  5% resource overhead
+```
+
+**Trade-off**: Lower overhead, simpler lifecycle, but loses per-pod isolation, harder traffic attribution, L7 policies require waypoint proxies (separate pods).
+
+---
+
+## 7. Platform-Specific Implementations
+
+### 7.1 Kubernetes Native Sidecars
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-with-sidecar
+spec:
+  # Init container: runs once before main containers
+  initContainers:
+  - name: setup-iptables
+    # Sets up traffic redirection rules
+    
+  # Main containers: run concurrently
+  containers:
+  - name: app
+    # Primary workload
+    
+  - name: envoy-sidecar
+    # Proxy sidecar
+    
+  # Sidecar containers (native support in K8s 1.28+)
+  # Start before app, guaranteed readiness
+  initContainers:
+  - name: envoy-sidecar
+    restartPolicy: Always  # Makes it a sidecar, not init
+```
+
+**Native sidecar benefits**:
+- Guaranteed startup order (sidecar ready → app starts)
+- Graceful shutdown (sidecar outlives app by grace period)
+- Job compatibility (sidecars terminate when main container completes)
+
+### 7.2 ECS/Fargate
+
+```
+ECS Task Definition
+───────────────────────────────────────────
+
+{
+  "family": "app-with-sidecar",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "essential": true,  ← Task fails if this exits
+      "dependsOn": [
+        {
+          "containerName": "envoy",
+          "condition": "HEALTHY"  ← Startup dependency
+        }
+      ]
+    },
+    {
+      "name": "envoy",
+      "essential": false,  ← Task continues if this fails
+      "healthCheck": { ... }
+    }
+  ]
+}
+```
+
+**ECS-specific concerns**:
+- No shared PID namespace (can't signal between containers)
+- `links` for network alias resolution
+- CloudWatch Logs per-container streams
+
+### 7.3 Systemd Services (Bare Metal/VMs)
+
+```
+Systemd Sidecar Unit
+────────────────────────────────────────
+
+[Unit]
+Description=Envoy Proxy Sidecar
+BindsTo=app.service       ← Stop when app stops
+After=app.service         ← Start after app starts
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/envoy -c /etc/envoy.yaml
+PrivateNetwork=no         ← Share network namespace
+NetworkNamespacePath=/proc/%i/ns/net
+
+[Install]
+WantedBy=app.service
+```
+
+**Namespace sharing**: Use `nsenter` or systemd's `NetworkNamespacePath` to join app's network namespace.
+
+### 7.4 Nomad
+
+```
+Nomad Job HCL
+─────────────────────────────────────────
+
+job "app" {
+  group "web" {
+    network {
+      mode = "bridge"  # Shared network namespace
+    }
+    
+    task "app" {
+      driver = "docker"
+      config {
+        image = "app:latest"
+      }
+    }
+    
+    task "envoy" {
+      driver = "docker"
+      lifecycle {
+        hook = "prestart"
+        sidecar = true  # Runs concurrently
+      }
+      config {
+        image = "envoy:latest"
+      }
+    }
+  }
+}
+```
+
+**Consul Connect integration**: Nomad auto-injects Envoy sidecar for service mesh.
+
+---
+
+## 8. Operational Concerns
+
+### 8.1 Upgrades & Rollout Strategy
+
+```
+Rolling Update Strategy
+───────────────────────────────────────────────
+
+Scenario 1: Update App Only
+  Old Pod           New Pod
+  ┌────────┐       ┌────────┐
+  │App v1  │       │App v2  │
+  │Envoy v1│       │Envoy v1│  ← Sidecar unchanged
+  └────────┘       └────────┘
+  
+  Impact: None, compatible
+
+Scenario 2: Update Sidecar Only
+  Old Pod           New Pod
+  ┌────────┐       ┌────────┐
+  │App v1  │       │App v1  │
+  │Envoy v1│       │Envoy v2│  ← Sidecar updated
+  └────────┘       └────────┘
+  
+  Impact: Potential compatibility issues, test sidecar changes
