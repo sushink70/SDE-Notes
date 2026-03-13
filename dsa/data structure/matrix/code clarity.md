@@ -1333,3 +1333,846 @@ You protect yourself from the second with nil checks.
 ```
 
 The compiler is your first line of defense. In Go, if the code compiles and your interface assertions are in place — the contract is honored. That guarantee is one of the most powerful things Go gives you.
+
+## Step-by-Step: How `m.Set()` Works and Type System Behavior
+
+### 1. Memory Layout — The Foundation
+
+When you call `New(3, 4)`, this is what Go allocates:
+
+```
+Data = make([]float64, 3*4)  →  12 contiguous float64 values in memory
+
+Index:  [0]  [1]  [2]  [3]  [4]  [5]  [6]  [7]  [8]  [9]  [10] [11]
+         ↑————————— row 0 —————————↑ ↑——— row 1 ———↑ ↑——— row 2 ———↑
+```
+
+This is **row-major order** — each row is laid out consecutively. The formula `i*Cols + j` maps a 2D coordinate to this 1D flat index.
+
+**Visualized:**
+
+```
+Logical 2D:          Flat 1D index (Cols=4):
+ (0,0)(0,1)(0,2)(0,3)    0   1   2   3
+ (1,0)(1,1)(1,2)(1,3) →  4   5   6   7
+ (2,0)(2,1)(2,2)(2,3)    8   9  10  11
+```
+
+---
+
+### 2. Tracing Every `m.Set()` Call
+
+```go
+m := New(3, 4)   // Rows=3, Cols=4, Data=[0,0,0,0, 0,0,0,0, 0,0,0,0]
+```
+
+| Call | Formula `i*Cols+j` | Flat Index | Valid? | Effect |
+|---|---|---|---|---|
+| `Set(0, 3, 4)` | `0*4+3 = 3` | `Data[3] = 4.0` | ✅ | row 0, col 3 |
+| `Set(0, 2, 4)` | `0*4+2 = 2` | `Data[2] = 4.0` | ✅ | row 0, col 2 |
+| `Set(0, 3, 4)` | `0*4+3 = 3` | `Data[3] = 4.0` | ✅ | row 0, col 3 (repeat) |
+| `Set(0, 4, 4)` | `0*4+4 = 4` | `Data[4] = 4.0` | ⚠️ **SILENT BUG** | logically row 1, col 0! |
+| `Set(0, 5, 4)` | `0*4+5 = 5` | `Data[5] = 4.0` | ⚠️ **SILENT BUG** | logically row 1, col 1! |
+| `Set(0, 3, 2)` | `0*4+3 = 3` | `Data[3] = 2.0` | ✅ | overwrites earlier value |
+
+**Final memory state:**
+```
+Data = [0, 0, 4, 2,  4, 4, 0, 0,  0, 0, 0, 0]
+        ←— row 0 —→  ←— row 1 →   ←— row 2 →
+```
+
+**Print output:**
+```
+   0.000    0.000    4.000    2.000 
+   4.000    4.000    0.000    0.000 
+   0.000    0.000    0.000    0.000 
+```
+
+---
+
+### 3. How the Type System Behaves — The Critical Insight
+
+This is where it gets deep. There are **two different kinds of bounds checks** at play:
+
+```
+          Go Runtime (slice bounds)       Your Logic (matrix bounds)
+               ↓                                   ↓
+Set(0, 4, 4) → Data[4] → index 4 < len(12) → ✅ NO PANIC
+                                  but col 4 > Cols-1 (3) → ❌ SILENT CORRUPTION
+```
+
+**Go's type system does NOT know about your matrix abstraction.** From Go's perspective:
+
+```go
+func (m *Matrix) Set(i, j int, v float64) {
+    m.Data[i*m.Cols+j] = v   // Go only checks: is (i*Cols+j) < len(Data)?
+}                              // It has zero knowledge of what "row" and "col" mean
+```
+
+Go's runtime will only panic if the computed flat index goes **outside the slice bounds entirely**. Example — this *would* panic:
+
+```go
+m.Set(3, 0, 9)   // 3*4+0 = 12 → Data[12] → index out of range [12] with length 12 → PANIC ✅
+m.Set(0, 13, 9)  // 0*4+13 = 13 → Data[13] → PANIC ✅
+```
+
+But `Set(0, 4, 4)` silently bleeds into the next logical row — **no panic, no warning, no error**.
+
+---
+
+### 4. The Expert Fix — Bounds Validation at the Abstraction Layer
+
+You must enforce your logical invariants yourself:
+
+```go
+func (m *Matrix) Set(i, j int, v float64) {
+    if i < 0 || i >= m.Rows || j < 0 || j >= m.Cols {
+        panic(fmt.Sprintf("matrix: Set(%d,%d) out of bounds [%d×%d]", i, j, m.Rows, m.Cols))
+    }
+    m.Data[i*m.Cols+j] = v
+}
+
+// Same for At():
+func (m *Matrix) At(i, j int) float64 {
+    if i < 0 || i >= m.Rows || j < 0 || j >= m.Cols {
+        panic(fmt.Sprintf("matrix: At(%d,%d) out of bounds [%d×%d]", i, j, m.Rows, m.Cols))
+    }
+    return m.Data[i*m.Cols+j]
+}
+```
+
+With this fix:
+```go
+m.Set(0, 4, 4)  // → panic: matrix: Set(0,4) out of bounds [3×4]
+```
+
+---
+
+### 5. Mental Model: Two Layers of Reality
+
+```
+Your abstraction (Matrix):     the "truth" you care about
+      ↕  mapping via i*Cols+j
+Go's reality ([]float64):      a dumb flat array of bytes
+```
+
+Go's type system is **nominal and structural, not semantic**. It enforces *what type a value is*, not *what invariants it satisfies*. A `*Matrix` is just a pointer to a struct — Go doesn't understand that column 4 is invalid for a 4-column matrix. **You are the compiler for your own invariants.**
+
+This is the fundamental lesson: **in systems programming languages (Go, Rust, C), the abstraction boundary is only as safe as you make it.** Rust's type system can enforce more of this (e.g., const generics for compile-time matrix dimensions), but Go requires runtime guards.
+
+---
+
+### Key Takeaway
+
+The bug in your `main()` is a classic **index aliasing / boundary bleed** bug — calling `Set(0, 4, ...)` and `Set(0, 5, ...)` on a 4-column matrix silently corrupts row 1. The flat-index arithmetic never saw a problem; only your logical layer could have caught it. Always validate at the abstraction boundary, not the memory boundary.
+
+## Step-by-Step: How `m.Set()` Works and Type System Behavior
+
+### 1. Memory Layout — The Foundation
+
+When you call `New(3, 4)`, this is what Go allocates:
+
+```
+Data = make([]float64, 3*4)  →  12 contiguous float64 values in memory
+
+Index:  [0]  [1]  [2]  [3]  [4]  [5]  [6]  [7]  [8]  [9]  [10] [11]
+         ↑————————— row 0 —————————↑ ↑——— row 1 ———↑ ↑——— row 2 ———↑
+```
+
+This is **row-major order** — each row is laid out consecutively. The formula `i*Cols + j` maps a 2D coordinate to this 1D flat index.
+
+**Visualized:**
+
+```
+Logical 2D:          Flat 1D index (Cols=4):
+ (0,0)(0,1)(0,2)(0,3)    0   1   2   3
+ (1,0)(1,1)(1,2)(1,3) →  4   5   6   7
+ (2,0)(2,1)(2,2)(2,3)    8   9  10  11
+```
+
+---
+
+### 2. Tracing Every `m.Set()` Call
+
+```go
+m := New(3, 4)   // Rows=3, Cols=4, Data=[0,0,0,0, 0,0,0,0, 0,0,0,0]
+```
+
+| Call | Formula `i*Cols+j` | Flat Index | Valid? | Effect |
+|---|---|---|---|---|
+| `Set(0, 3, 4)` | `0*4+3 = 3` | `Data[3] = 4.0` | ✅ | row 0, col 3 |
+| `Set(0, 2, 4)` | `0*4+2 = 2` | `Data[2] = 4.0` | ✅ | row 0, col 2 |
+| `Set(0, 3, 4)` | `0*4+3 = 3` | `Data[3] = 4.0` | ✅ | row 0, col 3 (repeat) |
+| `Set(0, 4, 4)` | `0*4+4 = 4` | `Data[4] = 4.0` | ⚠️ **SILENT BUG** | logically row 1, col 0! |
+| `Set(0, 5, 4)` | `0*4+5 = 5` | `Data[5] = 4.0` | ⚠️ **SILENT BUG** | logically row 1, col 1! |
+| `Set(0, 3, 2)` | `0*4+3 = 3` | `Data[3] = 2.0` | ✅ | overwrites earlier value |
+
+**Final memory state:**
+```
+Data = [0, 0, 4, 2,  4, 4, 0, 0,  0, 0, 0, 0]
+        ←— row 0 —→  ←— row 1 →   ←— row 2 →
+```
+
+**Print output:**
+```
+   0.000    0.000    4.000    2.000 
+   4.000    4.000    0.000    0.000 
+   0.000    0.000    0.000    0.000 
+```
+
+---
+
+### 3. How the Type System Behaves — The Critical Insight
+
+This is where it gets deep. There are **two different kinds of bounds checks** at play:
+
+```
+          Go Runtime (slice bounds)       Your Logic (matrix bounds)
+               ↓                                   ↓
+Set(0, 4, 4) → Data[4] → index 4 < len(12) → ✅ NO PANIC
+                                  but col 4 > Cols-1 (3) → ❌ SILENT CORRUPTION
+```
+
+**Go's type system does NOT know about your matrix abstraction.** From Go's perspective:
+
+```go
+func (m *Matrix) Set(i, j int, v float64) {
+    m.Data[i*m.Cols+j] = v   // Go only checks: is (i*Cols+j) < len(Data)?
+}                              // It has zero knowledge of what "row" and "col" mean
+```
+
+Go's runtime will only panic if the computed flat index goes **outside the slice bounds entirely**. Example — this *would* panic:
+
+```go
+m.Set(3, 0, 9)   // 3*4+0 = 12 → Data[12] → index out of range [12] with length 12 → PANIC ✅
+m.Set(0, 13, 9)  // 0*4+13 = 13 → Data[13] → PANIC ✅
+```
+
+But `Set(0, 4, 4)` silently bleeds into the next logical row — **no panic, no warning, no error**.
+
+---
+
+### 4. The Expert Fix — Bounds Validation at the Abstraction Layer
+
+You must enforce your logical invariants yourself:
+
+```go
+func (m *Matrix) Set(i, j int, v float64) {
+    if i < 0 || i >= m.Rows || j < 0 || j >= m.Cols {
+        panic(fmt.Sprintf("matrix: Set(%d,%d) out of bounds [%d×%d]", i, j, m.Rows, m.Cols))
+    }
+    m.Data[i*m.Cols+j] = v
+}
+
+// Same for At():
+func (m *Matrix) At(i, j int) float64 {
+    if i < 0 || i >= m.Rows || j < 0 || j >= m.Cols {
+        panic(fmt.Sprintf("matrix: At(%d,%d) out of bounds [%d×%d]", i, j, m.Rows, m.Cols))
+    }
+    return m.Data[i*m.Cols+j]
+}
+```
+
+With this fix:
+```go
+m.Set(0, 4, 4)  // → panic: matrix: Set(0,4) out of bounds [3×4]
+```
+
+---
+
+### 5. Mental Model: Two Layers of Reality
+
+```
+Your abstraction (Matrix):     the "truth" you care about
+      ↕  mapping via i*Cols+j
+Go's reality ([]float64):      a dumb flat array of bytes
+```
+
+Go's type system is **nominal and structural, not semantic**. It enforces *what type a value is*, not *what invariants it satisfies*. A `*Matrix` is just a pointer to a struct — Go doesn't understand that column 4 is invalid for a 4-column matrix. **You are the compiler for your own invariants.**
+
+This is the fundamental lesson: **in systems programming languages (Go, Rust, C), the abstraction boundary is only as safe as you make it.** Rust's type system can enforce more of this (e.g., const generics for compile-time matrix dimensions), but Go requires runtime guards.
+
+---
+
+### Key Takeaway
+
+The bug in your `main()` is a classic **index aliasing / boundary bleed** bug — calling `Set(0, 4, ...)` and `Set(0, 5, ...)` on a 4-column matrix silently corrupts row 1. The flat-index arithmetic never saw a problem; only your logical layer could have caught it. Always validate at the abstraction boundary, not the memory boundary.
+
+## Deep Dissection: `func (m *Matrix) Set(i, j int, v float64)`
+
+---
+
+### 1. Anatomy of the Function Signature
+
+```go
+func (m *Matrix) Set(i, j int, v float64) {
+//   ↑receiver  ↑name ↑params         ↑no return value
+```
+
+Break every token down:
+
+```
+func          → keyword: declares a function
+(m *Matrix)   → RECEIVER: this is what makes it a METHOD, not a free function
+Set           → method name
+(i, j int     → two ints declared together (Go shorthand: same type, comma-separated)
+v float64)    → the value to write
+              → no return type → returns nothing (void equivalent)
+```
+
+---
+
+### 2. The Receiver `(m *Matrix)` — What Actually Happens
+
+This is the most important part. Go has **no `this` or `self` keyword**. Instead, the receiver is an **explicit first parameter** with a special syntax.
+
+```go
+// These two are IDENTICAL in what the compiler produces:
+func (m *Matrix) Set(i, j int, v float64) { ... }   // method syntax
+func Set(m *Matrix, i, j int, v float64)  { ... }   // free function syntax
+```
+
+The compiler **rewrites** your method call:
+
+```go
+m.Set(0, 3, 4.0)
+// becomes internally:
+Set(m, 0, 3, 4.0)   // m is just the first argument
+```
+
+**Why pointer receiver `*Matrix` and not value receiver `Matrix`?**
+
+```go
+// Value receiver — receives a COPY
+func (m Matrix) Set(...) {
+    m.Data[...] = v   // writes to the COPY, original unchanged ❌
+}
+
+// Pointer receiver — receives the ADDRESS
+func (m *Matrix) Set(...) {
+    m.Data[...] = v   // writes through the pointer, original mutated ✅
+}
+```
+
+Memory picture:
+
+```
+Value receiver:
+  caller's m  ──→  [Matrix struct in memory]
+  method's m  ──→  [COPY of Matrix struct]   ← writes here, caller never sees it
+
+Pointer receiver:
+  caller's m  ──→  [Matrix struct in memory]
+                          ↑
+  method's m  ────────────┘                  ← same address, writes ARE visible
+```
+
+---
+
+### 3. What `*Matrix` Actually Is in Memory
+
+```go
+type Matrix struct {
+    Data []float64   // 24 bytes: ptr(8) + len(8) + cap(8)
+    Rows int         //  8 bytes
+    Cols int         //  8 bytes
+}
+// Total struct size: 40 bytes (on 64-bit)
+```
+
+A `*Matrix` is just an **8-byte pointer** (on 64-bit systems) holding the memory address of this 40-byte struct.
+
+```
+Stack (inside Set):          Heap (allocated by New()):
+┌─────────────────┐          ┌────────────────────────┐
+│ m   = 0xc0001a  │──────→   │ Data.ptr = 0xc0002b    │──→ [actual float64 array]
+│ i   = 0         │          │ Data.len = 12          │
+│ j   = 3         │          │ Data.cap = 12          │
+│ v   = 4.0       │          │ Rows     = 3           │
+└─────────────────┘          │ Cols     = 4           │
+                             └────────────────────────┘
+```
+
+---
+
+### 4. The Expression `i*m.Cols+j` — Step by Step
+
+```go
+m.Data[i*m.Cols+j] = v
+```
+
+The compiler evaluates this **strictly left to right**, respecting operator precedence:
+
+```
+Step 1:  m.Cols          → dereference pointer m, read field Cols → integer 4
+Step 2:  i * m.Cols      → 0 * 4 = 0           (multiplication first, higher precedence)
+Step 3:  (i*m.Cols) + j  → 0 + 3 = 3           (addition second)
+Step 4:  m.Data[3]       → dereference m, get Data slice header, index into its backing array
+Step 5:  = v             → write float64 value 4.0 at that memory location
+```
+
+**Operator precedence matters critically here:**
+
+```go
+i*m.Cols+j    // parsed as (i*m.Cols)+j  ← CORRECT row-major index
+i*(m.Cols+j)  // completely different!   ← WRONG, parentheses change meaning entirely
+```
+
+---
+
+### 5. How `m.Data[index]` Works Internally
+
+`Data` is a **slice**, not a raw array. A slice in Go is a 3-word struct:
+
+```
+Data slice header:
+┌─────────────────────────────┐
+│ ptr  → *float64  (8 bytes)  │  points to first element of backing array
+│ len  → int       (8 bytes)  │  number of elements accessible
+│ cap  → int       (8 bytes)  │  total allocated capacity
+└─────────────────────────────┘
+```
+
+When you write `m.Data[3] = v`, the compiler generates roughly:
+
+```
+1. Load m.Data.ptr  → base address of float64 array
+2. Load m.Data.len  → for bounds check
+3. Check: 3 < len?  → if NO → panic (runtime bounds check)
+4. Address = base_ptr + (3 * sizeof(float64))
+           = base_ptr + (3 * 8)
+           = base_ptr + 24 bytes
+5. Write v (float64, 8 bytes) at that address
+```
+
+**In pseudo-assembly:**
+
+```
+MOV  RAX, [m + 0]        ; load Data.ptr (offset 0 in struct)
+MOV  RCX, [m + 8]        ; load Data.len (offset 8 in struct)
+CMP  3, RCX              ; bounds check: index < len?
+JGE  panic               ; if not, panic
+MOVSD [RAX + 24], XMM0   ; write float64 at base + 3*8
+```
+
+---
+
+### 6. Type System Behavior — The Full Picture
+
+```go
+v float64
+```
+
+`float64` is an **IEEE 754 double-precision** value — 8 bytes, always. When you pass `4` (an untyped integer literal) to a `float64` parameter:
+
+```go
+m.Set(0, 3, 4)    // you wrote integer literal 4
+```
+
+Go's type system performs **implicit untyped constant conversion**:
+
+```
+4  →  untyped int constant
+         ↓ assignable to float64? YES (untyped constants are flexible)
+       4.0 (float64)
+```
+
+But this only works for **untyped constants**. This would fail:
+
+```go
+x := 4          // x is now typed as int
+m.Set(0, 3, x)  // COMPILE ERROR: cannot use x (int) as float64
+```
+
+---
+
+### 7. Complete Call Trace: `m.Set(0, 3, 4.0)`
+
+```
+1. Caller pushes arguments onto stack:
+   m = pointer to Matrix (8 bytes)
+   i = 0  (int, 8 bytes)
+   j = 3  (int, 8 bytes)
+   v = 4.0 (float64, 8 bytes)
+
+2. CPU jumps to Set() function body
+
+3. Inside Set():
+   a. Dereference m → reach Matrix struct on heap
+   b. Read m.Cols → 4
+   c. Compute i*m.Cols+j → 0*4+3 → 3
+   d. Access m.Data:
+      - Dereference m → reach Matrix struct
+      - Read Data.ptr → base address of float64 array
+      - Read Data.len → 12 (for bounds check)
+   e. Bounds check: 3 < 12 → PASS
+   f. Compute target address: Data.ptr + 3*8
+   g. Write 4.0 (64-bit float) at that address
+
+4. Function returns (no return value)
+5. Stack frame cleaned up
+```
+
+---
+
+### Core Mental Model
+
+```
+*Matrix  →  pointer  →  struct  →  slice header  →  backing array  →  raw bytes
+  8B          8B          40B           24B              n*8B
+```
+
+Every `.` dereferences one level. Every `[]` indexes into memory. The type system ensures **what** you're accessing; **you** ensure the logical validity of **where**.
+
+## Why the Panic Happened — Full Trace
+
+### The Matrix You Created
+
+```go
+m := New(3, 3)
+// Rows=3, Cols=3
+// Data = make([]float64, 9)  →  indices 0..8 only
+```
+
+```
+Valid logical grid:        Valid flat indices:
+(0,0)(0,1)(0,2)            0  1  2
+(1,0)(1,1)(1,2)    →       3  4  5
+(2,0)(2,1)(2,2)            6  7  8
+                                    ↑ index 8 is the LAST valid address
+```
+
+---
+
+### Tracing Every `Set()` Call
+
+```
+m.Set(i, j, v)  →  computes  i*Cols+j  =  i*3+j
+```
+
+| Call | Formula `i*3+j` | Flat Index | len=9? | Result |
+|---|---|---|---|---|
+| `Set(2, 3, 6)` | `2*3+3 = 9` | `Data[9]` | 9 is NOT < 9 | 💥 **PANIC HERE** |
+| `Set(5, 2, 10)` | `5*3+2 = 17` | `Data[17]` | — | never reached |
+| `Set(7, 3, 21)` | `7*3+3 = 24` | `Data[24]` | — | never reached |
+| `Set(8, 4, 4)` | `8*3+4 = 28` | `Data[28]` | — | never reached |
+| `Set(9, 5, 4)` | `9*3+5 = 32` | `Data[32]` | — | never reached |
+| `Set(2, 3, 2)` | `2*3+3 = 9` | `Data[9]` | — | never reached |
+
+**The first call `Set(2, 3, 6)` kills the program immediately.** All others are equally invalid but never execute.
+
+---
+
+### Why Exactly Index `[9]` With Length `9`
+
+```
+Data has 9 elements  →  valid indices: 0, 1, 2, 3, 4, 5, 6, 7, 8
+                                                                  ↑
+                                                            last valid = 8
+
+Set(2, 3, 6):
+  i=2, j=3, Cols=3
+  flat = 2 * 3 + 3 = 9
+  Data[9] → Go checks: 9 < 9?  → FALSE → panic
+```
+
+The panic message tells you **exactly** what happened:
+
+```
+panic: runtime error: index out of range [9] with length 9
+//                                        ↑              ↑
+//                               attempted index    slice length
+```
+
+---
+
+### The Root Bug — Column Index Exceeds Matrix Width
+
+```go
+m := New(3, 3)    // 3 columns → valid j values: 0, 1, 2 ONLY
+
+m.Set(2, 3, 6)    // j=3 → column 3 doesn't exist in a 3-column matrix
+//          ↑
+//     this is the 4th column (0-indexed), but you only have 3
+```
+
+You are telling the matrix "write to row 2, column 3" — but column 3 does not exist. The flat index arithmetic doesn't know this — it just blindly computes `2*3+3=9` and then Go's runtime catches it at the slice boundary.
+
+---
+
+### What Valid Calls Would Look Like
+
+```go
+m := New(3, 3)   // valid i: 0,1,2 — valid j: 0,1,2
+
+m.Set(0, 0, 1.0)  // ✅ flat=0
+m.Set(1, 1, 5.0)  // ✅ flat=4
+m.Set(2, 2, 9.0)  // ✅ flat=8  ← largest valid index
+m.Set(2, 3, 6.0)  // ❌ flat=9  ← ONE past the end → panic
+```
+
+---
+
+### The Permanent Fix
+
+Guard both dimensions independently at the abstraction layer:
+
+```go
+func (m *Matrix) Set(i, j int, v float64) {
+    if i < 0 || i >= m.Rows {
+        panic(fmt.Sprintf("row index %d out of range [0, %d)", i, m.Rows))
+    }
+    if j < 0 || j >= m.Cols {
+        panic(fmt.Sprintf("col index %d out of range [0, %d)", j, m.Cols))
+    }
+    m.Data[i*m.Cols+j] = v
+}
+```
+
+Now `Set(2, 3, 6)` gives you a **meaningful error**:
+
+```
+panic: col index 3 out of range [0, 3)
+```
+
+Instead of the cryptic raw slice panic — your abstraction speaks its own language, not the runtime's language.
+
+---
+
+### Core Mental Model
+
+```
+Go runtime guards:   "is flat index within slice bounds?"      ← memory layer
+Your guard:          "is (i,j) within matrix dimensions?"      ← logic layer
+
+Both are needed. The runtime saved you from a memory corruption.
+Your guard tells you WHY it was wrong.
+```
+
+For `New(3, 3)` — valid range is `i ∈ {0,1,2}` and `j ∈ {0,1,2}`:
+
+```go
+m.Set(2, 3, 6)   // ❌  j=3 doesn't exist → fix: m.Set(2, 2, 6)
+m.Set(5, 2, 10)  // ❌  i=5 doesn't exist → fix: m.Set(1, 2, 10)
+m.Set(7, 3, 21)  // ❌  i=7, j=3 both gone → fix: m.Set(2, 1, 21)
+m.Set(8, 4, 4)   // ❌  i=8, j=4 both gone → fix: m.Set(0, 1, 4)
+m.Set(9, 5, 4)   // ❌  i=9, j=5 both gone → fix: m.Set(1, 0, 4)
+m.Set(2, 3, 2)   // ❌  j=3 doesn't exist → fix: m.Set(2, 2, 2)
+```
+
+The rule is simple:
+
+```
+New(rows, cols)
+  valid i  →  0  to  rows-1
+  valid j  →  0  to  cols-1
+
+New(3, 3):
+  valid i  →  0, 1, 2
+  valid j  →  0, 1, 2
+```
+
+So the entire valid space for `New(3,3)` looks like this:
+
+```
+        j=0   j=1   j=2
+i=0  →  (0,0) (0,1) (0,2)
+i=1  →  (1,0) (1,1) (1,2)
+i=2  →  (2,0) (2,1) (2,2)
+```
+
+Any coordinate outside this grid → panic. That's the only boundary that exists.
+
+## Why That Valid Range Exists
+
+It comes from one single line:
+
+```go
+func New(rows, cols int) *Matrix {
+    return &Matrix{
+        Data: make([]float64, rows*cols),  // ← this line decides everything
+        Rows: rows,
+        Cols: cols,
+    }
+}
+```
+
+When you call `New(3, 3)`:
+
+```go
+make([]float64, 3*3)
+make([]float64, 9)
+// creates exactly 9 slots
+```
+
+---
+
+### 9 Slots Means Indices 0 Through 8
+
+```
+Slots created:   1   2   3   4   5   6   7   8   9
+Index:          [0] [1] [2] [3] [4] [5] [6] [7] [8]
+                 ↑                                 ↑
+              first                              last
+```
+
+Go arrays and slices are **zero-based**. You have 9 slots, so valid indices are `0..8`. Index `9` does not exist. This is not a matrix rule — this is how every array in Go (and C, Rust) works.
+
+```
+n slots  →  valid indices: 0 to n-1
+9 slots  →  valid indices: 0 to 8
+```
+
+---
+
+### Now Map That Back to 2D
+
+Your matrix is 3 rows × 3 cols. Those 9 flat slots are divided equally:
+
+```
+Row 0 → slots [0, 1, 2]   → j can be 0, 1, 2
+Row 1 → slots [3, 4, 5]   → j can be 0, 1, 2
+Row 2 → slots [6, 7, 8]   → j can be 0, 1, 2
+```
+
+3 rows means rows `0, 1, 2` — not row `3`, because a 3-row matrix has no 4th row.
+3 cols means cols `0, 1, 2` — not col `3`, because a 3-col matrix has no 4th column.
+
+```
+n rows  →  valid i: 0 to n-1
+n cols  →  valid j: 0 to n-1
+
+3 rows  →  valid i: 0, 1, 2
+3 cols  →  valid j: 0, 1, 2
+```
+
+---
+
+### The Root Reason — Zero-Based Indexing
+
+```
+Human counting:   1, 2, 3   (starts at 1, last = n)
+Computer memory:  0, 1, 2   (starts at 0, last = n-1)
+```
+
+This is why `New(3,3)` gives you rows `0,1,2` and not `1,2,3`. The moment you call `New(3,3)`, you are saying **"allocate 9 slots starting from address 0"** — and slot 0 is row 0, col 0. There is no slot 9, so there is no row 3 or col 3.
+
+**One sentence:** you allocated `n` things, things are counted from `0`, so the last one is always at `n-1`.
+
+That depends on your intent. Let me ask first:Both answers, so you understand both paths:
+
+---
+
+### Option A — Resize the Matrix to Fit the Calls
+
+Find the **largest i and j** used, then set `rows = max_i + 1`, `cols = max_j + 1`:
+
+```
+m.Set(2, 3, 6)   → i=2, j=3
+m.Set(5, 2, 10)  → i=5, j=2
+m.Set(7, 3, 21)  → i=7, j=3
+m.Set(8, 4, 4)   → i=8, j=4
+m.Set(9, 5, 4)   → i=9, j=5  ← largest i=9, largest j=5
+m.Set(2, 3, 2)   → i=2, j=3
+```
+
+```go
+// max i = 9  →  rows = 9+1 = 10
+// max j = 5  →  cols = 5+1 = 6
+
+m := New(10, 6)   // now all calls are valid
+
+m.Set(2, 3, 6)
+m.Set(5, 2, 10)
+m.Set(7, 3, 21)
+m.Set(8, 4, 4)
+m.Set(9, 5, 4)
+m.Set(2, 3, 2)   // overwrites the first Set(2,3,6)
+```
+
+---
+
+### Option B — Fix the Indices to Fit `New(3,3)`
+
+Clamp every `i` into `{0,1,2}` and every `j` into `{0,1,2}`:
+
+```go
+m := New(3, 3)
+
+m.Set(2, 2, 6)   // was Set(2,3) → j clamped from 3 to 2
+m.Set(2, 2, 10)  // was Set(5,2) → i clamped from 5 to 2
+m.Set(2, 2, 21)  // was Set(7,3) → both clamped
+m.Set(2, 1, 4)   // was Set(8,4) → both clamped
+m.Set(2, 2, 4)   // was Set(9,5) → both clamped
+m.Set(2, 2, 2)   // was Set(2,3) → j clamped from 3 to 2
+```
+
+---
+
+### The Real Lesson
+
+```
+Option A → the data defines the matrix size   (matrix adapts to your data)
+Option B → the matrix size defines valid data  (your data adapts to the matrix)
+```
+
+Option A is almost always the correct design. You should **know your data first, then allocate**. Writing `New(3,3)` and then calling `Set(9,5,...)` means you didn't think about size before allocating — that is the real bug.
+
+### Rule to Fix Every Call
+
+```
+if i >= rows  →  clamp to rows-1  (max valid row = 2)
+if j >= cols  →  clamp to cols-1  (max valid col = 2)
+```
+
+---
+
+### Fix Each Line
+
+```go
+m.Set(2, 3, 6)   // i=2 ✅  j=3 ❌ → j clamped: 3 → 2 → m.Set(2, 2, 6)
+m.Set(5, 2, 10)  // i=5 ❌  j=2 ✅ → i clamped: 5 → 2 → m.Set(2, 2, 10)
+m.Set(7, 3, 21)  // i=7 ❌  j=3 ❌ → both clamped      → m.Set(2, 2, 21)
+m.Set(8, 4, 4)   // i=8 ❌  j=4 ❌ → both clamped      → m.Set(2, 2, 4)
+m.Set(9, 5, 4)   // i=9 ❌  j=5 ❌ → both clamped      → m.Set(2, 2, 4)
+m.Set(2, 3, 2)   // i=2 ✅  j=3 ❌ → j clamped: 3 → 2 → m.Set(2, 2, 2)
+```
+
+---
+
+### Fixed Code
+
+```go
+m := New(3, 3)
+
+m.Set(2, 2, 6)
+m.Set(2, 2, 10)
+m.Set(2, 2, 21)
+m.Set(2, 2, 4)
+m.Set(2, 2, 4)
+m.Set(2, 2, 2)   // ← this is the final value at (2,2) — all others overwritten
+
+m.Print()
+```
+
+---
+
+### What the Matrix Looks Like After Print
+
+```
+   0.000    0.000    0.000
+   0.000    0.000    0.000
+   0.000    0.000    2.000   ← only (2,2) was ever written, final value = 2
+```
+
+---
+
+### The Deeper Problem Here
+
+After clamping, **every single call lands on `(2,2)`** — each one overwrites the previous. That tells you these indices were never designed for a 3×3 matrix. The real fix is **Option A** — `New(10, 6)` — which is why knowing your data before allocating is the correct mental order:
+
+```
+Think about data shape first → then allocate → then write
+```
+
+Not the other way around.
