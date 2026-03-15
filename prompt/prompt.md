@@ -201,6 +201,12 @@ Rust, Go and C(optional only Python, C++)
 
 no need to provide Practice Strategy, Daily Training Protocol, Psychological Models, Final Wisdom, Practice Roadmap, Deliberate Practice Strategy.
 
+C++ template instantiation
+
+runtime generics
+virtual dispatch
+optimized machine code
+
 randomization, approximation, online algorithms
 
 Iterative - Inorder, Preorder, Postorder traversals of a binary tree.
