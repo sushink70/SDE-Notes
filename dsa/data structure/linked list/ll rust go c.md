@@ -1,11 +1,8 @@
-# ═══════════════════════════════════════════════════════════════
 #   COMPREHENSIVE GUIDE TO LINKED LISTS
-#   From Fundamentals to World-Class Mastery
-# ═══════════════════════════════════════════════════════════════
 
 ---
 
-# TABLE OF CONTENTS
+## TABLE OF CONTENTS
 
 ```
  1. Mental Model Before You Code
@@ -40,7 +37,7 @@
 
 ---
 
-# 1. MENTAL MODEL BEFORE YOU CODE
+## 1. MENTAL MODEL BEFORE YOU CODE
 
 > *"An expert doesn't start by writing code. They start by understanding the shape of the problem."*
 
@@ -66,7 +63,7 @@ mental units. Only then can you think at higher abstraction levels like
 
 ---
 
-# 2. WHAT IS A LINKED LIST? (THE CORE INTUITION)
+## 2. WHAT IS A LINKED LIST? (THE CORE INTUITION)
 
 ## Real-World Analogy
 
@@ -113,7 +110,7 @@ are stored in non-contiguous memory locations. Each node holds:
 
 ---
 
-# 3. MEMORY & POINTERS — THE FOUNDATION
+## 3. MEMORY & POINTERS — THE FOUNDATION
 
 ## How Arrays vs Linked Lists Live in Memory
 
@@ -164,7 +161,7 @@ In Go, we use `*Node` — a pointer to a Node struct.
 
 ---
 
-# 4. ANATOMY OF A NODE
+## 4. ANATOMY OF A NODE
 
 ## The Building Block
 
@@ -208,7 +205,7 @@ struct Node {
 
 ---
 
-# 5. SINGLY LINKED LIST
+## 5. SINGLY LINKED LIST
 
 ## 5.1 Structure & Visualization
 
@@ -908,7 +905,7 @@ fn main() {
 
 ---
 
-# 6. DOUBLY LINKED LIST
+## 6. DOUBLY LINKED LIST
 
 ## 6.1 Structure & Visualization
 
@@ -1318,7 +1315,7 @@ fn main() {
 
 ---
 
-# 7. CIRCULAR LINKED LIST
+## 7. CIRCULAR LINKED LIST
 
 ## 7.1 Concept
 
@@ -1337,7 +1334,7 @@ Doubly Circular:
   ┌────────────────────────────────────────────────────────────┐
   │                                                            │
   ▼                                                            │
- [10] ←──► [20] ←──► [30] ←──► [40] ────────────────────────►┘
+ [10] ←──► [20] ←──► [30] ←──► [40] ────────────--────────────►┘
   HEAD (also: HEAD.prev = TAIL)
 ```
 
@@ -1457,7 +1454,7 @@ int main(void) {
 
 ---
 
-# 8. ADVANCED ALGORITHMS
+## 8. ADVANCED ALGORITHMS
 
 ## 8.1 Reverse a Linked List (Three Methods)
 
@@ -1991,7 +1988,7 @@ func findIntersection(headA, headB *Node) *Node {
 
 ---
 
-# 9. TIME & SPACE COMPLEXITY MASTER TABLE
+## 9. TIME & SPACE COMPLEXITY MASTER TABLE
 
 ```
 ╔══════════════════════════════╦══════════╦══════════╦══════════════════════════════╗
@@ -2020,7 +2017,7 @@ func findIntersection(headA, headB *Node) *Node {
 
 ---
 
-# 10. ARRAY vs LINKED LIST — WHEN TO USE WHAT
+## 10. ARRAY vs LINKED LIST — WHEN TO USE WHAT
 
 ```
 ╔══════════════════════════════╦══════════════════╦════════════════════════════╗
@@ -2051,7 +2048,7 @@ CHOOSE ARRAY WHEN:
 
 ---
 
-# 11. COMMON PITFALLS & DEBUGGING PATTERNS
+## 11. COMMON PITFALLS & DEBUGGING PATTERNS
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -2103,7 +2100,7 @@ void debug_print(Node* head) {
 
 ---
 
-# 12. MENTAL MODELS & PROBLEM-SOLVING STRATEGIES
+## 12. MENTAL MODELS & PROBLEM-SOLVING STRATEGIES
 
 ## The Five-Question Framework (Before Every Problem)
 
