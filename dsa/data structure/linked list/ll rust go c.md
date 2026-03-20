@@ -2245,3 +2245,1066 @@ Violate this order once and you lose an entire sublist with no way to recover it
 ## Your Next Deliberate Practice Step
 
 Start at **Level 1** of the mastery protocol: implement all three list types from scratch, in C, without looking at any reference. Time yourself. The goal is not speed — it is *total mental clarity* with no hesitation on pointer direction. That clarity is the foundation everything else is built on.
+
+---
+
+Excellent question. This cuts right to the heart of how compilers and memory work. Let me build the answer from the ground up.
+
+---
+
+## The Problem: Recursive Type Definition
+
+When the compiler sees a struct, its **first job** is to calculate the size of that struct in bytes. It needs to know this to allocate memory.
+
+```
+struct Node {
+    data: i32,      // size = 4 bytes
+    next: ???       // size = ???
+}
+```
+
+Now imagine if `next` was just `Node` directly:
+
+```rust
+struct Node {
+    data: i32,
+    next: Node,   // ← ILLEGAL. Why?
+}
+```
+
+The compiler tries to calculate the size:
+
+```
+sizeof(Node) = sizeof(i32) + sizeof(Node)
+             = 4            + sizeof(i32) + sizeof(Node)
+             = 4            + 4           + sizeof(i32) + sizeof(Node)
+             = 4            + 4           + 4           + ... ∞
+```
+
+It recurses **infinitely**. The compiler literally cannot determine the size. This is not a Rust limitation — **no compiled language allows this**. C, Go, C++ — none of them allow a struct to contain itself directly.
+
+```
+┌────────────────────────────────────────────┐
+│  Node contains Node contains Node...       │
+│  ┌──────────────────────────────────┐      │
+│  │ data │ ┌──────────────────────┐  │      │
+│  │      │ │ data │ ┌──────────┐  │  │      │
+│  │      │ │      │ │ data │ ∞ │  │  │      │
+│  │      │ │      │ └──────────┘  │  │      │
+│  │      │ └──────────────────────┘  │      │
+│  └──────────────────────────────────┘      │
+│                                            │
+│  SIZE = INFINITE. Compiler gives up.       │
+└────────────────────────────────────────────┘
+```
+
+---
+
+## The Fix: Indirection via a Pointer
+
+A **pointer** (in any language) is just a memory address. And a memory address always has a **fixed, known size** regardless of what it points to.
+
+```
+On a 64-bit system:
+  Any pointer = 8 bytes (always, no matter what it points to)
+
+  *Node    in C/Go  = 8 bytes
+  Box<Node> in Rust = 8 bytes
+```
+
+So instead of embedding `Node` inside `Node`, you embed a **pointer to** `Node`:
+
+```
+struct Node {
+    data: i32,             // 4 bytes
+    next: Box<Node>,       // 8 bytes (just an address)
+}
+
+sizeof(Node) = 4 + 8 = 12 bytes. FIXED. FINITE. ✓
+```
+
+The compiler is happy because it never needs to recursively expand — it just sees "8 bytes for an address" and stops there.
+
+---
+
+## What `Box<T>` Actually Is
+
+`Box<T>` is Rust's way of saying: **"allocate T on the heap, and give me a pointer to it."**
+
+```
+Stack                          Heap
+─────                          ────
+┌──────────────┐               ┌──────────────────┐
+│  node        │               │  Node (actual)   │
+│  ┌────────┐  │               │  ┌────────────┐  │
+│  │ data:10│  │               │  │  data: 20  │  │
+│  │ next:──┼──┼──────────────►│  │  next: ... │  │
+│  └────────┘  │               │  └────────────┘  │
+└──────────────┘               └──────────────────┘
+  Fixed size                     Lives on the heap,
+  on the stack                   can be anywhere
+```
+
+The node on the stack only holds **an 8-byte address**. The actual next node lives elsewhere on the heap. The compiler only needs to know the pointer's size, not what's inside it.
+
+---
+
+## What `Option<Box<Node>>` Adds
+
+`Option<Box<Node>>` is the layer that handles the **end of the list** (the equivalent of `NULL`).
+
+```
+Option<Box<Node>> is either:
+  Some(Box<Node>)  →  "I point to a real next node"
+  None             →  "I am the last node, no next"
+```
+
+Thanks to Rust's **null pointer optimization**, `Option<Box<Node>>` is still exactly 8 bytes — the same as a raw pointer. `None` is represented as a null address (all zeros), and `Some(box)` is the actual address. Zero runtime overhead over a raw C pointer.
+
+```
+Memory representation:
+  None             = 0x0000000000000000  (null address)
+  Some(Box<Node>)  = 0x00007f3a2b1c0040  (real heap address)
+
+Both = 8 bytes. ✓
+```
+
+---
+
+## The Full Picture
+
+```
+COMPILE TIME (what the compiler sees):
+─────────────────────────────────────
+  Node {
+      data: i32               → 4 bytes (known)
+      next: Option<Box<Node>> → 8 bytes (pointer, known)
+  }
+  Total: 12 bytes. Calculation terminates. ✓
+
+RUNTIME (what actually happens in memory):
+──────────────────────────────────────────
+  Node₁ (stack or heap)          Node₂ (heap)            Node₃ (heap)
+  ┌──────┬────────────┐          ┌──────┬──────────┐      ┌──────┬──────┐
+  │  10  │ Some(addr) │─────────►│  20  │ Some(addr│─────►│  30  │ None │
+  └──────┴────────────┘          └──────┴──────────┘      └──────┴──────┘
+   4 bytes + 8 bytes = 12         same                      same
+
+The KEY insight:
+  The struct definition is a BLUEPRINT, not a value.
+  The blueprint says "next is a pointer-sized slot."
+  The actual node it points to is created LATER at runtime.
+  There is no circularity — only indirection.
+```
+
+---
+
+## Comparison Across Languages
+
+All three languages solve this identically — through pointer indirection. Only the syntax differs:
+
+```c
+// C — explicit pointer
+struct Node {
+    int data;
+    struct Node* next;   // pointer (8 bytes), not Node itself
+};
+// struct Node* is legal because pointers are always fixed size
+```
+
+```go
+// Go — pointer with *
+type Node struct {
+    data int
+    next *Node    // pointer (8 bytes), not Node itself
+}
+```
+
+```rust
+// Rust — Box (owned heap pointer) wrapped in Option (nullable)
+struct Node {
+    data: i32,
+    next: Option<Box<Node>>,   // pointer (8 bytes), not Node itself
+}
+```
+
+The mental model is the same in all three: **you are not putting a `Node` inside a `Node`. You are putting the address of a future `Node` inside a `Node`.** The address is created at compile time (fixed size). The actual `Node` it refers to is created at runtime.
+
+---
+
+## One-Line Summary
+
+> A struct cannot contain **itself**, but it can contain a **pointer to itself** — because a pointer is always a fixed size regardless of what it points to, which lets the compiler compute `sizeof(Node)` without infinite recursion.
+
+This is called **type-level indirection** and it is the foundational reason linked lists, trees, graphs, and every recursive data structure can exist in any compiled language.
+
+Great instinct to question this. The confusion is real, but once resolved it permanently rewires how you think about self-referential types.
+
+---
+
+## Why It *Must* Be the Same Name
+
+The name `Node` inside the struct is not "using it before it's created." It is the compiler recognizing a **self-referential type declaration** — a type that describes its own recursive structure.
+
+Let's try your idea. Say you use a different name:
+
+```rust
+struct Node {
+    data: i32,
+    next: Option<Box<NextNode>>,   // different name
+}
+```
+
+Now the compiler asks: **what is `NextNode`?**
+
+You must define it somewhere:
+
+```rust
+struct NextNode {
+    data: i32,
+    next: Option<Box<???>>    // what goes here?
+}
+```
+
+And now you're stuck. `NextNode`'s `next` must point to *something*. If it points to another `Node`, you've just gone in a circle with extra steps. If it points to another `NextNode`, you've recreated the exact same self-reference problem, just with a different name.
+
+```
+Your idea:                        What actually happens:
+──────────────────                ─────────────────────────────────
+Node → NextNode                   Node → NextNode → NextNextNode → ...
+       ↑                                                   ↑
+       "different name"           Same problem, infinite chain of names
+```
+
+The self-reference is not a bug in the design. It is the **only logically correct description** of a linked list node: *"a node whose next field holds another node of the exact same shape."*
+
+---
+
+## What the Name Actually Means at Compile Time
+
+When the compiler reads this:
+
+```rust
+struct Node {
+    data: i32,
+    next: Option<Box<Node>>,
+}
+```
+
+It processes it in two passes:
+
+```
+PASS 1 — Register the name:
+  "Node exists. I don't know its size yet. I will remember this name."
+
+PASS 2 — Calculate size:
+  data → i32 → 4 bytes ✓
+  next → Option<Box<Node>>
+             │
+             └─ Box<Node> → "pointer to Node" → 8 bytes ✓
+                                     │
+                                     └─ "Node" → already registered.
+                                                  I know this is a valid type.
+                                                  I don't need to expand it.
+                                                  I only need the pointer size.
+
+Total size: 12 bytes. Done.
+```
+
+The key line: **"I don't need to expand it. I only need the pointer size."**
+
+The name `Node` inside `Box<Node>` is not asking the compiler to compute `sizeof(Node)` recursively. It is asking for the size of a *pointer to* `Node`, which is always 8 bytes. The compiler registered `Node` in Pass 1, so it knows the name is valid without needing to know the full size yet.
+
+---
+
+## C Makes This Even More Explicit
+
+C forces you to see this two-pass registration explicitly through `struct` tags:
+
+```c
+struct Node {
+    int data;
+    struct Node* next;    // ← "struct Node" used before fully defined
+};
+```
+
+In C, `struct Node` and `Node` (via typedef) are separate concepts. The `struct` keyword tells the compiler: *"I am referring to a struct named Node. You may not know its full layout yet, but you know it exists and that a pointer to it is 8 bytes."*
+
+You can even split it into two lines to make the registration explicit:
+
+```c
+struct Node;                  // Line 1: "Node exists" — forward declaration
+
+struct Node {                 // Line 2: "here is its full definition"
+    int data;
+    struct Node* next;
+};
+```
+
+Line 1 is called a **forward declaration**. It tells the compiler the name exists before the body is defined. Rust and Go do this implicitly — they scan all type names before resolving their bodies.
+
+---
+
+## Go Behaves the Same Way
+
+```go
+type Node struct {
+    data int
+    next *Node      // same name, same logic
+}
+```
+
+```
+The Go compiler internally does:
+
+  Step 1: "Node is a type. Registered."
+  Step 2: "next is *Node — pointer to Node — 8 bytes. ✓"
+```
+
+---
+
+## The Mental Model to Lock In
+
+Stop reading the struct definition top-to-bottom like code that executes sequentially. Read it as a **blueprint declaration**:
+
+```
+"A Node is defined as:
+    - a 4-byte integer called data
+    - an optional pointer to another thing of this same blueprint"
+```
+
+The phrase *"this same blueprint"* is exactly what `Node` means inside the definition. It is a **self-reference to the blueprint itself**, not a request to instantiate a `Node` right there. No actual `Node` is created at definition time. The struct definition is just a shape description.
+
+```
+Blueprint (compile time)          Instance (runtime)
+────────────────────────          ──────────────────────────────────
+struct Node {                     let n = Node {
+    data: i32,          ──────►       data: 10,
+    next: Option<       ──────►       next: Some(Box::new(Node {
+          Box<Node>>>                     data: 20,
+}                                         next: None
+                                      }))
+                                  };
+
+No memory allocated here.         Memory allocated HERE.
+Just a description.               Now the blueprint is instantiated.
+```
+
+---
+
+## One-Line Summary
+
+> Using `Node` inside `Node` does not mean "create a Node inside a Node." It means "this field holds a pointer to something shaped like me." The name refers to the **blueprint**, not a live instance. A different name would require you to define a second blueprint that is structurally identical — which is just the same self-reference wearing a disguise.
+
+
+# Deep Dive: How Structs, Pointers & Memory Work in Go
+
+Let me break this down layer by layer — from the raw memory model to how your code maps onto it.
+
+---
+
+## 1. What is a Struct in Memory?
+
+A **struct** is just a **contiguous block of memory** where each field occupies a specific offset.
+
+When you define:
+```go
+type ListNode struct {
+    Val  int        // 8 bytes (on 64-bit system)
+    Next *ListNode  // 8 bytes (pointer = memory address)
+}
+```
+
+In memory, one `ListNode` looks like this:
+
+```
+Memory Address:   [  offset 0  ] [  offset 8  ]
+                  +-------------+-------------+
+                  |     Val     |    Next     |
+                  |  (int: 8B)  |  (ptr: 8B)  |
+                  +-------------+-------------+
+```
+
+A **pointer** (`*ListNode`) is simply a **number** — the memory address where the struct lives.
+
+---
+
+## 2. Step-by-Step: What Happens When You Call `Insert`
+
+```go
+list := LinkedList{}   // head = nil (zero value)
+list.Insert(1)
+list.Insert(2)
+list.Insert(3)
+```
+
+### After `Insert(1)`:
+```
+Stack:                     Heap:
++-----------+              Address: 0xC000010010
+| list.head |  --------->  +-------+----------+
+|  (ptr)    |              | Val:1 | Next: nil|
++-----------+              +-------+----------+
+```
+
+### After `Insert(2)`:
+```
+Stack:                     Heap:
++-----------+              0xC000010010         0xC000010030
+| list.head |  --------->  +-------+--------+   +-------+----------+
+|  (ptr)    |              | Val:1 | Next:--+-->| Val:2 | Next: nil|
++-----------+              +-------+--------+   +-------+----------+
+```
+
+### After `Insert(3), Insert(3), Insert(4), Insert(4)`:
+```
+0xC0010  0xC0030  0xC0050  0xC0070  0xC0090  0xC00B0
+  [1] --> [2] --> [3] --> [3] --> [4] --> [4] --> nil
+```
+
+---
+
+## 3. YOUR EXACT QUESTION: Why is `current = &{1 824633794720}`?
+
+```go
+current := list.head
+fmt.Printf("%d", current)
+```
+
+`list.head` is of type `*ListNode` — it is a **pointer**.
+
+When you print a pointer with `%d`, Go prints:
+- The **struct's field values** in order
+- `&{}` means "address of this struct"
+
+```
+&{1 824633794720}
+ ^  ^   ^
+ |  |   |
+ |  |   +-- Next field: memory address of the next node
+ |  +------ Val field: 1
+ +--------- & means "this is a pointer to a struct"
+```
+
+So `824633794720` is **not magic** — it's the **raw memory address** of the second node (`[2]`), expressed as a decimal number.
+
+```
+824633794720 in hex = 0xC0000B4260  <-- actual RAM location of node [2]
+```
+
+---
+
+## 4. The Full Memory Map of Your Code
+
+```
+STACK                          HEAP
+=====                          ====
+
+LinkedList{}
++----------+
+| head ptr |-------------------> ListNode @ 0xC0000B4250
++----------+                     +-----+----------------+
+                                 | Val | Next           |
+                                 |  1  | 0xC0000B4260 --+---> ListNode @ 0xC0000B4260
+                                 +-----+----------------+      +-----+----------------+
+                                                               | Val | Next           |
+                                                               |  2  | 0xC0000B4270 --+---> ...
+                                                               +-----+----------------+
+```
+
+---
+
+## 5. How `deleteDuplicates` Traverses This
+
+```go
+current := list.head   // current points to node[1]
+```
+
+```
+ITERATION 1:
+current --> [1 | ptr-->2]     current.Next --> [2 | ptr-->3]
+            1 != 2  → move forward
+
+ITERATION 2:
+current --> [2 | ptr-->3]     current.Next --> [3 | ptr-->3]
+            2 != 3  → move forward
+
+ITERATION 3:
+current --> [3 | ptr-->3]     current.Next --> [3 | ptr-->4]
+            3 == 3  → SKIP next node
+            current.Next = current.Next.Next
+```
+
+### What "Skip" Means in Memory:
+
+**Before skip:**
+```
+[3 | -->] --> [3 | -->] --> [4 | -->]
+ ^                           ^
+ current              current.Next.Next
+```
+
+**After `current.Next = current.Next.Next`:**
+```
+[3 | --------------------------->] --> [4 | -->]
+ ^
+ current   (the duplicate [3] is now orphaned — GC collects it)
+```
+
+---
+
+## 6. The Bug in Your Code
+
+```go
+fmt.Printf("%d", current)   // ❌ WRONG FORMAT VERB
+```
+
+`%d` is for **integers**. For a pointer/struct, use:
+- `%v` → `&{1 0xC0000B4260}` (default)
+- `%+v` → `&{Val:1 Next:0xC0000B4260}` (with field names)
+- `%p` → `0xC0000B4250` (just the address)
+
+Also, `list.Display()` is **commented out** — so you never see the result!
+
+---
+
+## 7. Fixed & Clean Version
+
+```go
+package main
+
+import "fmt"
+
+type ListNode struct {
+    Val  int
+    Next *ListNode
+}
+
+type LinkedList struct {
+    head *ListNode
+}
+
+func (list *LinkedList) Insert(data int) {
+    newNode := &ListNode{Val: data}
+
+    if list.head == nil {
+        list.head = newNode
+        return
+    }
+
+    current := list.head
+    for current.Next != nil {
+        current = current.Next
+    }
+    current.Next = newNode
+}
+
+func (list *LinkedList) Display() {
+    current := list.head
+    for current != nil {
+        fmt.Printf("%d -> ", current.Val)
+        current = current.Next
+    }
+    fmt.Println("nil")
+}
+
+func deleteDuplicates(list *LinkedList) {
+    current := list.head
+
+    // Debug: see the struct properly
+    fmt.Printf("Starting node: %+v\n", current)  // ✅ correct verb
+
+    for current != nil && current.Next != nil {
+        if current.Val == current.Next.Val {
+            current.Next = current.Next.Next  // skip duplicate
+        } else {
+            current = current.Next            // move forward
+        }
+    }
+}
+
+func main() {
+    list := LinkedList{}
+    list.Insert(1)
+    list.Insert(2)
+    list.Insert(3)
+    list.Insert(3)
+    list.Insert(4)
+    list.Insert(4)
+
+    fmt.Print("Before: ")
+    list.Display()
+
+    deleteDuplicates(&list)
+
+    fmt.Print("After:  ")
+    list.Display()
+}
+```
+
+**Output:**
+```
+Before: 1 -> 2 -> 3 -> 3 -> 4 -> 4 -> nil
+After:  1 -> 2 -> 3 -> 4 -> nil
+```
+
+---
+
+## 8. Mental Model to Lock This In
+
+> **A pointer is just a house address written on a piece of paper.**
+> The struct is the actual house. `list.head` is the paper with the address.
+> `current := list.head` copies the paper — now two papers point to the same house.
+> Modifying `current.Next` changes **what's inside the house** — affecting both papers' views.
+
+This is why `deleteDuplicates` works even without returning anything — you're modifying the **heap memory directly** through the pointer.
+
+---
+
+**Key Takeaway for DSA mastery:** Every linked list problem reduces to one skill — **knowing exactly which pointer holds which address at every step**. Draw the memory boxes. Never guess.
+
+# How `head.Next` Works When `head` is a Pointer
+
+This is one of the most important things to understand deeply. Let me break it completely.
+
+---
+
+## The Confusion is Valid
+
+You're right to question this. Strictly speaking:
+
+- `head` is `*ListNode` → a **pointer** (just a memory address)
+- `Next` is a **field** that lives **inside** the struct
+- So how can a pointer have `.Next`?
+
+---
+
+## What Should Logically Happen
+
+In C, you would write it **explicitly**:
+
+```c
+// C — you must manually dereference the pointer first
+struct ListNode *current = list->head;
+
+// To access field, you must do ONE of these:
+(*current).Next    // dereference first, then access field
+current->Next      // shorthand for exactly the same thing
+```
+
+The `*` means **"go to the address and get the actual struct"**.
+
+```
+current          *current
+(the address)    (the actual house)
+    |                  |
+    v                  v
+[0xC0010]  --->  [ Val:1 | Next:0xC0030 ]
+```
+
+---
+
+## What Go Does: Automatic Dereferencing
+
+Go **automatically dereferences** pointers when you use dot notation.
+
+```go
+// In Go, these are ALL identical:
+current.Next          // Go auto-dereferences ✅
+(*current).Next       // manual dereference ✅ (also valid Go)
+```
+
+Go sees `current.Next`, notices `current` is a pointer, and **silently inserts the dereference for you**.
+
+```
+What you write:       current.Next
+What Go executes:     (*current).Next
+```
+
+---
+
+## ASCII: What Happens Step by Step
+
+```
+current is *ListNode
+It holds a memory address: 0xC0010
+
+Step 1: You write   current.Next
+                         |
+                         v
+Step 2: Go sees current is a pointer (*ListNode)
+        Go automatically does: (*current).Next
+                         |
+                         v
+Step 3: Go goes to address 0xC0010 in heap
+        +----------+------------------+
+        |  Val: 1  |  Next: 0xC0030   |  <-- actual struct at 0xC0010
+        +----------+------------------+
+                         |
+                         v
+Step 4: Reads the Next field → gives you 0xC0030
+```
+
+---
+
+## Proof in Code
+
+```go
+package main
+
+import "fmt"
+
+type ListNode struct {
+    Val  int
+    Next *ListNode
+}
+
+func main() {
+    node := &ListNode{Val: 1, Next: nil}
+
+    // These three are IDENTICAL in Go:
+    fmt.Println(node.Val)       // auto-deref → 1
+    fmt.Println((*node).Val)    // manual deref → 1
+
+    // node is a pointer
+    fmt.Printf("node type:   %T\n", node)    // *main.ListNode
+    fmt.Printf("*node type:  %T\n", *node)   // main.ListNode (the actual struct)
+
+    fmt.Printf("node  (address):  %p\n", node)   // 0xC0000B4250
+    fmt.Printf("*node (struct):   %v\n", *node)  // {1 <nil>}
+}
+```
+
+```
+Output:
+node type:   *main.ListNode        ← pointer
+*node type:   main.ListNode        ← actual struct
+node  (address):  0xC0000B4250     ← just a number
+*node (struct):   {1 <nil>}        ← the real data
+```
+
+---
+
+## The Decision Tree: When Does `.` Work?
+
+```
+You write:   x.Field
+                |
+                v
+        Is x a struct?
+        /            \
+      YES              NO
+       |                |
+  Access field       Is x a *struct (pointer)?
+  directly               /          \
+                        YES           NO
+                         |             |
+                   Auto-deref      Compile Error
+                   (*x).Field
+                   works fine
+```
+
+---
+
+## The Key Mental Model
+
+Think of it like a **GPS address vs the actual building**:
+
+```
+Pointer (head)          =   GPS coordinates (just a number)
+Struct (*head)          =   The actual building at those coordinates
+head.Next               =   "Go to the building, find the room called Next"
+                            (Go drives you there automatically)
+```
+
+---
+
+## Why Go Does This
+
+Because without auto-deref, working with linked lists would look like:
+
+```go
+// Without auto-deref (like raw C):
+for (*current).Next != nil {
+    if (*current).Val == (*current).Next.Val {
+        (*current).Next = (*(*current).Next).Next
+    }
+}
+
+// With Go auto-deref (what you actually write):
+for current.Next != nil {
+    if current.Val == current.Next.Val {
+        current.Next = current.Next.Next
+    }
+}
+```
+
+Go chose readability — but understanding what **actually happens underneath** is what separates a top 1% programmer from the rest.
+
+---
+
+**The rule to memorize:**
+> In Go, `pointer.Field` is always silently converted to `(*pointer).Field`. The dot operator dereferences automatically. You are always one `*` away from the real struct.
+
+# How Rust Handles Dereferencing: Its Own System
+
+Rust has its **own technique** — more powerful than Go, more explicit than C, and based on a concept called **Deref Coercion**. Let me map all three languages side by side.
+
+---
+
+## First: The Comparison Table
+
+```
+Language    Auto-deref?    How?                    Explicit needed?
+--------    -----------    ----                    ----------------
+C           ❌ NO          Must use -> or *         ALWAYS
+Go          ✅ YES         Compiler silently adds * Only if you want
+Rust        ⚡ SMART       Deref Coercion trait     Sometimes
+```
+
+---
+
+## C: Always Manual (You Already Know This)
+
+```c
+struct ListNode {
+    int val;
+    struct ListNode *next;
+};
+
+struct ListNode *current = head;
+
+// MUST dereference explicitly — no shortcuts
+(*current).val        // works
+current->val          // shorthand for (*current).val
+current.val           // ❌ COMPILE ERROR — current is a pointer, not struct
+```
+
+```
+C Rule:
+pointer.field    → ❌ illegal
+(*pointer).field → ✅ 
+pointer->field   → ✅ (just sugar for above)
+```
+
+---
+
+## Go: Always Silent (You Just Learned This)
+
+```go
+// Go silently converts pointer.Field → (*pointer).Field
+current.Val        // ✅ Go auto-derefs
+(*current).Val     // ✅ also valid but redundant
+current->Val       // ❌ doesn't exist in Go
+```
+
+---
+
+## Rust: The Smart System — Deref Coercion
+
+Rust does **NOT** have `->` like C. But it also doesn't blindly auto-deref like Go.
+
+Rust uses a **trait-based system** called `Deref`.
+
+### What is a Trait?
+> A **trait** in Rust is like a contract — it says "this type knows how to do THIS operation." `Deref` is a trait that says: "I know how to be dereferenced."
+
+---
+
+## Rust: Three Types of Pointers
+
+Unlike Go (which has one pointer type `*T`), Rust has **multiple pointer types**:
+
+```
+Type          Syntax    Meaning
+----          ------    -------
+Reference     &T        Borrow — read only
+Mut Reference &mut T    Borrow — read + write
+Box           Box<T>    Heap-allocated owned value
+Raw pointer   *const T  Like C pointer (unsafe)
+              *mut T    Like C mutable pointer (unsafe)
+```
+
+Each of these implements `Deref` differently.
+
+---
+
+## The Dot Operator in Rust: Auto-deref Chain
+
+When you write `x.field`, Rust does something clever:
+
+```
+You write:    x.field
+                 |
+                 v
+Rust checks: Does x have .field directly?
+                /              \
+              YES               NO
+               |                 |
+         Access it          Can x be dereferenced?
+                            (does x implement Deref?)
+                                /          \
+                              YES            NO
+                               |              |
+                    Deref x → *x           Compile Error
+                    Try again with *x
+                    (repeat until found or error)
+```
+
+This chain is called **Deref Coercion** — Rust **keeps dereferencing** until it finds the field or errors.
+
+---
+
+## Proof in Code
+
+```rust
+#[derive(Debug)]
+struct ListNode {
+    val: i32,
+    next: Option<Box<ListNode>>,  // Box = heap pointer in Rust
+}
+
+fn main() {
+    let node = Box::new(ListNode {
+        val: 1,
+        next: None,
+    });
+
+    // Box<ListNode> implements Deref → &ListNode
+    // So Rust auto-derefs for you:
+    println!("{}", node.val);       // ✅ auto-deref through Box
+    println!("{}", (*node).val);    // ✅ manual deref — same thing
+
+    // Raw reference
+    let ref_node: &ListNode = &ListNode { val: 2, next: None };
+    println!("{}", ref_node.val);   // ✅ auto-deref through &
+    println!("{}", (*ref_node).val);// ✅ manual — same
+}
+```
+
+---
+
+## The Key Difference: `Box<T>` vs Go pointer
+
+```
+Go:                             Rust:
+-------                         -----
+*ListNode                       Box<ListNode>
+  |                               |
+  |__ just a raw pointer          |__ heap pointer + OWNS the data
+      (no ownership info)             (when Box dropped, data freed)
+      (GC handles memory)             (no GC — ownership rules apply)
+```
+
+---
+
+## ASCII: The Deref Chain in Action
+
+```
+Rust sees:   node.val
+             (node is Box<ListNode>)
+
+Step 1:  Does Box<ListNode> have .val?
+         NO
+          |
+          v
+Step 2:  Box implements Deref<Target = ListNode>
+         So: *node  gives  ListNode
+          |
+          v
+Step 3:  Does ListNode have .val?
+         YES ✅ → return it
+
+Chain:   Box<ListNode> --Deref--> ListNode --field--> .val
+```
+
+---
+
+## Raw Pointers in Rust (Like C — Unsafe)
+
+```rust
+fn main() {
+    let x = 42i32;
+    let p: *const i32 = &x;  // raw pointer — like C
+
+    // Raw pointers do NOT auto-deref
+    // You MUST use unsafe block + explicit deref
+
+    unsafe {
+        println!("{}", *p);   // ✅ manual deref inside unsafe
+        // println!("{}", p); // ❌ won't compile
+    }
+}
+```
+
+```
+Raw pointer in Rust = C pointer
+Must be inside unsafe {}
+No auto-deref
+No Deref trait
+```
+
+---
+
+## Side-by-Side: Same Linked List in All Three
+
+### C:
+```c
+current->val              // must use ->
+(*current).val            // or explicit deref
+```
+
+### Go:
+```go
+current.Val               // always works, auto-deref silently
+```
+
+### Rust (safe — with Box):
+```rust
+// node: Box<ListNode>
+node.val                  // auto-deref via Deref trait
+(*node).val               // manual — also valid
+```
+
+### Rust (unsafe — raw pointer):
+```rust
+// node: *const ListNode
+unsafe { (*node).val }    // MUST be explicit, MUST be unsafe
+// node.val               // ❌ does NOT work for raw pointers
+```
+
+---
+
+## The Mental Model for All Three
+
+```
+C         →  "I trust nothing. You dereference manually. Always."
+
+Go        →  "I trust you. I silently dereference everything."
+
+Rust      →  "I trust the type system. If a type knows how to 
+              dereference (Deref trait), I'll do it for you.
+              If it's a raw pointer — you're on your own, 
+              go inside unsafe {}."
+```
+
+---
+
+## Why Rust's Way is Superior for DSA
+
+When you build a linked list in Rust:
+
+```
+C approach:     You manage raw memory → crashes possible
+Go approach:    GC manages memory → safe but slower
+Rust approach:  Ownership system manages memory → safe AND fast
+                Zero runtime cost
+                Compiler catches dangling pointers at compile time
+```
+
+This is why Rust is increasingly used in **systems programming, OS kernels, and performance-critical DSA** — you get C-level speed with compile-time memory safety.
+
+---
+
+**Key Rule to Remember:**
+> In Rust, auto-deref only works for types that implement the `Deref` trait (`&T`, `&mut T`, `Box<T>`, `Rc<T>`, `Arc<T>`). Raw pointers `*const T` and `*mut T` behave like C — always explicit, always unsafe.
