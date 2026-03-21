@@ -55,13 +55,13 @@ Iterators and lazy evaluation
 Smart pointers (Box, Rc, Arc, Cell, RefCell, Mutex)
 String types (str vs String vs &str vs OsStr etc.)
 Pattern matching depth
-Generics and monomorphization
+
 Trait objects vs generics (static vs dynamic dispatch)
 The borrow checker edge cases
-Lifetimes in structs
+
 Associated types vs generic parameters
 Newtype pattern
-Zero-sized types
+
 Phantom data
 Unsafe rust
 Macros (declarative vs procedural)
