@@ -1320,3 +1320,2450 @@ Now let me write this comprehensive guide directly as a Markdown file — it'll 
 **Networking**: QEMU (a regular user-space process) holds open a file descriptor to a Linux *TAP* device. Guest packets flow through a VirtIO shared-memory ring buffer into QEMU → written to the TAP fd → the host kernel delivers them to a bridge → out your physical NIC. The whole journey traced step by step in Section 9.
 
 **Storage**: The virtual disk is a `qcow2` file on the host's filesystem. QEMU acts as a translation layer — the guest's sector reads/writes become `pread()`/`pwrite()` calls (or `io_uring` submissions) on that file. Two completely independent filesystems (guest ext4 inside the file, host ext4 managing the file) coexist without awareness of each other.
+
+# Virtual Machines: A Complete, First-Principles Deep Dive
+## How Linux Works as a Guest Inside a Hypervisor
+
+> **Target audience:** Senior systems/security engineers who want to understand exactly what
+> happens at every layer — from CPU microarchitecture to `eth0` inside a guest — with no
+> hand-waving.
+
+---
+
+## Table of Contents
+
+1. [Why This Is Non-Trivial: The Core Problem](#1-why-this-is-non-trivial-the-core-problem)
+2. [CPU Architecture Foundations](#2-cpu-architecture-foundations)
+3. [Hardware Virtualization Extensions (Intel VT-x / AMD-V)](#3-hardware-virtualization-extensions)
+4. [Hypervisor Taxonomy](#4-hypervisor-taxonomy)
+5. [KVM: The Linux Kernel as a Type-1 Hypervisor](#5-kvm-the-linux-kernel-as-a-type-1-hypervisor)
+6. [QEMU: The User-Space Half of the Stack](#6-qemu-the-user-space-half-of-the-stack)
+7. [Memory Virtualization](#7-memory-virtualization)
+8. [CPU Virtualization: Privilege Rings, VMExit, VMEntry](#8-cpu-virtualization-privilege-rings-vmexit-vmentry)
+9. [Device I/O Virtualization](#9-device-io-virtualization)
+10. [Virtio: The Paravirtual I/O Standard](#10-virtio-the-paravirtual-io-standard)
+11. [Networking Deep Dive](#11-networking-deep-dive)
+12. [Storage and Filesystem Deep Dive](#12-storage-and-filesystem-deep-dive)
+13. [Interrupt Virtualization and APIC](#13-interrupt-virtualization-and-apic)
+14. [Boot Sequence: From QEMU Launch to Linux Shell](#14-boot-sequence-from-qemu-launch-to-linux-shell)
+15. [Full I/O Path End-to-End](#15-full-io-path-end-to-end)
+16. [Paravirtualization vs Full Virtualization vs Hardware Passthrough](#16-paravirtualization-vs-full-virtualization-vs-hardware-passthrough)
+17. [Security: Isolation Boundaries and Threat Model](#17-security-isolation-boundaries-and-threat-model)
+18. [Performance Analysis and Profiling](#18-performance-analysis-and-profiling)
+19. [Live Migration Internals](#19-live-migration-internals)
+20. [Nested Virtualization](#20-nested-virtualization)
+21. [Reference Verification Commands](#21-reference-verification-commands)
+22. [Next 3 Steps](#22-next-3-steps)
+23. [References](#23-references)
+
+---
+
+## 1. Why This Is Non-Trivial: The Core Problem
+
+When Linux boots on bare metal, it has **direct, privileged access** to physical hardware:
+
+- The kernel runs in **CPU Ring 0** (most privileged)
+- It can execute `IN`/`OUT` port I/O instructions to talk to devices
+- It can write to physical memory-mapped I/O (MMIO) regions
+- It programs the interrupt controller (APIC) directly
+- It manages the MMU page tables that map virtual → physical memory
+- It issues DMA to PCI devices directly
+
+The fundamental question of virtualization is:
+
+> **How do you run a second, unmodified OS kernel (also expecting Ring 0 and direct hardware
+> access) on the same physical machine, completely isolated, without it knowing it is a guest?**
+
+This is not a software trick. It requires **hardware assistance** (Intel VT-x / AMD-V), and even
+then the design is deeply intricate. Let's build it up from scratch.
+
+```
+The Core Tension
+================
+
+Bare Metal Linux:
+  CPU Ring 0 ──► Physical RAM ──► Real NIC ──► Network
+                     │
+                  Real Disk ──► Filesystem
+
+Guest Linux (the problem):
+  CPU Ring 0 ──► ??? (whose RAM? whose NIC? whose disk?)
+                     │
+                  There is ALREADY another OS using Ring 0!
+
+Answer: Hardware + Software interplay that:
+  1. Traps every privileged instruction the guest tries
+  2. Emulates or redirects it in the host
+  3. Returns control to the guest with the "right" answer
+```
+
+---
+
+## 2. CPU Architecture Foundations
+
+### 2.1 x86 Privilege Rings
+
+x86 has 4 privilege rings (0–3). In practice, Linux uses only 2:
+
+```
+Ring 0  ──  Kernel mode  (supervisor)
+Ring 1  ──  (unused by Linux)
+Ring 2  ──  (unused by Linux)
+Ring 3  ──  User mode (applications)
+```
+
+**Why rings matter for virtualization:**
+
+- A guest OS kernel expects to run in Ring 0
+- But a host running a VMM (Virtual Machine Monitor) is *already* in Ring 0
+- You cannot have two Ring-0 entities simultaneously without hardware help
+- Without VT-x, the classic solution was **Ring Compression**: run the guest kernel in Ring 1 or
+  Ring 3 and trap/emulate privileged instructions — slow and incomplete
+
+### 2.2 Privileged vs Sensitive Instructions
+
+Popek and Goldberg (1974) formalized virtualizability:
+
+- **Privileged instructions:** Instructions that trap (fault) when executed outside Ring 0
+  - `HLT`, `LGDT`, `LIDT`, `LMSW`, `CLTS`, `INVD`, etc.
+- **Sensitive instructions:** Instructions that behave differently or access privileged state
+  - On x86, some sensitive instructions are NOT privileged (they don't trap in Ring 3!)
+  - Classic example: `POPF`/`PUSHF` — reads/writes EFLAGS including the `IF` (interrupt flag)
+    but silently ignores IF modification in Ring 3
+
+**The x86 virtualization problem (pre-VT-x):**
+x86 has 17 sensitive but non-privileged instructions. A guest OS executing `POPF` to enable
+interrupts would silently fail — the VMM would never know, breaking the illusion. This is why
+early solutions (VMware, Xen HVM) required **binary translation (BT)**: scan guest code at
+runtime, replace problematic instructions with safe hypercalls.
+
+### 2.3 CPU Registers Relevant to Virtualization
+
+```
+Control Registers:
+  CR0  -- Protection Enable (PE), Paging (PG), Write Protect (WP), etc.
+  CR2  -- Page Fault Linear Address
+  CR3  -- Page Directory Base Register (PDBR) — points to page table root
+  CR4  -- PAE, VME, OSFXSR, OSXSAVE, SMEP, SMAP, etc.
+  CR8  -- Task Priority Register (TPR)
+
+Segment Registers:
+  CS, DS, ES, FS, GS, SS — base/limit/attributes from GDT/LDT
+
+System Registers:
+  GDTR  -- Global Descriptor Table Register
+  IDTR  -- Interrupt Descriptor Table Register
+  TR    -- Task Register (TSS pointer)
+  LDTR  -- Local Descriptor Table Register
+
+Model-Specific Registers (MSRs):
+  IA32_EFER   -- Extended Feature Enable (LME = Long Mode Enable)
+  IA32_STAR   -- SYSCALL/SYSRET segment selectors
+  IA32_LSTAR  -- SYSCALL target RIP (64-bit)
+  IA32_APIC_BASE -- APIC base address
+  ... hundreds more
+```
+
+All of these must be virtualized — the guest thinks it owns them, but the hypervisor
+intercepts and manages them.
+
+---
+
+## 3. Hardware Virtualization Extensions
+
+### 3.1 Intel VT-x (Virtualization Technology for x86)
+
+Intel introduced VT-x in 2005 (Pentium 4 Prescott). It adds a new **VMX operation mode**:
+
+```
+VMX Root Mode      -- The hypervisor (VMM) runs here
+  └─ Full Ring 0/1/2/3 privilege available to VMM
+
+VMX Non-Root Mode  -- The guest VM runs here
+  └─ Ring 0/1/2/3 still present, but trapped/constrained
+```
+
+Key hardware structures added:
+
+#### VMCS (Virtual Machine Control Structure)
+
+A 4KB memory region that holds ALL state needed to switch between host and guest:
+
+```
+VMCS Layout (conceptual):
+┌─────────────────────────────────┐
+│  VMCS Revision Identifier       │  (hardware-specific)
+├─────────────────────────────────┤
+│  VMX-Abort Indicator            │
+├─────────────────────────────────┤
+│  Guest-State Area               │  ← Guest CR0/CR3/CR4, RFLAGS, RIP, RSP,
+│                                 │    segment regs, GDTR, IDTR, MSRs, etc.
+├─────────────────────────────────┤
+│  Host-State Area                │  ← Host CR0/CR3/CR4, RIP (VMM entry point),
+│                                 │    RSP, segment selectors
+├─────────────────────────────────┤
+│  VM-Execution Control Fields    │  ← What causes VMExits
+│                                 │    (I/O bitmap, MSR bitmap, EPTP, etc.)
+├─────────────────────────────────┤
+│  VM-Exit Control Fields         │  ← What to save/restore on exit
+├─────────────────────────────────┤
+│  VM-Entry Control Fields        │  ← What to load on entry
+├─────────────────────────────────┤
+│  VM-Exit Information Fields     │  ← Why the exit happened (exit reason,
+│                                 │    qualification, guest physical addr, etc.)
+└─────────────────────────────────┘
+```
+
+The VMCS is loaded/activated with `VMPTRLD` and written/read with `VMREAD`/`VMWRITE`.
+
+#### Key VT-x Instructions
+
+```asm
+VMXON   [region]   ; Enable VMX operation (host enters VMX root mode)
+VMXOFF             ; Disable VMX operation
+VMPTRLD [vmcs]     ; Load (activate) a VMCS
+VMPTRST [dest]     ; Store current VMCS pointer
+VMREAD  field,dst  ; Read from active VMCS field
+VMWRITE field,src  ; Write to active VMCS field
+VMLAUNCH           ; Enter guest for first time (VMX non-root)
+VMRESUME           ; Re-enter guest after a VMExit
+VMCALL             ; Guest-initiated exit (hypercall mechanism)
+INVEPT             ; Invalidate EPT-derived TLB entries
+INVVPID            ; Invalidate TLB entries by VPID
+```
+
+#### VMExit
+
+When the guest executes a sensitive/privileged instruction or triggers a configured event,
+hardware automatically:
+
+1. Saves complete guest state → VMCS Guest-State Area
+2. Loads host state from VMCS Host-State Area
+3. Sets exit reason in VMCS VM-Exit Information Fields
+4. Jumps to host RIP (the hypervisor's VMExit handler)
+
+The hypervisor inspects the exit reason, handles it, and calls `VMRESUME`.
+
+**Exit reasons include (non-exhaustive):**
+
+```
+Exit Reason 0  -- Exception or NMI
+Exit Reason 1  -- External interrupt
+Exit Reason 7  -- Interrupt window
+Exit Reason 10 -- CPUID instruction
+Exit Reason 12 -- HLT instruction
+Exit Reason 14 -- INVLPG
+Exit Reason 18 -- VMCALL (hypercall)
+Exit Reason 28 -- Control register access (MOV CR0, CR3, CR4, CR8)
+Exit Reason 29 -- Debug register access
+Exit Reason 30 -- I/O instruction (IN/OUT)
+Exit Reason 31 -- RDMSR / WRMSR
+Exit Reason 48 -- EPT violation (page fault in second-level paging)
+Exit Reason 49 -- EPT misconfiguration
+Exit Reason 54 -- WBINVD
+Exit Reason 55 -- XSETBV
+```
+
+Each exit costs ~1000-5000 ns in context-switch overhead — minimizing exits is a primary
+hypervisor performance goal.
+
+### 3.2 AMD-V (SVM — Secure Virtual Machine)
+
+AMD's equivalent, introduced in 2006. Conceptually identical to VT-x with different naming:
+
+```
+Intel VT-x        AMD-V (SVM)
+──────────────    ─────────────────
+VMX Root         Host mode
+VMX Non-Root     Guest mode
+VMCS             VMCB (Virtual Machine Control Block)
+VMLAUNCH         VMRUN
+VMExit           #VMEXIT
+VMRESUME         VMRUN (same instruction for re-entry)
+EPT              NPT (Nested Page Tables)
+VPID             ASID (Address Space ID)
+```
+
+VMCB is 4KB like VMCS, but AMD puts save area + control fields at defined offsets in the
+struct (simpler than Intel's field-number encoding).
+
+### 3.3 Extended Page Tables (EPT) / Nested Page Tables (NPT)
+
+This is the memory virtualization hardware extension (covered in depth in section 7).
+Without EPT/NPT, every guest page table walk requires VMExits — devastating performance.
+With EPT/NPT, the hardware MMU does two-level page table walks in silicon.
+
+### 3.4 Verification Commands
+
+```bash
+# Check CPU virtualization support
+grep -E 'vmx|svm' /proc/cpuinfo | head -3
+
+# Detailed CPU feature flags
+lscpu | grep -i virtualization
+
+# Check KVM modules loaded
+lsmod | grep kvm
+
+# Intel VT-x details via MSR
+sudo rdmsr 0x3A    # IA32_FEATURE_CONTROL: bit 2 = VMXON outside SMX allowed
+
+# AMD-V details
+sudo rdmsr 0xC0000080  # IA32_EFER: bit 12 = SVME
+```
+
+---
+
+## 4. Hypervisor Taxonomy
+
+### Type 1: Bare-Metal Hypervisor
+
+Runs directly on hardware. The OS itself is a guest.
+
+```
+Physical Hardware
+      │
+  Type-1 VMM  (e.g., Xen, VMware ESXi, Hyper-V, KVM*)
+  ┌───┴────────────────────────┐
+  │  VM1       VM2       VM3  │
+  │ (Linux) (Windows) (BSD)   │
+  └───────────────────────────┘
+
+*KVM turns Linux into a Type-1 hypervisor
+```
+
+### Type 2: Hosted Hypervisor
+
+Runs as a process on a host OS.
+
+```
+Physical Hardware
+      │
+  Host OS (Linux/macOS/Windows)
+      │
+  VMM Process  (e.g., VirtualBox, VMware Workstation, QEMU without KVM)
+      │
+  Guest OS
+```
+
+### KVM: Type 1.5 (Hybrid)
+
+KVM is a kernel module that turns the Linux kernel itself into a Type-1 hypervisor.
+QEMU is the user-space device emulator that pairs with KVM.
+
+```
+Physical Hardware
+      │
+  Linux Host Kernel + KVM module  ← Type-1 for VM execution
+      │
+  QEMU process (user-space)       ← Device emulation (Type-2-like)
+      │
+  Guest Linux Kernel              ← Thinks it's on bare metal
+```
+
+### Xen Architecture (for contrast)
+
+```
+Physical Hardware
+      │
+  Xen Hypervisor (VMX/SVM management)
+  ┌───┴──────────────────────────────┐
+  │  Dom0 (privileged domain)        │  ← Modified Linux with full hw access
+  │   ├─ Xen Control Tools           │
+  │   ├─ Backend Drivers (blkback,   │
+  │   │    netback)                  │
+  │   └─ Toolstack (xl, libxl)       │
+  │                                   │
+  │  DomU1 (guest)  DomU2 (guest)   │  ← Paravirt or HVM guests
+  │   ├─ Frontend drivers            │
+  │   └─ Xenbus/Xenstore             │
+  └───────────────────────────────────┘
+```
+
+---
+
+## 5. KVM: The Linux Kernel as a Type-1 Hypervisor
+
+### 5.1 KVM Architecture
+
+KVM (`/dev/kvm`) exposes virtualization hardware to user-space via `ioctl()`:
+
+```
+User Space                  Kernel Space
+──────────────────────────  ─────────────────────────────────
+QEMU process                KVM module (/dev/kvm)
+  │                               │
+  │  open("/dev/kvm")             │
+  │─────────────────────────────►│
+  │  ioctl(KVM_CREATE_VM)         │  ─► Allocates VM structure
+  │─────────────────────────────►│      Sets up memory slots
+  │  ioctl(KVM_CREATE_VCPU)       │  ─► Allocates VCPU + VMCS
+  │─────────────────────────────►│
+  │  ioctl(KVM_SET_USER_MEMORY_REGION)
+  │─────────────────────────────►│  ─► Maps guest physical address
+  │                               │      space to host virtual addresses
+  │  ioctl(KVM_RUN)               │  ─► Executes VMLAUNCH/VMRESUME
+  │─────────────────────────────►│      Loop: guest runs until VMExit
+  │◄─────────────────────────────│      Returns on I/O exit, MMIO, etc.
+  │  Handle exit in user-space    │
+  │  (emulate device I/O, etc.)   │
+  └──────────────────────────────┘
+```
+
+### 5.2 KVM File Descriptors and ioctls
+
+KVM creates a 3-level hierarchy of file descriptors:
+
+```
+/dev/kvm           →  fd_kvm    →  KVM_CREATE_VM
+                                        │
+                              vm_fd     →  KVM_CREATE_VCPU
+                                        │       KVM_SET_USER_MEMORY_REGION
+                                        │
+                            vcpu_fd     →  KVM_RUN
+                                              KVM_GET_REGS / KVM_SET_REGS
+                                              KVM_GET_SREGS / KVM_SET_SREGS
+                                              KVM_GET_FPU / KVM_SET_FPU
+                                              KVM_GET_MSRS / KVM_SET_MSRS
+```
+
+The `KVM_RUN` ioctl maps the **`kvm_run` struct** into the VCPU's memory (via `mmap`).
+When a VMExit occurs in the kernel, it fills this struct and returns to user-space:
+
+```c
+// include/uapi/linux/kvm.h
+struct kvm_run {
+    __u8  request_interrupt_window;
+    __u8  immediate_exit;
+    __u8  padding1[6];
+    __u32 exit_reason;          /* KVM_EXIT_IO, KVM_EXIT_MMIO, etc. */
+    __u8  ready_for_interrupt_injection;
+    __u8  if_flag;
+    __u16 flags;
+    __u64 cr8;
+    __u64 apic_base;
+    union {
+        struct { /* KVM_EXIT_IO */
+            __u8  direction; /* KVM_EXIT_IO_IN / KVM_EXIT_IO_OUT */
+            __u8  size;      /* 1, 2, or 4 */
+            __u16 port;
+            __u32 count;
+            __u64 data_offset; /* in kvm_run struct */
+        } io;
+        struct { /* KVM_EXIT_MMIO */
+            __u64 phys_addr;
+            __u8  data[8];
+            __u32 len;
+            __u8  is_write;
+        } mmio;
+        struct { /* KVM_EXIT_HYPERCALL */
+            __u64 nr;
+            __u64 args[6];
+            __u64 ret;
+        } hypercall;
+        /* ... many more exit types */
+    };
+};
+```
+
+### 5.3 KVM Memory Slots
+
+Guest physical address space is divided into **memory slots** mapped to host user-space memory:
+
+```c
+struct kvm_userspace_memory_region {
+    __u32 slot;              /* slot ID */
+    __u32 flags;             /* KVM_MEM_LOG_DIRTY_PAGES, KVM_MEM_READONLY */
+    __u64 guest_phys_addr;   /* Guest Physical Address (GPA) start */
+    __u64 memory_size;       /* bytes */
+    __u64 userspace_addr;    /* Host Virtual Address (HVA) */
+};
+```
+
+KVM translates: GPA → HVA → HPA using EPT (hardware) for the fast path.
+
+```bash
+# See KVM memory slots for a running VM (via QEMU monitor)
+(qemu) info mtree
+
+# See KVM module stats
+cat /sys/kernel/debug/kvm/*
+ls /sys/kernel/debug/kvm/
+
+# Count VMExits by type (requires kvm_stat)
+sudo kvm_stat
+
+# Alternative: perf kvm
+sudo perf kvm stat live
+```
+
+### 5.4 VCPU Threading Model
+
+Each VCPU maps to **one host kernel thread** (pthreads in QEMU):
+
+```
+QEMU Process (PID 12345)
+  ├── Main thread          (event loop, monitor, migration)
+  ├── VCPU-0 thread        (calls KVM_RUN, pinned to host CPU)
+  ├── VCPU-1 thread        (calls KVM_RUN, pinned to host CPU)
+  ├── VCPU-2 thread        (calls KVM_RUN, pinned to host CPU)
+  ├── I/O thread           (virtio backend processing)
+  └── Worker threads       (block layer, network, etc.)
+
+Host Kernel:
+  kthread [kvm-vcpu:0]    ← kernel side of VCPU thread
+  kthread [kvm-vcpu:1]
+```
+
+When the VCPU thread calls `KVM_RUN`, it transitions:
+```
+User-space (QEMU) → syscall → kernel (KVM) → VMX non-root (guest) → VMExit → kernel → user-space
+```
+
+---
+
+## 6. QEMU: The User-Space Half of the Stack
+
+QEMU (Quick Emulator) serves as:
+1. **Device emulator** — emulates all hardware the guest sees
+2. **Machine initializer** — sets up the virtual machine topology
+3. **KVM frontend** — manages VCPU threads and memory
+
+Without KVM, QEMU does software CPU emulation via its TCG (Tiny Code Generator) — translating
+guest ISA instructions to host ISA at runtime. With KVM, QEMU offloads CPU execution to
+hardware (via KVM) but still handles device I/O.
+
+### 6.1 QEMU Machine Model
+
+QEMU models a complete machine. For a standard `q35` PC:
+
+```
+QEMU Virtual Machine (q35 chipset)
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  VCPUs [0..N]                                                   │
+│   └── Intel/AMD virtual CPU with configured features            │
+│                                                                 │
+│  Memory                                                         │
+│   └── RAM (backed by: anonymous mmap / hugetlbfs / file)        │
+│                                                                 │
+│  Buses                                                          │
+│   ├── PCIe Root Complex                                         │
+│   │    ├── PCIe-to-PCI bridge                                   │
+│   │    ├── VirtIO-Net (net0) [virtio-net-pci]                   │
+│   │    ├── VirtIO-Blk (disk0) [virtio-blk-pci]                  │
+│   │    ├── VirtIO-SCSI [virtio-scsi-pci]                        │
+│   │    ├── VGA / virtio-gpu                                     │
+│   │    ├── USB XHCI Controller                                  │
+│   │    └── IOMMU (Intel VT-d emulated)                          │
+│   │                                                             │
+│   ├── ISA Bus (legacy)                                          │
+│   │    ├── i8259 PIC (legacy interrupt controller)              │
+│   │    ├── i8254 PIT (Programmable Interval Timer)              │
+│   │    ├── RTC (CMOS / MC146818)                                │
+│   │    ├── Serial (UART 16550A) — console                       │
+│   │    └── KBD/Mouse (i8042 PS/2)                               │
+│   │                                                             │
+│   └── ACPI / Firmware (OVMF UEFI or SeaBIOS)                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 QEMU's Main Loop and I/O Handling
+
+QEMU's main thread runs an event loop (`glib GMainLoop` or custom):
+
+```
+QEMU Main Loop:
+  ┌─────────────────────────────────────────────┐
+  │  poll()/epoll() on file descriptors:         │
+  │   - TAP fd (network)                         │
+  │   - Block device completion fd               │
+  │   - VNC/SPICE client fd                      │
+  │   - Monitor (QMP/HMP) fd                     │
+  │   - Timer expiry                             │
+  │   - Signal pipe (SIGCHLD, SIGTERM, etc.)     │
+  └─────────────────────────────────────────────┘
+         │ event fires
+         ▼
+  Dispatch to handler (e.g., virtio_net_receive_rcu)
+```
+
+When a VCPU causes a `KVM_EXIT_IO` or `KVM_EXIT_MMIO`, the VCPU thread itself handles the
+exit synchronously (for simple cases) or enqueues to the I/O thread.
+
+---
+
+## 7. Memory Virtualization
+
+This is arguably the most complex part. There are **three address spaces** in play:
+
+```
+Address Space Hierarchy:
+─────────────────────────────────────────────────────────
+
+GVA (Guest Virtual Address)     — what the guest app/kernel uses
+        │
+        │  Guest page tables (managed by guest OS in guest RAM)
+        ▼
+GPA (Guest Physical Address)    — what the guest thinks is physical RAM
+        │
+        │  Second-level page tables: EPT (Intel) or NPT (AMD)
+        │  managed by the hypervisor
+        ▼
+HPA (Host Physical Address)     — actual DRAM on the physical machine
+```
+
+In addition, QEMU maps guest RAM into its own address space:
+
+```
+HVA (Host Virtual Address)      — QEMU process virtual address
+        │
+        │  Host OS page tables (managed by host kernel)
+        ▼
+HPA (Host Physical Address)
+```
+
+So the full chain: **GVA → GPA → HVA → HPA**
+
+### 7.1 Shadow Page Tables (Pre-EPT, Historical)
+
+Before EPT, the VMM maintained **shadow page tables** — the real page tables loaded into CR3
+that mapped GVA directly to HPA:
+
+```
+Guest writes to its CR3 (pointing to guest page tables)
+    → VMExit (CR3 write)
+    → VMM inspects guest page tables
+    → VMM constructs shadow page tables (GVA → HPA)
+    → VMM loads shadow page tables into real CR3
+    → VMResume
+
+Guest writes to a page table entry
+    → Guest page table page is write-protected (causes page fault VMExit)
+    → VMM updates the shadow entry correspondingly
+    → VMResume
+```
+
+This is extremely expensive: every guest page table modification causes VMExit.
+
+### 7.2 Extended Page Tables (EPT) — Intel
+
+EPT adds a hardware 4-level page table structure (similar to regular page tables) that maps
+GPA → HPA. The CPU's MMU now does a **two-level walk automatically**:
+
+```
+GVA → [Guest CR3] → Guest PML4 → Guest PDPT → Guest PD → Guest PT → GPA
+                                                                        │
+                                                          EPT walk ←───┘
+                                                               │
+GPA → [EPTP in VMCS] → EPT PML4 → EPT PDPT → EPT PD → EPT PT → HPA
+```
+
+The EPTP (EPT Pointer) is stored in the VMCS execution control area.
+
+**EPT page table entry flags:**
+```
+Bit 0: Read allowed
+Bit 1: Write allowed
+Bit 2: Execute allowed (EPT execute control)
+Bit 5-3: Memory type (WB, UC, etc.)
+Bit 6: Ignore PAT memory type
+Bit 7: Large page (2MB or 1GB)
+Bit 8: Accessed
+Bit 9: Dirty
+Bit 57-12: Physical page frame number
+```
+
+**EPT violations** (the EPT equivalent of page faults) cause VMExit with reason 48.
+KVM handles them to:
+- Fault in new guest RAM pages
+- Track dirty pages (for live migration)
+- Enforce memory protections
+
+```bash
+# See EPT violation counts
+sudo cat /sys/kernel/debug/kvm/ept_violation
+# or
+sudo perf kvm stat record sleep 5 && sudo perf kvm stat report
+```
+
+### 7.3 TLB Management with VPID
+
+Without VPID (Virtual Processor ID), every VMEntry/VMExit requires a full TLB flush
+(since host and guest share the physical TLB but have different address spaces).
+
+With VPID:
+- Each VCPU is assigned a unique 16-bit VPID
+- TLB entries are tagged with VPID
+- VMEntry/VMExit only flushes entries for the current VPID
+- Massive TLB performance improvement
+
+```
+TLB Entry (with VPID):
+  [ VPID | Linear Address | Physical Address | Flags ]
+
+VMCS VPID field set per-VCPU by KVM (non-zero values 1..65535)
+VPID=0 reserved for host
+```
+
+### 7.4 Guest RAM Backing
+
+QEMU allocates guest RAM using `mmap()`. Options:
+
+```bash
+# Anonymous (default)
+mmap(NULL, ram_size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0)
+
+# Hugetlbfs (2MB pages — reduces EPT walk depth, fewer TLB misses)
+qemu-system-x86_64 -mem-path /dev/hugepages -mem-prealloc ...
+
+# memfd (memory-sealed file descriptor)
+memfd_create("kvm-ram", MFD_CLOEXEC)
+
+# NUMA-aware allocation
+numactl --membind=0 qemu-system-x86_64 ...
+
+# File-backed (for shared memory, vhost-user)
+mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0)
+```
+
+### 7.5 Memory Balloon
+
+The `virtio-balloon` device allows the host to reclaim guest RAM dynamically:
+
+```
+Host memory pressure detected
+    → Host balloon driver notifies QEMU
+    → QEMU sends hypercall to guest balloon driver
+    → Guest balloon driver allocates pages from its own kernel
+    → Guest balloon driver pins those pages (prevents guest from using them)
+    → Guest reports pinned PFNs to host via virtio queue
+    → Host reclaims those physical pages
+    → Host can give them to other VMs
+```
+
+### 7.6 Huge Pages and Transparent Huge Pages
+
+```bash
+# Check THP status
+cat /sys/kernel/mm/transparent_hugepage/enabled
+
+# For KVM performance: use 2MB huge pages
+echo 512 > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+mount -t hugetlbfs nodev /dev/hugepages
+
+# KVM stat: huge page usage
+grep HugePages /proc/meminfo
+```
+
+### 7.7 Memory Security: IOMMU Mapping
+
+Without IOMMU: a device doing DMA can address any host physical memory — catastrophic for
+security. Intel VT-d / AMD-Vi adds an **IOMMU** that maps device DMA addresses to physical
+pages via I/O page tables, isolating each VM's device DMA.
+
+```
+Device DMA address (IOVA)
+        │
+        │  IOMMU page tables (per domain, per device)
+        ▼
+Host Physical Address (HPA)
+
+IOMMU enforces: Device in VM1 cannot DMA into VM2's memory
+```
+
+---
+
+## 8. CPU Virtualization: Privilege Rings, VMExit, VMEntry
+
+### 8.1 What Happens When the Guest Kernel Executes a Privileged Instruction
+
+Let's trace `MOV CR3, rax` (the guest is modifying its page table root):
+
+```
+Guest kernel executes: MOV CR3, rax
+        │
+        │  CPU is in VMX non-root Ring 0
+        │  VMCS execution control: CR3-load exiting = 1
+        ▼
+VMExit triggered by hardware:
+  - Guest state saved to VMCS Guest-State Area:
+    RIP ← address of MOV CR3 instruction
+    RFLAGS, RSP, RAX, RBX, ... all GPRs
+    CR0, CR3 (old value), CR4
+    Segment registers, GDTR, IDTR
+  - Exit reason = 28 (CR access)
+  - Exit qualification: CR# = 3, access type = MOV to CR, register = rax
+  - Host state loaded from VMCS Host-State Area:
+    RIP ← KVM VMExit handler
+    CR3 ← host page tables
+    GS ← host per-CPU area
+        │
+        ▼
+KVM VMExit handler (arch/x86/kvm/vmx/vmx.c: vmx_handle_exit)
+  - Read exit reason from VMCS
+  - Dispatch: handle_cr()
+  - Emulate: update guest_cr3 in KVM's internal VCPU state
+  - If guest is updating its own virtual CR3:
+      KVM records new guest_cr3 value
+      EPT remains valid (guest GPA→HPA mapping unchanged)
+      Next VMEntry: VMCS Guest-State CR3 ← guest_cr3
+        │
+        ▼
+VMEntry (VMRESUME):
+  - Guest state loaded from VMCS Guest-State Area
+  - RIP ← NEXT instruction after MOV CR3
+  - Guest continues execution
+```
+
+Round-trip cost: **~3000-8000 CPU cycles** for a simple CR access VMExit.
+
+### 8.2 CPUID Virtualization
+
+The guest executes `CPUID` to query CPU capabilities. This always causes a VMExit (or is
+intercepted). KVM/QEMU intercept and return a **synthetic CPUID** that:
+
+- Exposes only safe/desired features
+- Hides host-specific identifiers
+- Advertises the "virtual CPU type" configured by the user
+- Can expose paravirtual features (KVM_FEATURE_*)
+
+```bash
+# Inside guest: see what CPUID reports
+cpuid -1 | head -40
+
+# QEMU CPU model configuration
+qemu-system-x86_64 -cpu host,+vmx,+avx512f,...
+
+# Or specific model
+qemu-system-x86_64 -cpu Skylake-Server-v4
+
+# Check KVM CPUID leaves (from host)
+cpuid -l 0x40000000  # KVM hypervisor signature leaf
+# Returns: "KVMKVMKVM\0\0\0" in EBX/ECX/EDX
+```
+
+### 8.3 SYSCALL Path Inside a Guest
+
+This is a question often asked: "does a guest SYSCALL cause a VMExit?"
+
+**No — for most SYSCALL/SYSRET operations, there is NO VMExit.**
+
+```
+Guest user process executes SYSCALL:
+    CPU looks up IA32_LSTAR MSR → guest kernel's syscall handler
+    (This MSR is stored in VMCS Guest-State, loaded on VMEntry)
+    Jumps to guest kernel syscall entry (arch/x86/entry/entry_64.S)
+    Guest kernel handles the syscall entirely in guest Ring 0
+    SYSRET back to guest user space
+
+No VMExit occurs. The guest OS handles it like bare metal.
+```
+
+VMExits happen for things the guest kernel cannot handle alone:
+- Hardware I/O (IN/OUT port instructions)
+- Real device interaction
+- Physical interrupt routing
+- MSR accesses to certain system MSRs
+- Hypercalls (VMCALL)
+
+### 8.4 Interrupt Virtualization
+
+Guest interrupts are complex. Two models:
+
+**Legacy model (PIC emulation):**
+```
+QEMU emulates i8259 PIC
+When guest device needs to interrupt:
+  QEMU → KVM_INTERRUPT ioctl → KVM injects virtual interrupt into VCPU
+  KVM sets interrupt-window in VMCS
+  On next VMEntry with RFLAGS.IF=1: interrupt is "delivered" to guest IDT
+```
+
+**APIC virtualization (APICv / AVIC):**
+- Intel APICv: Hardware accelerates APIC reads/writes (no VMExit for most APIC operations)
+- AMD AVIC: Similar, adds hardware guest interrupt delivery without VMExit
+- Guest LAPIC state is tracked in a dedicated 4KB "virtual APIC page"
+
+```bash
+# Check if APICv is active
+cat /sys/module/kvm_intel/parameters/enable_apicv
+# or
+dmesg | grep -i apicv
+```
+
+---
+
+## 9. Device I/O Virtualization
+
+### 9.1 Port-Mapped I/O (PIO) — Legacy
+
+x86 has a separate 64KB I/O address space addressed by `IN`/`OUT` instructions.
+
+```
+Guest executes: OUT 0x3f8, al   (write byte to COM1 serial port)
+        │
+        ▼
+VMExit: reason=30 (I/O instruction)
+  VMCS Exit Qualification:
+    Direction = OUT
+    Port = 0x3f8
+    Size = 1 byte
+    Data = value of AL
+        │
+        ▼
+KVM → user-space (QEMU) via kvm_run.exit_reason = KVM_EXIT_IO
+        │
+        ▼
+QEMU: Serial device handler
+  Writes byte to host PTY / socket / stdio
+        │
+        ▼
+VMRESUME: guest continues
+```
+
+### 9.2 Memory-Mapped I/O (MMIO)
+
+Modern devices expose registers via MMIO — a region of physical address space that,
+instead of being RAM, routes to device registers.
+
+```
+Guest reads: mov rax, [0xFE000000]   (e.g., reading a virtio PCI BAR)
+        │
+        ▼
+EPT lookup: GPA 0xFE000000
+  EPT entry: not present (no RAM mapped here — it's a device region)
+        │
+        ▼
+VMExit: reason=48 (EPT violation)
+  VMCS Guest Physical Address = 0xFE000000
+        │
+        ▼
+KVM identifies this as MMIO region
+  → User-space exit: kvm_run.exit_reason = KVM_EXIT_MMIO
+        │
+        ▼
+QEMU: PCI BAR handler for virtio-net device
+  Returns register value
+        │
+        ▼
+VMRESUME with data injected
+```
+
+### 9.3 Coalesced MMIO
+
+QEMU can register "coalesced MMIO" regions where the guest's MMIO writes are buffered in
+a ring buffer without causing a VMExit, improving performance for write-only registers:
+
+```c
+// KVM coalesced MMIO
+struct kvm_coalesced_mmio_zone {
+    __u64 addr;   /* MMIO address */
+    __u32 size;   /* region size */
+    __u32 pad;
+};
+
+ioctl(vm_fd, KVM_REGISTER_COALESCED_MMIO, &zone);
+// Guest writes collected in ring buffer
+// VMExit only when buffer full or flush triggered
+```
+
+### 9.4 PCI Configuration Space Emulation
+
+Guest's OS enumerates PCI devices via configuration space (I/O ports 0xCF8/0xCFC or MMIO
+ECAM). QEMU intercepts these and returns synthetic device configurations:
+
+```
+Guest: outl(0x80000800, 0xCF8)   # Select Bus 0, Device 1, Function 0
+Guest: inl(0xCFC)                # Read Vendor+Device ID
+    → VMExit → QEMU → returns 0x10001AF4  (VirtIO vendor 0x1AF4, device 0x1000)
+```
+
+---
+
+## 10. Virtio: The Paravirtual I/O Standard
+
+Virtio (OASIS standard, formerly by Rusty Russell) is the canonical paravirtual I/O
+interface for KVM/QEMU. Instead of emulating real hardware (e.g., a Realtek RTL8139 NIC),
+it defines a **simple, efficient ABI** between guest driver and host backend.
+
+### 10.1 Virtio Architecture
+
+```
+Guest Kernel (virtio driver)
+┌──────────────────────────────────────────────┐
+│  virtio-net.ko / virtio-blk.ko / virtio-scsi  │
+│                                               │
+│  VirtQueue(s)                                 │
+│   ├── Descriptor Table  (ring of buffer ptrs) │
+│   ├── Available Ring    (driver → device)     │
+│   └── Used Ring         (device → driver)     │
+│                                               │
+│  PCI BAR / MMIO config space                  │
+└──────────────────────────────────────────────┘
+         │  Shared memory (guest RAM accessible to QEMU)
+         ▼
+QEMU (virtio backend)
+┌──────────────────────────────────────────────┐
+│  VirtIONet / VirtIOBlock / VirtIOSCSI         │
+│   ├── Reads Available Ring for new requests   │
+│   ├── Processes I/O (reads TAP / block file)  │
+│   └── Writes Used Ring, kicks guest           │
+└──────────────────────────────────────────────┘
+```
+
+### 10.2 VirtQueue Internals (Split Virtqueue)
+
+A VirtQueue consists of three regions in guest RAM (shared with host):
+
+#### Descriptor Table
+
+Array of buffer descriptors:
+```c
+struct virtq_desc {
+    __le64 addr;   /* GPA of buffer */
+    __le32 len;    /* length in bytes */
+    __le16 flags;  /* VIRTQ_DESC_F_NEXT | VIRTQ_DESC_F_WRITE | VIRTQ_DESC_F_INDIRECT */
+    __le16 next;   /* index of next descriptor in chain */
+};
+```
+
+#### Available Ring (Driver → Device)
+
+The guest driver publishes new requests here:
+```c
+struct virtq_avail {
+    __le16 flags;         /* VIRTQ_AVAIL_F_NO_INTERRUPT */
+    __le16 idx;           /* head of ring (next to fill) */
+    __le16 ring[];        /* descriptor chain head indices */
+    __le16 used_event;    /* optional: suppress notifications */
+};
+```
+
+#### Used Ring (Device → Driver)
+
+The host backend returns completed requests here:
+```c
+struct virtq_used {
+    __le16 flags;         /* VIRTQ_USED_F_NO_NOTIFY */
+    __le16 idx;           /* head of used ring */
+    struct virtq_used_elem ring[]; /* { id: desc_chain_head, len: written_bytes } */
+    __le16 avail_event;   /* optional: suppress kicks */
+};
+```
+
+### 10.3 Virtio Notification Mechanism
+
+**Guest → Host notification (kick):**
+```
+Guest driver writes to PCI BAR register (MMIO write to Queue Notify register)
+  → EPT violation / MMIO exit
+  → QEMU: ioctl IOEVENTFD registered → eventfd fires
+  → QEMU I/O thread wakes up
+  → Processes new Available Ring entries
+
+With ioeventfd optimization:
+  KVM handles the MMIO write entirely in-kernel via eventfd
+  → No user-space QEMU wakeup for most cases
+  → Only fires eventfd, which QEMU I/O thread polls
+```
+
+**Host → Guest notification (interrupt injection):**
+```
+QEMU backend finishes I/O, writes Used Ring entry
+QEMU injects interrupt via:
+  ioctl(vcpu_fd, KVM_INTERRUPT, ...) -- legacy
+  or irqfd/MSI injection              -- modern
+
+With irqfd + MSI optimization:
+  QEMU writes to eventfd
+  KVM wakes up VCPU and injects interrupt directly
+  No QEMU main loop involved
+```
+
+### 10.4 Packed Virtqueue (virtio 1.1+)
+
+Modern virtio uses a **packed virtqueue** — single ring instead of three, cache-friendlier:
+
+```c
+struct virtq_packed_desc {
+    __le64 addr;
+    __le32 len;
+    __le16 id;    /* buffer ID (replaces chain index) */
+    __le16 flags; /* AVAIL/USED flag bits */
+};
+```
+
+### 10.5 vhost-kernel: Moving Backend into Kernel
+
+To avoid QEMU user-space overhead, Linux implements `vhost` — a kernel-space virtio backend:
+
+```
+Guest kernel (virtio-net driver)
+        │  virtqueue (shared memory)
+        ▼
+vhost-net.ko (kernel module, host)
+        │
+        ▼
+TAP device (or macvtap)
+        │
+        ▼
+Host network stack / physical NIC
+```
+
+```
+                               Guest
+┌─────────────────────────────────────────────────────┐
+│  virtio-net driver  →  virtqueue (in guest RAM)      │
+└─────────────────────────────────────────────────────┘
+         │  (shared memory, no copies)
+         ▼
+┌─────────────────────────────────────────────────────┐
+│  vhost-net.ko  (host kernel)                         │
+│   ├── Polls virtqueue directly in kernel context     │
+│   ├── Dequeues TX packets → TAP fd → host netstack   │
+│   └── Enqueues RX packets from TAP → guest           │
+└─────────────────────────────────────────────────────┘
+
+Key benefit: No user-space QEMU in the data path
+Key mechanism: vhost worker thread in kernel, maps guest memory, accesses virtqueue directly
+```
+
+```bash
+# Check vhost-net usage
+lsmod | grep vhost
+ls /dev/vhost-net
+
+# QEMU vhost-net invocation
+-netdev tap,id=net0,ifname=tap0,vhost=on,vhostforce=on \
+-device virtio-net-pci,netdev=net0
+```
+
+### 10.6 vhost-user: Moving Backend to User-Space Daemon
+
+For DPDK-accelerated networking:
+
+```
+Guest ──► virtqueue ──► vhost-user socket ──► DPDK app (user-space daemon)
+                        (Unix domain socket)
+                        Shares guest memory via fd passing
+
+Used by: OVS-DPDK, Snabb, FD.io VPP, Cilium (via vhost-user)
+```
+
+---
+
+## 11. Networking Deep Dive
+
+### 11.1 Complete Network Stack: Guest Packet to Wire
+
+This is the full path a packet takes when a guest application sends a TCP packet:
+
+```
+Guest Application (e.g., curl)
+    └── write() / sendto() syscall
+            │
+            ▼
+Guest Kernel Network Stack
+    └── TCP layer: adds TCP header, sequence numbers
+    └── IP layer:  adds IP header, routing decision
+    └── Netfilter: iptables/nftables rules (inside guest)
+    └── virtio-net driver:
+          - Allocates descriptor chain in TX virtqueue
+          - Descriptor[0]: virtio_net_hdr (GSO offload info)
+          - Descriptor[1]: Ethernet frame (IP+TCP+payload)
+          - Writes head index to Available Ring
+          - MMIO write to Queue Notify register (kick)
+            │
+            ▼ (MMIO exit or ioeventfd)
+Host Kernel: vhost-net worker thread
+    └── Reads TX virtqueue Available Ring
+    └── Maps guest GPA descriptors → host virtual addresses
+    └── Reads packet data (zero-copy if possible)
+    └── Writes to TAP file descriptor:
+          write(tap_fd, packet_data, packet_len)
+            │
+            ▼
+Host Kernel: TAP device
+    └── TAP is a virtual L2 device
+    └── Packet enters host network stack as if received from NIC
+    └── Routing: packet goes to Linux bridge (e.g., virbr0 / br0)
+            │
+            ▼
+Linux Bridge (br0 on host)
+    └── L2 forwarding: checks MAC table
+    └── If destination is external: forward to physical NIC (eth0)
+    └── If destination is another VM: forward to that VM's TAP
+            │
+            ▼
+Physical NIC (e.g., i40e, mlx5)
+    └── DMA packet to NIC TX ring
+    └── NIC transmits on wire
+```
+
+### 11.2 TAP Device
+
+A TAP (network TAP) device is a virtual L2 (Ethernet) device in the Linux kernel:
+
+```bash
+# Create TAP device manually
+ip tuntap add tap0 mode tap user qemu
+ip link set tap0 up
+ip link set tap0 master br0    # Bridge it
+
+# QEMU creates its own TAP via /dev/net/tun
+# File descriptor is passed to vhost-net
+
+# See TAP devices
+ip link show type tun
+```
+
+The TAP device has a file descriptor accessible from user-space. Reading from it gives packets
+the host's network stack has for the VM; writing to it injects packets into the host network
+stack as if they came from the virtual NIC.
+
+### 11.3 Linux Bridge vs OVS
+
+```
+Linux Bridge (brctl / ip link type bridge):
+    ├── Simple L2 switching
+    ├── Supports VLANs (VLAN filtering)
+    ├── iptables/ebtables for filtering
+    └── Low overhead, suitable for < ~10Gbps with many VMs
+
+Open vSwitch (OVS):
+    ├── Full SDN switch with OpenFlow support
+    ├── VXLAN / GRE / Geneve tunneling
+    ├── OVS-DPDK for user-space datapath (bypass kernel)
+    ├── Controller integration (OpenDaylight, ONOS)
+    └── Used in OpenStack Neutron, Kubernetes networking
+```
+
+### 11.4 Packet Reception (RX Path): Host → Guest
+
+```
+Physical NIC receives packet
+    └── DMA to host RX ring buffer
+    └── NIC interrupt → host kernel network stack
+    └── Packet traverses: NIC driver → TC qdisc → netfilter → routing
+    └── Routed to bridge → TAP device
+    └── TAP device: packet queued in tap_netdev rx ring
+            │
+            ▼
+vhost-net kernel thread
+    └── Polls TAP fd / netdev rx queue
+    └── Gets packet
+    └── Finds free descriptor in guest RX virtqueue (Available Ring)
+    └── Copies (or zerocopy via GUP) packet into guest GPA buffer
+    └── Writes to Used Ring
+    └── Injects interrupt into guest VCPU (via irqfd/MSI)
+            │
+            ▼
+Guest VCPU: handles interrupt
+    └── virtio-net interrupt handler
+    └── Reads Used Ring: new packet received
+    └── DMA: packet data already in guest RAM (no copy needed)
+    └── Passes skb to guest TCP/IP stack
+    └── Guest application reads from socket
+```
+
+### 11.5 Hardware Offloads and Virtio
+
+The `virtio_net_hdr` at the front of each virtio packet carries offload flags:
+
+```c
+struct virtio_net_hdr {
+    __u8  flags;        /* VIRTIO_NET_HDR_F_NEEDS_CSUM */
+    __u8  gso_type;     /* VIRTIO_NET_HDR_GSO_TCPV4/6, _UDP */
+    __le16 hdr_len;     /* Ethernet + IP + TCP header length */
+    __le16 gso_size;    /* MSS */
+    __le16 csum_start;  /* offset where checksum starts */
+    __le16 csum_offset; /* offset of checksum field */
+    __le16 num_buffers; /* for mergeable RX buffers */
+};
+```
+
+This allows:
+- **TSO (TCP Segmentation Offload):** Guest sends a large buffer, vhost/host splits it
+- **GRO (Generic Receive Offload):** Multiple small packets merged before delivery to guest
+- **Checksum offload:** Guest skips computing checksums, host/NIC does it
+
+### 11.6 SR-IOV: Hardware Bypass for VMs
+
+Single Root I/O Virtualization splits one physical NIC into multiple **Virtual Functions (VFs)**:
+
+```
+Physical NIC (e.g., Intel X710, Mellanox CX-5)
+  Physical Function (PF): Managed by host, manages VFs
+  VF0: Assigned to VM1 (via VFIO passthrough)
+  VF1: Assigned to VM2
+  VF2: Assigned to VM3
+  ...
+
+VM sees a dedicated PCIe function with its own:
+  - TX/RX queues
+  - MAC address
+  - VLAN filters
+  - Interrupts
+
+Benefits:
+  - Near-native line-rate throughput
+  - No VMExit in the data path
+  - Hardware-enforced isolation
+
+Cost:
+  - VM must be pinned to a specific host (no migration)
+  - No snapshotting
+  - Requires IOMMU (VT-d / AMD-Vi)
+```
+
+```bash
+# Enable SR-IOV (e.g., 4 VFs on ens1f0)
+echo 4 > /sys/class/net/ens1f0/device/sriov_numvfs
+
+# Assign VF to VM via VFIO
+modprobe vfio-pci
+echo "8086 154c" > /sys/bus/pci/drivers/vfio-pci/new_id
+
+# QEMU passthrough
+qemu-system-x86_64 \
+  -device vfio-pci,host=0000:03:0a.0
+```
+
+### 11.7 DPDK-Accelerated Guest Networking
+
+```
+                    Userspace Networking (DPDK)
+Guest App ──► DPDK (in guest) ──► virtio PMD ──► virtqueue
+                                                      │
+                                                      ▼
+                              OVS-DPDK ──► DPDK PMD ──► Physical NIC (kernel bypass)
+
+- Guest uses DPDK's virtio poll-mode driver (PMD) — no kernel interrupts
+- Host uses OVS-DPDK with vhost-user backend
+- Full userspace-to-userspace path, zero VMExit in fast path
+- Can achieve 10-100 Gbps with 1-3 CPU cores
+```
+
+---
+
+## 12. Storage and Filesystem Deep Dive
+
+### 12.1 How the Guest Sees a Disk
+
+The guest OS sees a block device (e.g., `/dev/vda`) just like bare metal. But where do the
+actual blocks live? Multiple options:
+
+```
+Option 1: Image file on host filesystem
+  Host: /var/lib/libvirt/images/vm1.qcow2  (file on ext4/xfs)
+  Guest: /dev/vda (virtio-blk or virtio-scsi)
+
+Option 2: Raw block device / LUN
+  Host: /dev/sdb or /dev/mapper/lv_vm1
+  Guest: /dev/vda
+
+Option 3: Ceph/RBD (network block storage)
+  Host: QEMU uses librbd to talk to Ceph cluster
+  Guest: /dev/vda
+
+Option 4: iSCSI
+  Host: QEMU or host kernel connects to iSCSI target
+  Guest: /dev/sda (via virtio-scsi)
+
+Option 5: NVMe-oF (NVMe over Fabrics)
+  Host: nvme-tcp or nvme-rdma to storage array
+  Guest: /dev/nvme0n1 via virtio-blk or actual NVMe passthrough
+```
+
+### 12.2 QCOW2: The Copy-on-Write Image Format
+
+QCOW2 is QEMU's native disk image format. Understanding it is essential for production ops.
+
+```
+QCOW2 File Structure:
+┌───────────────────────────────────────────────────────────┐
+│  Header (104 bytes)                                        │
+│    magic: "QFI\xfb"                                       │
+│    version: 2 or 3                                        │
+│    cluster_bits: 16 (2^16 = 64KB clusters, typical)       │
+│    size: virtual disk size in bytes                       │
+│    encryption_method: 0=none, 1=AES-CBC, 2=LUKS           │
+│    l1_size: number of L1 table entries                    │
+│    l1_table_offset: offset of L1 table in file            │
+│    refcount_table_offset                                  │
+│    snapshots_offset                                       │
+├───────────────────────────────────────────────────────────┤
+│  L1 Table                                                  │
+│    Array of 8-byte entries pointing to L2 tables          │
+│    Each L1 entry covers: cluster_size * (cluster_size/8)  │
+│    = 64KB * 8192 = 512MB of virtual disk space            │
+├───────────────────────────────────────────────────────────┤
+│  L2 Tables (one per L1 entry, allocated on demand)        │
+│    Array of 8-byte entries pointing to data clusters      │
+│    Entry = 0 → unallocated (reads return zeros)           │
+│    Entry flags:                                           │
+│      bit 0: compressed cluster                            │
+│      bit 1: all zeros (optimize unwritten areas)          │
+├───────────────────────────────────────────────────────────┤
+│  Refcount Table                                            │
+│    Tracks reference count of each cluster                 │
+│    Used for snapshots (CoW) and leak detection            │
+├───────────────────────────────────────────────────────────┤
+│  Data Clusters                                             │
+│    Actual disk data, 64KB chunks                          │
+│    Allocated on first write (sparse)                      │
+└───────────────────────────────────────────────────────────┘
+```
+
+**Backing files (snapshot chains):**
+```
+base.qcow2  (golden image, read-only)
+    └── overlay1.qcow2 (delta: only writes since snapshot 1)
+            └── overlay2.qcow2 (delta: writes since snapshot 2)
+                    └── current.qcow2 (running VM's active image)
+```
+
+Read path: QEMU checks current.qcow2 L2 table. If cluster unallocated, reads from parent
+(overlay2.qcow2), recursively up to base.
+
+Write path: CoW — allocate new cluster in current layer, write data, update L2 table.
+
+```bash
+# Create base image
+qemu-img create -f qcow2 base.qcow2 50G
+
+# Create snapshot overlay
+qemu-img create -f qcow2 -b base.qcow2 -F qcow2 vm1.qcow2
+
+# Convert between formats
+qemu-img convert -f qcow2 -O raw vm1.qcow2 vm1.raw
+
+# Inspect image
+qemu-img info --backing-chain vm1.qcow2
+
+# Check integrity
+qemu-img check vm1.qcow2
+
+# Compact (reclaim sparse space)
+qemu-img convert -O qcow2 -c vm1.qcow2 vm1-compact.qcow2
+```
+
+### 12.3 Virtio-Blk I/O Path
+
+```
+Guest app: write(fd, buf, 4096)
+        │
+        ▼
+Guest VFS → Guest ext4/xfs filesystem
+        │
+        ▼
+Guest Block Layer:
+  - I/O scheduler (none/mq-deadline/kyber)
+  - Merges and reorders requests
+  - Issues bio to virtio-blk driver
+        │
+        ▼
+virtio-blk driver:
+  struct virtio_blk_req {
+      __le32 type;    /* VIRTIO_BLK_T_IN=0, OUT=1, FLUSH=4, DISCARD=11 */
+      __le32 reserved;
+      __le64 sector;  /* 512-byte sector number */
+  };
+  - Builds descriptor chain:
+      desc[0]: virtio_blk_req header (type, sector)
+      desc[1]: data buffer (the 4KB of data)
+      desc[2]: status byte (1 byte, device writes result)
+  - Writes head to Available Ring
+  - Kicks device (MMIO write or PCI doorbell)
+        │
+        ▼ (ioeventfd fires)
+QEMU / vhost-blk backend:
+  - Reads request from virtqueue
+  - Translates GPA → HVA (guest buffer → QEMU process VA)
+  - Issues: pwrite(image_fd, hva_buf, 4096, sector * 512)
+  - Or: io_uring / libaio for async I/O
+  - On completion: writes status byte, updates Used Ring
+  - Injects interrupt into guest
+        │
+        ▼
+Host VFS (ext4/xfs on host) + Block layer
+        │
+        ▼
+Host block device driver (nvme, ahci, etc.)
+        │
+        ▼
+Physical NVMe / SATA / SAS SSD/HDD
+```
+
+### 12.4 io_uring in QEMU
+
+Modern QEMU uses `io_uring` for async block I/O, dramatically reducing latency:
+
+```c
+// QEMU block/io_uring.c
+struct io_uring ring;
+io_uring_queue_init(128, &ring, IORING_SETUP_SQPOLL);  // kernel polling thread
+
+// Submit I/O
+struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+io_uring_prep_pwrite(sqe, image_fd, iov, iovcnt, sector_offset);
+sqe->user_data = (uint64_t)cookie;
+io_uring_submit(&ring);
+
+// Completion
+struct io_uring_cqe *cqe;
+io_uring_wait_cqe(&ring, &cqe);
+// notify guest via virtq used ring
+```
+
+```bash
+# Enable io_uring in QEMU
+-blockdev driver=io_uring,...
+# or via storage daemon
+```
+
+### 12.5 Virtio-SCSI vs Virtio-Blk
+
+```
+virtio-blk:
+  - Single queue per device
+  - Simple read/write/flush commands
+  - Good for single high-performance disk
+  - Lower latency, less overhead
+
+virtio-scsi:
+  - Full SCSI command set (INQUIRY, READ CAPACITY, etc.)
+  - Multiple queues
+  - Supports multiple LUNs behind one controller
+  - Supports SCSI features: reservations, persistent reserve, etc.
+  - Required for some enterprise storage features
+  - Better for many disks per VM
+```
+
+### 12.6 9P / Virtiofs: Shared Filesystem
+
+Share a host directory into the guest:
+
+```bash
+# QEMU: export host /mnt/shared via virtiofs
+qemu-system-x86_64 \
+  -chardev socket,id=char0,path=/tmp/vhostfs0.sock \
+  -device vhost-user-fs-pci,chardev=char0,tag=myfs \
+  -object memory-backend-memfd,id=mem,size=4G,share=on \
+  -numa node,memdev=mem
+
+# virtiofsd daemon (host)
+virtiofsd --socket-path=/tmp/vhostfs0.sock \
+          --shared-dir=/mnt/shared \
+          --cache=auto \
+          --sandbox=namespace
+
+# Inside guest
+mount -t virtiofs myfs /mnt/host_shared
+```
+
+**How virtiofs works:**
+- Guest sends FUSE protocol messages via virtqueue
+- `virtiofsd` (user-space daemon on host) handles FUSE requests against real host directory
+- Uses DAX (Direct Access eXtension) for large files: maps host file pages directly into guest
+  physical address space — zero copy, no bouncing through virtqueue
+
+### 12.7 NVMe Passthrough
+
+For maximum performance, pass a physical NVMe device directly to the guest:
+
+```bash
+# Unbind from host driver
+echo 0000:04:00.0 > /sys/bus/pci/devices/0000:04:00.0/driver/unbind
+
+# Bind to vfio-pci
+echo "144d a808" > /sys/bus/pci/drivers/vfio-pci/new_id
+
+# QEMU passthrough
+qemu-system-x86_64 \
+  -device vfio-pci,host=0000:04:00.0 \
+  -machine q35
+
+# Inside guest: /dev/nvme0n1 appears as real NVMe device
+```
+
+---
+
+## 13. Interrupt Virtualization and APIC
+
+### 13.1 Why Interrupt Virtualization Is Hard
+
+In a real machine:
+- The LAPIC (Local APIC) is per-CPU, MMIO-mapped at 0xFEE00000
+- Devices send MSI (Message Signaled Interrupts) directly to LAPIC addresses
+- The LAPIC delivers interrupts to the CPU
+
+In a VM:
+- Multiple guest VCPUs → multiple virtual LAPICs
+- Guest reads/writes 0xFEE00000 (MMIO) → must be intercepted
+- Device interrupts must be routed to the correct VCPU
+
+### 13.2 Virtual APIC (vAPIC)
+
+KVM maintains a **virtual APIC page** (4KB) per VCPU:
+
+```
+Virtual APIC Page Layout (subset):
+  Offset 0x020: Local APIC ID
+  Offset 0x080: Task Priority Register (TPR)
+  Offset 0x0B0: EOI (End of Interrupt)
+  Offset 0x0D0: Logical Destination Register
+  Offset 0x100-0x170: In-Service Register (ISR) — 256 bits
+  Offset 0x180-0x1F0: Trigger Mode Register (TMR)
+  Offset 0x200-0x270: Interrupt Request Register (IRR) — 256 bits
+  Offset 0x300: Interrupt Command Register (ICR) — for IPIs
+  Offset 0x320: LVT Timer
+  Offset 0x380: Initial Count (timer)
+```
+
+With **APICv (Intel):**
+- Guest reads/writes to virtual APIC page proceed WITHOUT VMExit
+- Hardware automatically processes EOI, TPR reads, etc.
+- Significant reduction in APIC-related VMExits
+
+### 13.3 Interrupt Injection Flow (irqfd)
+
+Modern KVM uses `irqfd` for efficient interrupt injection:
+
+```
+QEMU registers irqfd:
+  eventfd_fd = eventfd(0, EFD_NONBLOCK)
+  ioctl(vm_fd, KVM_IRQFD, {gsi=5, fd=eventfd_fd})
+
+When device needs to interrupt guest:
+  write(eventfd_fd, 1)  ← single 64-bit write
+        │
+        ▼
+KVM irqfd handler (in host kernel):
+  Translates GSI → interrupt route
+  Injects interrupt into target VCPU's IRR
+  If VCPU blocked in KVM_RUN: kicks it via IPI
+  VCPU takes interrupt on next VMEntry
+        │
+        ▼
+Guest IDT handler fires
+```
+
+This path involves **zero user-space QEMU wakeup** for interrupt delivery.
+
+### 13.4 MSI/MSI-X Virtualization
+
+PCIe devices use MSI (Message Signaled Interrupts): a DMA write to a special host address
+instead of a wire interrupt. For VMs:
+
+```
+Virtual PCIe device (QEMU)
+  MSI address: 0xFEE00000 + vcpu_apic_id  (virtual APIC address)
+  MSI data: interrupt vector
+
+Guest configures device MSI:
+  → Device writes to virtual APIC address on interrupt
+  → KVM intercepts (EPT write protection on APIC page)
+  → KVM injects virtual interrupt to target VCPU
+```
+
+---
+
+## 14. Boot Sequence: From QEMU Launch to Linux Shell
+
+### 14.1 Step-by-Step Boot Trace
+
+```
+1. QEMU process starts
+   └── Parses command line arguments
+   └── Creates KVM VM: ioctl(kvm_fd, KVM_CREATE_VM)
+   └── Sets up memory slots: ioctl(vm_fd, KVM_SET_USER_MEMORY_REGION)
+       Guest physical 0x00000000-0xBFFFFFFF → mmap'd host RAM
+       Guest physical 0xFD000000-0xFEFFFFFF → MMIO (unallocated in EPT)
+   └── Creates VCPUs: ioctl(vm_fd, KVM_CREATE_VCPU) × N
+   └── Initializes virtual devices: PIC, PIT, APIC, PCI bus, etc.
+   └── Loads firmware (SeaBIOS or OVMF):
+       Copies firmware binary to guest physical 0xFFFE0000 (SeaBIOS)
+       or 0xFF000000+ (OVMF/UEFI)
+
+2. VCPU reset state (x86 real mode)
+   CS.base = 0xFFFF0000, CS.selector = 0xF000, RIP = 0xFFF0
+   → Effectively: execution starts at 0xFFFFFFF0 (4GB - 16 bytes)
+   → This is in the firmware region
+
+3. Firmware (SeaBIOS) executes
+   └── Detects virtual hardware via PCI enumeration (port 0xCF8/0xCFC)
+   └── Builds ACPI tables in guest RAM (describes virtual hardware topology)
+   └── Builds E820 memory map (tells OS where RAM is)
+   └── Searches for bootable device (virtio-blk, virtio-scsi, etc.)
+   └── Loads MBR or UEFI boot partition
+   └── Loads bootloader (GRUB2)
+
+4. GRUB2 executes (still firmware-controlled)
+   └── Reads GRUB config from /boot/grub2/grub.cfg
+   └── Loads kernel image (vmlinuz) into guest RAM
+   └── Loads initramfs into guest RAM
+   └── Sets up Linux kernel command line parameters
+   └── Jumps to Linux kernel entry point
+
+5. Linux kernel boots (guest)
+   └── Executes arch/x86/boot/header.S (decompressor)
+   └── Decompresses kernel into high memory
+   └── arch/x86/boot/compressed/head_64.S:
+       Sets up initial page tables
+       Jumps to kernel proper (init/main.c:start_kernel)
+
+6. Linux start_kernel()
+   └── setup_arch() — processes E820, ACPI, sets up memory
+   └── KVM guest detection:
+       cpuid(KVM_CPUID_SIGNATURE) → "KVMKVMKVM\0\0\0"
+       → Enables paravirtual features:
+           pv_ops.irq.save_fl = kvm_save_flags
+           pv_ops.mmu.* = kvm_mmu_ops
+           clocksource: kvm-clock (reads from shared memory page, no VMExit)
+   └── Initializes virtio drivers (virtio-net, virtio-blk, virtio-balloon)
+   └── Mounts root filesystem (from /dev/vda or initramfs)
+   └── Runs init (systemd / sysvinit)
+
+7. KVM clock (kvmclock)
+   └── Host writes current time to guest-mapped shared memory page
+   └── Guest reads time without VMExit (unlike rdtsc in some configs)
+   └── No expensive VMExit needed for gettimeofday()
+```
+
+### 14.2 CPUID KVM Feature Detection
+
+```bash
+# Inside guest: check KVM features
+cpuid -l 0x40000000    # "KVMKVMKVM" signature
+cpuid -l 0x40000001    # KVM feature bits:
+                       #   bit 0:  KVM_FEATURE_CLOCKSOURCE (kvmclock)
+                       #   bit 1:  KVM_FEATURE_NOP_IO_DELAY
+                       #   bit 3:  KVM_FEATURE_MMU_OP
+                       #   bit 8:  KVM_FEATURE_CLOCKSOURCE2
+                       #   bit 9:  KVM_FEATURE_ASYNC_PF (async page fault)
+                       #   bit 11: KVM_FEATURE_PV_EOI (paravirt EOI)
+                       #   bit 12: KVM_FEATURE_PV_UNHALT
+                       #   bit 14: KVM_FEATURE_STEAL_TIME
+
+# Verify kvmclock is active
+dmesg | grep -i kvm-clock
+cat /sys/devices/system/clocksource/clocksource0/current_clocksource
+```
+
+---
+
+## 15. Full I/O Path End-to-End
+
+### 15.1 Complete Read System Call Through the VM Stack
+
+```
+=============================================================
+GUEST USERSPACE
+=============================================================
+Application:
+  fd = open("/var/log/app.log", O_RDONLY)
+  n  = read(fd, buf, 4096)
+      │ syscall: read(fd, buf, 4096)
+      ▼
+=============================================================
+GUEST KERNEL (Ring 0 in VMX non-root mode)
+=============================================================
+sys_read() → vfs_read() → file->f_op->read_iter()
+      │
+      ▼
+ext4_file_read_iter()
+  └── ext4 checks page cache: miss
+  └── Issues bio (block I/O request):
+        bio->bi_sector = 2097152    (logical block address)
+        bio->bi_size   = 4096       (4KB)
+        bio->bi_vcnt   = 1          (1 page)
+      │
+      ▼
+Guest Block I/O scheduler (blk-mq)
+  └── Merges/sorts requests
+  └── Dispatches to virtio-blk driver
+      │
+      ▼
+virtio_blk_queue_rq() (drivers/block/virtio_blk.c):
+  vbr = kmalloc(sizeof(*vbr))
+  vbr->out_hdr.type   = VIRTIO_BLK_T_IN   (read)
+  vbr->out_hdr.sector = 2097152
+  sg_init_table(sg, 3)
+  sg_set_buf(&sg[0], &vbr->out_hdr, sizeof(vbr->out_hdr))  // desc[0]
+  sg_set_buf(&sg[1], bio_data(bio), 4096)                   // desc[1] write target
+  sg_set_buf(&sg[2], &vbr->status, 1)                       // desc[2] status
+  virtqueue_add_sgs(vq, sg, 1 out, 2 in, vbr, GFP_ATOMIC)
+  virtqueue_kick(vq)   ← MMIO write to doorbell register
+      │
+      │ MMIO write → EPT violation VMExit
+      ▼
+=============================================================
+HOST KERNEL (KVM + vhost-blk)
+=============================================================
+KVM: EPT violation → identifies doorbell address → eventfd write
+vhost-blk worker thread wakes up:
+  vhost_get_vq_desc() → reads Available Ring → gets desc chain
+  translate GPA → HVA:
+    vbr->out_hdr GPA → mmap'd QEMU memory HVA
+    bio_data GPA    → mmap'd QEMU memory HVA (4KB page)
+  
+  Submits I/O:
+    io_uring: io_uring_prep_pread(sqe, image_fd, hva_buf, 4096, offset)
+    io_uring_submit()
+      │
+      ▼
+=============================================================
+HOST KERNEL VFS + BLOCK LAYER
+=============================================================
+ext4 (host) → block layer → NVMe driver
+  NVMe command: Read LBA, 8 sectors (4KB)
+  DMA from NVMe to host RAM → iova mapping via IOMMU
+  NVMe interrupt → host interrupt handler
+  io_uring CQE filled
+      │
+      ▼
+vhost-blk: io_uring completion
+  status byte = VIRTIO_BLK_S_OK (0)
+  virtq_used_elem: {id=desc_head, len=4096}
+  vhost_add_used_and_signal():
+    writes Used Ring entry
+    injects interrupt via irqfd/MSI → guest VCPU
+      │
+      ▼
+=============================================================
+GUEST KERNEL (interrupt delivery)
+=============================================================
+virtblk_done() interrupt handler:
+  virtqueue_get_buf() → reads Used Ring
+  status == 0 → success
+  bio_endio(bio) → marks bio complete
+  page cache: 4KB page now filled with data
+  read() returns 4096 to user-space
+      │
+      ▼
+=============================================================
+GUEST USERSPACE
+=============================================================
+read() returns 4096 bytes in buf
+```
+
+**Typical latency budget (NVMe SSD on a production host):**
+```
+NVMe physical I/O:          ~70 µs
+Host VFS + block layer:     ~5 µs
+Virtio path + IRQ:          ~3 µs
+Guest VFS + ext4:           ~10 µs
+Total guest-observed:       ~90-100 µs   (vs ~80 µs on bare metal)
+Overhead:                   ~12-20%
+```
+
+---
+
+## 16. Paravirtualization vs Full Virtualization vs Hardware Passthrough
+
+### 16.1 Full Virtualization
+
+- Guest OS is **completely unmodified**
+- Hypervisor intercepts all privileged operations
+- Guest does not know it is in a VM
+- Relies on VT-x / AMD-V for CPU, EPT/NPT for memory
+- All I/O is emulated (or virtio for performance)
+
+### 16.2 Paravirtualization (PV)
+
+- Guest OS is **modified** to be aware it's in a VM
+- Replaces privileged operations with **hypercalls** (VMCALL)
+- Eliminates many VMExits proactively
+- Examples: Xen PV guests, KVM pv_ops
+
+KVM paravirtual features (active in standard Linux guests):
+```
+kvmclock          : time without VMExit
+pv-tlb-shootdown  : TLB shootdown via hypercall (one VMExit instead of IPI per CPU)
+pv-eoi            : EOI via shared memory flag (avoids APIC MMIO VMExit)
+pv-spinlock       : Spin on shared memory instead of PAUSE loop (avoids spin waste)
+pv-sched          : KVM_HC_KICK_CPU hypercall for scheduler
+async-pf          : Page faults delivered asynchronously
+steal-time        : Guest can see how much CPU time was stolen by hypervisor
+```
+
+```bash
+# Check PV features active in guest
+dmesg | grep -i 'kvm\|paravirt\|pv_'
+cat /sys/kernel/debug/paravirt_enabled  # if available
+```
+
+### 16.3 Comparison Table
+
+```
+Feature          Full Virt (KVM+HW)   Paravirt (KVM+pv_ops)   Passthrough (VFIO)
+──────────────── ─────────────────── ───────────────────────   ──────────────────
+CPU perf         ~97-99% native       ~99%+ native              100% native
+Mem perf         ~98% (EPT)           ~99% (pv-tlb)             100%
+I/O perf         ~70-90% (virtio)     ~90-95% (vhost)           ~99% (SR-IOV)
+Guest OS mod     No                   Yes (pv_ops in kernel)    No
+Migration        Yes                  Yes                       No (device bound)
+Snapshot         Yes                  Yes                       No
+Security iso.    Strong (VMExit)      Strong                    Weaker (IOMMU)
+Setup complexity Low                  Low                       High
+```
+
+---
+
+## 17. Security: Isolation Boundaries and Threat Model
+
+### 17.1 Isolation Layers
+
+```
+Layer 1: CPU hardware (VMX non-root isolation)
+  Threat: Guest code escaping to host Ring 0
+  Mitigation: VT-x/AMD-V + Intel CET/IBRS/STIBP
+
+Layer 2: Memory isolation (EPT enforcement)
+  Threat: Guest reading host or other guest memory
+  Mitigation: EPT (GPA→HPA mapping, no overlaps)
+              KPTI (Meltdown mitigation)
+              KVM enforce EPT permissions
+
+Layer 3: Device isolation (IOMMU)
+  Threat: Guest-controlled device DMA to arbitrary host memory
+  Mitigation: VT-d / AMD-Vi IOMMU enforces DMA remapping
+              vfio: per-VM IOMMU domain
+
+Layer 4: Hypervisor code integrity (QEMU attack surface)
+  Threat: Guest exploiting QEMU device emulation bugs
+  Mitigation: Seccomp-BPF on QEMU process
+              SELinux/AppArmor MAC on QEMU
+              KVM privilege separation
+              Namespace isolation
+
+Layer 5: Side channels (Spectre/Meltdown/MDS/TAA/SRBDS/etc.)
+  Threat: Guest inferring host or other guest secrets via
+          CPU caches, TLB timing, branch predictor, port contention
+  Mitigation: KPTI, IBRS/IBPB/STIBP, MDS buffers flush on VMExit,
+              Core scheduling, CPU pinning (no sibling sharing)
+```
+
+### 17.2 Attack Surface: QEMU Escape
+
+The most dangerous attack: guest triggers VMExit, QEMU handles it, bug in QEMU handler
+leads to arbitrary code execution in host context (QEMU process = host user-space).
+
+**Historical CVEs:**
+```
+CVE-2015-3456 (VENOM)  -- FDC buffer overflow in floppy controller emulation
+CVE-2019-14378         -- heap overflow in SLiRP networking
+CVE-2020-29443         -- OOB read in ATAPI emulation
+CVE-2021-3748          -- use-after-free in virtio-net TX
+```
+
+**Mitigations:**
+```bash
+# QEMU with seccomp-bpf syscall filtering
+qemu-system-x86_64 -sandbox on,obsolete=deny,elevateprivileges=deny,spawn=deny,resourcecontrol=deny
+
+# SELinux context for QEMU
+ls -Z /usr/libexec/qemu-kvm
+# svirt_t domain with svirt_image_t for disk images
+
+# AppArmor profile
+cat /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper
+
+# Namespace isolation (libvirt does this automatically)
+unshare --net --pid --mount --ipc -- qemu-system-x86_64 ...
+
+# cgroup limits on QEMU process
+systemctl set-property virt-guest-123.scope MemoryMax=8G CPUQuota=400%
+```
+
+### 17.3 Memory Confidentiality: AMD SEV and Intel TDX
+
+For cloud environments where even the hypervisor should not see guest memory:
+
+**AMD SEV (Secure Encrypted Virtualization):**
+```
+Guest RAM encrypted with per-VM AES-128 key
+  ├── SEV: Guest memory encrypted, host can read ciphertext only
+  ├── SEV-ES: Also encrypts VCPU register state on VMExit
+  └── SEV-SNP: Adds memory integrity, prevents hypervisor remapping
+
+Key management:
+  AMD-SP (Secure Processor) holds all keys
+  Guest has attestation report signed by AMD root key
+  Host kernel/hypervisor cannot decrypt guest RAM
+```
+
+**Intel TDX (Trust Domain Extensions):**
+```
+Trust Domain (TD) = confidential VM
+  - TDX module (Intel-signed) mediates host-TD boundary
+  - Guest RAM in private KeyID range (MKTME encryption)
+  - Host cannot read/modify guest memory/registers
+  - Attestation via Intel SGX DCAP infrastructure
+```
+
+```bash
+# Check SEV support
+cat /sys/module/kvm_amd/parameters/sev
+dmesg | grep -i sev
+
+# Launch SEV VM (QEMU)
+qemu-system-x86_64 \
+  -machine q35,memory-encryption=sev0,vmport=off \
+  -object sev-guest,id=sev0,cbitpos=47,reduced-phys-bits=1
+```
+
+### 17.4 Spectre/Meltdown in VM Context
+
+```
+Meltdown (CVE-2017-5754):
+  Guest can read host kernel memory via speculative loads
+  Mitigation: KPTI in host kernel (separate page tables for user/kernel)
+              Also applied inside guest (guest KVM protection)
+
+Spectre v2 (CVE-2017-5715):
+  Guest can mistrain host branch predictor → leak host secrets
+  Mitigation: IBRS (Indirect Branch Restricted Speculation)
+              IBPB (Indirect Branch Predictor Barrier) on VMENTRY/VMEXIT
+              Retpoline in host kernel
+              eIBRS (Enhanced IBRS) on newer CPUs
+
+MDS/TAA (CVE-2018-12126/12127/12130, CVE-2019-11135):
+  Cross-HT leakage via CPU buffers (TAA, L1DES, MFBDS, MLPDS)
+  Mitigation: MD_CLEAR on VMExit (VERW instruction flushes buffers)
+              Core scheduling: only same-VM threads on HT siblings
+              Disable HyperThreading (performance sacrifice)
+```
+
+```bash
+# Check mitigations active
+cat /sys/devices/system/cpu/vulnerabilities/*
+
+# KVM exposes mitigation status
+cat /sys/module/kvm/parameters/nx_huge_pages
+cat /sys/module/kvm_intel/parameters/vmentry_l1d_flush
+```
+
+---
+
+## 18. Performance Analysis and Profiling
+
+### 18.1 VMExit Profiling
+
+```bash
+# kvm_stat: real-time VMExit counters
+sudo kvm_stat -1
+
+# perf kvm: detailed per-VM VMExit analysis
+sudo perf kvm stat record -a -- sleep 10
+sudo perf kvm stat report
+
+# Sample output:
+# Analyze events for all VMs, all VCPUs:
+#
+#           VM-EXIT    Samples  Samples%  Time%  Min Time  Max Time  Avg time
+#
+#    EXTERNAL_INTERRUPT  123456   45.23%  30.12%     0.5us    50us    1.2us
+#    MSR_WRITE            45678   16.74%  10.23%     0.3us    20us    0.8us
+#    CPUID                23456    8.60%   5.10%     0.2us    15us    0.7us
+#    HLT                  12345    4.53%   2.10%     0.1us     5us    0.5us
+#    EPT_VIOLATION         5678    2.08%   8.90%     1.0us   100us   50.0us
+
+# Per-VM VMExit stats via debugfs
+ls /sys/kernel/debug/kvm/
+# Files: exits, mmio_exits, io_exits, irq_exits, halt_exits, etc.
+
+# Tracepoints for detailed analysis
+sudo perf record -e kvm:kvm_exit -e kvm:kvm_entry -a -- sleep 5
+sudo perf report
+```
+
+### 18.2 Memory Performance
+
+```bash
+# Check EPT large pages
+cat /sys/module/kvm/parameters/tdp_mmu
+echo "always" > /sys/kernel/mm/transparent_hugepage/enabled
+
+# NUMA topology for VMs
+numactl --hardware
+numactl --membind=0 --cpunodebind=0 qemu-system-x86_64 ...
+
+# Memory bandwidth test inside guest
+mbw 1024  # or stream benchmark
+
+# Balloon device stats
+cat /proc/$(pgrep qemu)/status | grep VmRSS
+virsh domstats --balloon vm1
+```
+
+### 18.3 Network Performance
+
+```bash
+# Inside guest: baseline throughput
+iperf3 -c <host_ip> -t 30 -P 4
+
+# Check virtio queue depth
+ethtool -g eth0
+
+# Enable multi-queue virtio-net (inside guest)
+ethtool -L eth0 combined 4
+
+# QEMU multi-queue config
+-netdev tap,id=net0,queues=4,vhost=on \
+-device virtio-net-pci,netdev=net0,mq=on,vectors=10
+
+# Measure PPS with pktgen (inside guest)
+modprobe pktgen
+echo "add_device eth0@1" > /proc/net/pktgen/kpktgend_0
+```
+
+### 18.4 CPU Steal Time
+
+```bash
+# Inside guest: see how much CPU was "stolen" by hypervisor
+vmstat 1 10    # "st" column = steal time
+iostat -c 1 10 # "%steal" column
+
+# Host side: cgroup cpu accounting
+cat /sys/fs/cgroup/cpuacct/machine.slice/cpuacct.stat
+
+# KVM steal time interface
+# Guest kernel reads from shared memory page (no VMExit)
+# Reported via /proc/stat "steal" field
+```
+
+---
+
+## 19. Live Migration Internals
+
+Live migration moves a running VM from host A to host B with minimal downtime.
+
+### 19.1 Migration Phases
+
+```
+Phase 1: Setup
+  └── Establish TCP connection between source and destination QEMU
+  └── Destination creates VM with same configuration (no VCPUs running)
+
+Phase 2: Memory Pre-copy (iterative)
+  └── KVM enables dirty page tracking: KVM_MEM_LOG_DIRTY_PAGES
+      (write-protects all EPT entries → EPT violation on every guest write)
+  └── Source QEMU sends all guest RAM to destination (compressed)
+  └── While transferring: guest continues running, writes tracked
+  └── After first pass: re-send dirty pages (iterate)
+  └── Convergence check: dirty rate < threshold OR round limit reached
+
+Phase 3: Stop-and-Copy (downtime)
+  └── Source VM paused (all VCPUs halted)
+  └── Final dirty pages sent (very small set)
+  └── VCPU state sent: registers, FPU, MSRs
+  └── Device state sent: virtio queue positions, inflight I/O
+  └── Network state: TCP flows, arp tables
+
+Phase 4: Resume at destination
+  └── Destination QEMU resumes VCPUs
+  └── Network: gratuitous ARP or SDN flow update
+  └── Source VM deleted
+```
+
+### 19.2 Dirty Page Tracking
+
+```bash
+# KVM dirty ring (faster than bitmap)
+# Uses KVM_CAP_DIRTY_LOG_RING — per-VCPU ring buffer of dirty PFNs
+# Avoids scanning entire bitmap after each round
+
+# Check capability
+cat /sys/module/kvm/parameters/dirty_ring_size
+# Set ring size (power of 2, entries)
+modprobe kvm dirty_ring_size=65536
+
+# Traditional bitmap approach
+ioctl(vm_fd, KVM_GET_DIRTY_LOG, {slot, bitmap})
+# Returns bitmask of 4KB pages modified since last call
+```
+
+---
+
+## 20. Nested Virtualization
+
+Running a VM inside a VM (L0=bare metal, L1=first hypervisor/VM, L2=nested VM).
+
+```
+L0: Physical host (KVM + QEMU)
+  └── L1 VM: Linux with KVM enabled (uses virtual VT-x)
+        └── L2 VM: Nested guest
+
+Mechanism (Intel):
+  - L0 KVM presents virtual VMX capability via CPUID to L1
+  - L1 executes VMXON, VMLAUNCH (these cause VMExit to L0)
+  - L0 KVM: "shadow VMCS" (merges L1's VMCS with L0's VMCS)
+  - L2 runs in VMX non-root on physical hardware
+  - L2 VMExit: handled by L1 OR by L0 (depending on configuration)
+
+Performance: 2x-5x slower than bare metal for VMExit-heavy workloads
+Use cases: CI/CD testing hypervisors, cloud testing, nested Kubernetes
+```
+
+```bash
+# Enable nested on host (Intel)
+modprobe kvm_intel nested=1
+# or persistent:
+echo "options kvm_intel nested=1" > /etc/modprobe.d/kvm_intel.conf
+
+# Enable nested on host (AMD)
+modprobe kvm_amd nested=1
+
+# Inside L1 VM: verify VMX available
+cat /proc/cpuinfo | grep vmx
+ls /dev/kvm   # should exist in L1
+```
+
+---
+
+## 21. Reference Verification Commands
+
+### 21.1 Verify the Full VM Stack on a Linux Host
+
+```bash
+#─── 1. Hardware VT support ───────────────────────────────────────────────────
+grep -cE 'vmx|svm' /proc/cpuinfo
+lscpu | grep -E 'Virtualization|Hypervisor'
+
+#─── 2. KVM modules ───────────────────────────────────────────────────────────
+lsmod | grep -E 'kvm|vhost|virtio'
+ls -la /dev/kvm
+
+#─── 3. IOMMU ─────────────────────────────────────────────────────────────────
+dmesg | grep -i 'IOMMU\|dmar\|iommu'
+find /sys/kernel/iommu_groups/ -type l | head
+
+#─── 4. KVM MSR access ────────────────────────────────────────────────────────
+# Install msr-tools
+sudo modprobe msr
+sudo rdmsr 0x3A   # IA32_FEATURE_CONTROL (Intel: bit2=VMXON allowed)
+
+#─── 5. Launch a minimal VM ───────────────────────────────────────────────────
+# Download cloud image
+wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+qemu-img convert -f qcow2 -O qcow2 jammy-server-cloudimg-amd64.img ubuntu.qcow2
+qemu-img resize ubuntu.qcow2 20G
+
+# Create cloud-init seed
+cat > user-data <<EOF
+#cloud-config
+password: test123
+chpasswd: { expire: False }
+ssh_pwauth: True
+EOF
+cloud-localds seed.img user-data
+
+# Launch
+qemu-system-x86_64 \
+  -enable-kvm \
+  -cpu host \
+  -m 2G \
+  -smp 2 \
+  -machine q35 \
+  -drive file=ubuntu.qcow2,format=qcow2,if=virtio \
+  -drive file=seed.img,format=raw,if=virtio \
+  -netdev user,id=net0 \
+  -device virtio-net-pci,netdev=net0 \
+  -nographic \
+  -serial mon:stdio
+
+#─── 6. Inside guest: verify KVM ──────────────────────────────────────────────
+# (inside guest shell)
+dmesg | grep -i kvm
+systemd-detect-virt           # should output: kvm
+cat /sys/devices/system/clocksource/clocksource0/current_clocksource  # kvm-clock
+lspci                          # should show virtio devices
+ls /dev/vda                    # virtio-blk disk
+
+#─── 7. VMExit monitoring ─────────────────────────────────────────────────────
+# (on host while VM runs)
+sudo perf kvm stat record -p $(pgrep qemu) -- sleep 5
+sudo perf kvm stat report
+
+#─── 8. Network verification ──────────────────────────────────────────────────
+# (host)
+ip link show type tun    # TAP device
+bridge link show          # bridge membership
+# (guest)
+ip addr show
+ping 8.8.8.8
+ethtool -i eth0           # driver: virtio_net
+
+#─── 9. Storage verification ──────────────────────────────────────────────────
+# (guest)
+lsblk -d -o NAME,ROTA,MODEL,TYPE
+# ROTA=0 → SSD/NVMe (virtio reports 0)
+cat /sys/block/vda/queue/scheduler    # I/O scheduler
+fio --name=randread --rw=randread --bs=4k --iodepth=32 --numjobs=1 \
+    --filename=/dev/vda --size=100M --runtime=10 --group_reporting
+
+#─── 10. Security/mitigations ────────────────────────────────────────────────
+cat /sys/devices/system/cpu/vulnerabilities/spectre_v2
+cat /sys/devices/system/cpu/vulnerabilities/meltdown
+cat /sys/devices/system/cpu/vulnerabilities/mds
+# (guest should also show mitigations)
+```
+
+### 21.2 Tracing the I/O Path with ftrace/BPF
+
+```bash
+#─── Trace virtio-blk completions ─────────────────────────────────────────────
+# (on host)
+sudo bpftrace -e '
+kprobe:vhost_worker {
+    @start[tid] = nsecs;
+}
+kretprobe:vhost_worker {
+    $delta = nsecs - @start[tid];
+    @latency_us = hist($delta / 1000);
+    delete(@start[tid]);
+}'
+
+#─── Trace EPT violations ─────────────────────────────────────────────────────
+sudo perf record -e kvm:kvm_page_fault -a -- sleep 5
+sudo perf report --sort=symbol
+
+#─── Trace vhost-net RX path ──────────────────────────────────────────────────
+sudo bpftrace -e '
+kprobe:handle_rx { @rx++; }
+kprobe:handle_tx { @tx++; }
+interval:s:1 { print(@rx); print(@tx); clear(@rx); clear(@tx); }'
+
+#─── Full VMExit tracing with KVM tracepoints ────────────────────────────────
+echo 1 > /sys/kernel/debug/tracing/events/kvm/kvm_exit/enable
+echo 1 > /sys/kernel/debug/tracing/events/kvm/kvm_entry/enable
+cat /sys/kernel/debug/tracing/trace_pipe | head -100
+echo 0 > /sys/kernel/debug/tracing/events/kvm/kvm_exit/enable
+```
+
+---
+
+## 22. Next 3 Steps
+
+### Step 1: Instrument and observe a real KVM VMExit trace
+
+```bash
+# Run this to see live VMExit distribution for your VM
+sudo perf kvm stat live -p $(pgrep -n qemu)
+# Focus on: which exit reasons dominate?
+# EPT violations → memory map tuning or huge pages
+# MSR_WRITE → look at kvmclock/guest MSR usage
+# EXTERNAL_INTERRUPT → IRQ affinity and irqbalance tuning
+```
+
+### Step 2: Build a minimal KVM hypervisor in C or Rust
+
+Read and run the canonical "kvmtest" example to feel the raw KVM ioctl API:
+```bash
+git clone https://github.com/dpw/kvmtest   # C: minimal 200-line KVM VM
+# or in Rust:
+git clone https://github.com/rust-vmm/kvm-ioctls
+cd kvm-ioctls && cargo run --example hello_vm
+# Study: how VCPU is created, memory mapped, and run loop works
+```
+
+### Step 3: Explore rust-vmm and cloud-hypervisor
+
+```bash
+git clone https://github.com/cloud-hypervisor/cloud-hypervisor
+cd cloud-hypervisor
+cargo build --release
+
+# Run a VM
+./target/release/cloud-hypervisor \
+  --kernel vmlinux \
+  --disk path=ubuntu.img \
+  --cpus boot=2 \
+  --memory size=1024M \
+  --net tap=tap0 \
+  --console off \
+  --serial tty
+
+# Study: virtio-devices/, hypervisor/kvm/, vmm/
+# All in Rust, production-grade, used in AWS Firecracker lineage
+```
+
+---
+
+## 23. References
+
+### Specifications
+- **Intel SDM Vol. 3C:** System Programming Guide — VMX Instructions and VMCS Layout
+  `https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html`
+- **AMD APM Vol. 2:** System Programming — SVM Architecture (Chapter 15)
+  `https://www.amd.com/system/files/TechDocs/24593.pdf`
+- **Virtio Specification 1.2 (OASIS):**
+  `https://docs.oasis-open.org/virtio/virtio/v1.2/virtio-v1.2.html`
+- **QCOW2 Format Specification:**
+  `https://github.com/qemu/qemu/blob/master/docs/interop/qcow2.txt`
+- **VT-d Specification (IOMMU):**
+  `https://software.intel.com/content/dam/develop/public/us/en/documents/vt-directed-io-spec.pdf`
+
+### Source Code
+- **KVM (Linux kernel):** `arch/x86/kvm/`, `virt/kvm/`
+- **QEMU device emulation:** `hw/virtio/`, `hw/block/`, `hw/net/`, `backends/`
+- **Virtio drivers (Linux guest):** `drivers/virtio/`, `drivers/block/virtio_blk.c`,
+  `drivers/net/virtio_net.c`
+- **vhost (Linux):** `drivers/vhost/`
+
+### Papers
+- **Popek & Goldberg (1974):** "Formal Requirements for Virtualizable Third Generation
+  Architectures" — the theoretical foundation
+- **Barham et al. (2003):** "Xen and the Art of Virtualization" — paravirt design
+- **Adams & Agesen (2006):** "A Comparison of Software and Hardware Techniques for x86
+  Virtualization" (VMware) — VBT vs VT-x analysis
+- **Amsden et al. (2006):** "VMI: An Interface for Paravirtualization" (VMware)
+
+### Tools
+```
+kvm_stat          : VMExit counter tool (kernel source: tools/kvm/kvm_stat)
+perf kvm          : KVM performance analysis via perf
+virt-manager      : GUI for KVM management
+virsh             : CLI libvirt tool
+qemu-img          : QEMU disk image tool
+qemu-monitor      : QEMU HMP/QMP monitor
+systemtap/bpftrace: Dynamic kernel tracing for VMExit paths
+flamegraph        : Visualize perf data for QEMU/KVM CPU usage
+```
+
+### Community
+- KVM mailing list: `kvm@vger.kernel.org`
+- QEMU mailing list: `qemu-devel@nongnu.org`
+- rust-vmm project: `https://github.com/rust-vmm`
+- Firecracker (AWS): `https://github.com/firecracker-microvm/firecracker`
+- Cloud Hypervisor: `https://github.com/cloud-hypervisor/cloud-hypervisor`
+
+---
+
+*Document version: 1.0 | Architecture: x86-64 | Kernel: Linux 6.x | QEMU: 8.x+*
+
+**~8,500-word, 23-section first-principles guide.** Here's the conceptual skeleton to orient you:
+
+---
+
+**The core tension answered directly:**
+
+Your Linux guest kernel *does* run in Ring 0 — but in **VMX non-root mode**, not the same Ring 0 the host occupies. Intel VT-x creates a completely separate privilege domain enforced in silicon. The guest kernel is not mocked — it genuinely executes its own instructions on the physical CPU. What changes is that certain instructions (I/O ports, CR writes, MSR accesses, CPUID) cause a **VMExit** — hardware freezes the guest, saves all its state to the VMCS, and jumps to KVM's handler. KVM emulates the effect and resumes the guest with `VMRESUME`. The guest sees the right answer; it never knows it left.
+
+**Key architectural answers in the doc:**
+
+| Question | Answer |
+|---|---|
+| How does the same Linux kernel work inside a VM? | VT-x VMX non-root mode + VMCS state save/restore per-VCPU |
+| Is the hardware mocked? | No — real CPU execution. Only privileged ops trap via VMExit |
+| Networking with NIC? | TAP device (virtual L2) → Linux bridge → physical NIC; data path via vhost-net kernel thread, zero QEMU in fast path |
+| Networking inside guest? | Virtio-net driver → virtqueue (shared memory ring) → host; standard guest TCP/IP stack, no changes |
+| Filesystem/disk? | Virtio-blk → virtqueue → QEMU/vhost-blk → qcow2 image on host VFS → block layer → physical NVMe |
+| Three address spaces | GVA→GPA (guest page tables) → HPA (EPT/NPT, done in hardware MMU silicon) |
+| I/O in general | IN/OUT → VMExit→KVM→QEMU; MMIO → EPT violation→VMExit→KVM→QEMU; virtio avoids most exits via shared memory rings |
+
+**Next 3 steps** are in the doc: (1) live VMExit profiling with `perf kvm stat`, (2) build a bare-metal KVM hypervisor from scratch via `kvm-ioctls` in Rust, (3) read `cloud-hypervisor` source — production Rust VMM with clean virtio-devices separation.
