@@ -244,6 +244,7 @@ full avg10=5.20 avg60=3.80 avg300=2.10 total=15000000
 ```
 
 **Interpretation:**
+
 - `some`: % of time ANY task was stalled
 - `full`: % of time ALL tasks were stalled
 - `avg10/60/300`: Moving averages (10s, 60s, 300s)
@@ -259,6 +260,7 @@ echo 0 > cgroup.freeze              # Thaw
 ```
 
 **Use Cases:**
+
 - Checkpoint/restore
 - Pause container during debugging
 - Resource preemption
@@ -360,6 +362,8 @@ done
 ## VI. Programming Interfaces
 
 ### A. Rust Implementation
+
+```rust
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write, Read};
 use std::path::{Path, PathBuf};
@@ -599,8 +603,11 @@ fn main() -> Result<(), CGroupError> {
     Ok(())
 }
 
+```
+
 ### B. Go Implementation
 
+```go
 package main
 
 import (
@@ -952,6 +959,7 @@ func main() {
 	fmt.Println("\nTo delete this cgroup (after removing all processes):")
 	fmt.Printf("  rmdir %s\n", cg.GetPath())
 }
+```
 
 ---
 
@@ -1091,11 +1099,13 @@ int trace_oom_kill(struct trace_event_raw_mark_victim *ctx) {
 **Problem:** `echo $PID > cgroup.procs` fails with "No space left on device"
 
 **Causes:**
+
 - Reached `pids.max` limit
 - Memory limit too restrictive
 - Kernel can't allocate resources
 
 **Solution:**
+
 ```bash
 # Check limits
 cat pids.max
@@ -1108,11 +1118,13 @@ echo "max" > pids.max
 **Problem:** Can't delete cgroup
 
 **Causes:**
+
 - Still has processes
 - Has child cgroups
 - Kernel references exist
 
 **Solution:**
+
 ```bash
 # Kill all processes
 cat cgroup.procs | xargs -r kill -9
@@ -1137,17 +1149,20 @@ find /sys/fs/cgroup/myapp -depth -type d -exec rmdir {} \;
 ### 2. **v1 vs v2 Performance**
 
 **v2 Advantages:**
+
 - Single hierarchy → better cache locality
 - Unified accounting → less redundant tracking
 - Optimized internal data structures
 
 **Benchmark:** Task fork rate:
+
 - v1: ~50,000 forks/sec with 4 controllers
 - v2: ~65,000 forks/sec (30% improvement)
 
 ### 3. **Optimal Configuration Patterns**
 
 **Anti-pattern:** Too many small cgroups
+
 ```
 ❌ /app/container1/pod1/process1
    /app/container1/pod1/process2
@@ -1155,6 +1170,7 @@ find /sys/fs/cgroup/myapp -depth -type d -exec rmdir {} \;
 ```
 
 **Better:** Hierarchical grouping
+
 ```
 ✅ /app/container1
    /app/container2
@@ -1183,6 +1199,7 @@ Docker creates this hierarchy:
 **Example:** `docker run --memory=512m --cpus=1.5 --pids-limit=100 nginx`
 
 Translates to:
+
 ```bash
 echo "512M" > memory.max
 echo "150000 100000" > cpu.max   # 1.5 cores
@@ -1194,6 +1211,7 @@ echo "100" > pids.max
 Kubernetes maps QoS classes to cgroups:
 
 **Guaranteed:**
+
 ```yaml
 resources:
   requests:
@@ -1203,9 +1221,11 @@ resources:
     memory: "1Gi"
     cpu: "500m"
 ```
+
 → Sets `memory.min=1Gi` (hard protection)
 
 **Burstable:**
+
 ```yaml
 resources:
   requests:
@@ -1213,6 +1233,7 @@ resources:
   limits:
     memory: "1Gi"
 ```
+
 → Sets `memory.low=512Mi`, `memory.max=1Gi`
 
 **BestEffort:** No limits, lowest priority
@@ -1266,6 +1287,7 @@ echo $$ > $BATCH/cgroup.procs
 **Attack:** User creates cgroup, sets high limits, spawns resource-hungry process
 
 **Mitigation:**
+
 ```bash
 # Delegate with hard upper bounds
 echo "512M" > /sys/fs/cgroup/user-1000/memory.max
@@ -1276,6 +1298,7 @@ chown 1000:1000 /sys/fs/cgroup/user-1000
 ### 2. **Information Disclosure**
 
 cgroup files reveal:
+
 - Process relationships
 - Resource usage patterns
 - Application structure
@@ -1287,6 +1310,7 @@ cgroup files reveal:
 **Attack:** Create thousands of cgroups to exhaust kernel memory
 
 **Mitigation:**
+
 ```bash
 # Kernel parameter (requires v2)
 echo 1000 > /sys/fs/cgroup/cgroup.max.descendants
@@ -1300,6 +1324,7 @@ echo 2000 > /sys/fs/cgroup/cgroup.max.depth
 ### 1. **cgroups v3?**
 
 Not planned, but ongoing v2 improvements:
+
 - Better NUMA awareness
 - Enhanced PSI metrics
 - Finer-grained I/O control
@@ -1307,6 +1332,7 @@ Not planned, but ongoing v2 improvements:
 ### 2. **eBPF Integration**
 
 Growing trend: Use BPF programs for:
+
 - Custom controllers
 - Policy enforcement
 - Real-time monitoring
@@ -1322,6 +1348,7 @@ cgroups for SGX enclaves, TDX trust domains
 ### Model 1: **Tree of Constraints**
 
 Think of cgroups as a tree where:
+
 - Each node is a "budget" that can be subdivided
 - Children compete for parent's budget
 - Leaf processes consume from their node's budget
@@ -1341,6 +1368,7 @@ Memory controller does both. CPU controller focuses on scheduling (enforcement v
 ### Model 4: **Pressure as Signal**
 
 PSI is a **leading indicator**:
+
 - High `some` pressure → Approaching limit
 - High `full` pressure → Already throttled
 
@@ -1391,6 +1419,7 @@ cgroups are deceptively simple on the surface—just files in `/sys/fs/cgroup`. 
 The true expert doesn't just set `memory.max`—they understand the kernel's page reclaim algorithm, know when to use `memory.low` vs `memory.min`, can debug why a cgroup is OOM-killing when it shouldn't, and can design hierarchies that maximize both isolation and efficiency.
 
 **Your next steps:**
+
 1. Boot a VM, experiment with every controller
 2. Implement a production-ready cgroup manager in Rust or Go
 3. Read the kernel documentation: `Documentation/admin-guide/cgroup-v2.rst`
