@@ -1,0 +1,15 @@
+# security/sentinel/Kbuild
+#
+# Kernel build system file for the Sentinel LSM.
+# Placed in:  <kernel-tree>/security/sentinel/Kbuild
+#
+# The obj-$(CONFIG_...) pattern means:
+#   y  → compile into vmlinux (required for LSMs — no loadable .ko)
+#   m  → would produce a .ko (NOT valid for DEFINE_LSM modules)
+#   n  → excluded entirely
+
+obj-$(CONFIG_SECURITY_SENTINEL)      += sentinel_lsm.o
+
+# Rust variant (requires CONFIG_RUST=y in addition)
+obj-$(CONFIG_SECURITY_SENTINEL_RUST) += sentinel_lsm_rust.o
+sentinel_lsm_rust-y                  := rust/sentinel_lsm.o

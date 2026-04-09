@@ -1,0 +1,45 @@
+# security/auditsec/Kconfig
+#
+# Kconfig documentation: Documentation/kbuild/kconfig-language.rst
+# How LSMs declare themselves: security/Kconfig (SECURITY_LOADABLE_LSMLIST)
+#
+# For in-tree integration:
+#   1. Copy this block into security/Kconfig under the "LSM" menu
+#   2. Add 'auditsec' to the LSM_ORDER list or use lsm= kernel param
+
+config SECURITY_AUDITSEC
+	tristate "auditsec audit-logging LSM"
+	depends on SECURITY
+	default n
+	help
+	  A teaching LSM that logs security-relevant events:
+	  file opens, exec calls, socket creation, inode permission checks,
+	  and signal delivery.
+
+	  Operates in three modes (tunable via /sys/kernel/auditsec/enabled):
+	    0 — silent (no logging, all hooks pass through)
+	    1 — log-only (default): emit pr_info records, never deny
+	    2 — enforce: deny exec() for the configured denied_uid
+
+	  This module is intended for learning and should NOT be used
+	  in production kernels.
+
+	  If unsure, say N.
+
+config SECURITY_AUDITSEC_FIXED
+	tristate "auditsec (bug-fixed version)"
+	depends on SECURITY
+	default n
+	help
+	  Reference implementation with BUG-1 and BUG-2 corrected.
+	  Use this to compare against the buggy version during study.
+
+config SECURITY_AUDITSEC_RUST
+	tristate "auditsec Rust LSM (requires CONFIG_RUST)"
+	depends on SECURITY && RUST
+	default n
+	help
+	  Rust language port of auditsec. Requires kernel built with
+	  CONFIG_RUST=y and the rust/kernel/security.rs bindings.
+	  As of v6.8 the Rust LSM trait bindings are in-flight;
+	  check lore.kernel.org/rust-for-linux for current status.

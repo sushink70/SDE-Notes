@@ -1,0 +1,50 @@
+--- a/security/auditsec/auditsec.c
++++ b/security/auditsec/auditsec.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ /*
+  * auditsec.c — audit-logging LSM
++ * BUG FIX PATCH: fix null deref in file_open + inverted uid check in bprm_check
+  */
+ 
+ /* =========================================================================
+@@ -68,10 +69,16 @@ static int auditsec_file_open(struct file *file)
+ 	char buf[256];
+ 	char *path;
+ 
+ 	atomic_long_inc(&stat_file_opens);
+ 
+-	/* BUG-1: missing NULL check — causes oops on pipe()/socketpair() */
+-	path = dentry_path_raw(file->f_path.dentry, buf, sizeof(buf));
++	/* FIX-1: guard against NULL dentry (anon inodes, pipes, sockets)
++	 *
++	 * Anonymous files created by pipe(2) and socketpair(2) have
++	 * file->f_path.dentry == NULL because they have no associated
++	 * directory entry.  dentry_path_raw() dereferences the argument
++	 * immediately; without this guard we get a NULL pointer dereference.
++	 *
++	 * See: fs/anon_inodes.c, fs/pipe.c
++	 */
++	if (!file->f_path.dentry) {
++		auditsec_log("file_open", "<anon/pipe/socket>");
++		return 0;
++	}
++	path = dentry_path_raw(file->f_path.dentry, buf, sizeof(buf));
+ 
+ 	if (IS_ERR(path))
+ 		path = "<unknown>";
+ 
+@@ -117,9 +124,11 @@ static int auditsec_bprm_check(struct linux_binprm *bprm)
+ 	if (auditsec_enabled == 2 && denied_uid >= 0) {
+-		/* BUG-2: != should be == — currently denies EVERYONE except denied_uid */
+-		if ((int)uid != denied_uid) {
++		/* FIX-2: == matches only the denied uid, not all others
++		 *
++		 * The original != caused the condition to fire for every uid
++		 * that is NOT denied_uid — i.e. it denied the entire system
++		 * except the one uid that should be blocked.
++		 */
++		if ((int)uid == denied_uid) {
+ 			atomic_long_inc(&stat_denied);
+ 			pr_warn("auditsec: DENY exec uid=%u path=%s\n", uid, path);
+ 			return -EACCES;

@@ -1,0 +1,31 @@
+# Kconfig — Kernel Configuration for Guardian LSM
+#
+# CONCEPTS:
+#   Kconfig is the kernel's configuration language. It defines:
+#     - CONFIG_ options that appear in `make menuconfig`
+#     - Dependencies between options (depends on)
+#     - Help text shown to users
+#
+#   When you add your module to security/Kconfig (by inserting
+#   `source "security/guardian/Kconfig"`) and to security/Makefile
+#   (by adding `obj-$(CONFIG_SECURITY_GUARDIAN) += guardian/`),
+#   your module becomes a first-class kernel feature.
+#
+#   tristate: can be built as =y (built-in), =m (module), or =n (disabled)
+#   bool:     only =y or =n
+#   default:  default value if not configured
+
+config SECURITY_GUARDIAN
+	tristate "Guardian LSM (educational security module)"
+	depends on SECURITY
+	select SECURITYFS
+	default n
+	help
+	  This enables the Guardian Linux Security Module, a demonstration
+	  LSM that audits file opens, blocks file creation in /tmp by
+	  non-root processes, and audits privilege escalation.
+
+	  This module is for educational purposes. For production systems,
+	  consider SELinux, AppArmor, or SMACK.
+
+	  If unsure, say N.

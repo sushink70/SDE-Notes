@@ -1,0 +1,31 @@
+# Paste this block into security/Kconfig (after the AppArmor stanza, for example).
+#
+# For the LSM ordering stanza in security/Kconfig (CONFIG_LSM default):
+#   default "lockdown,yama,loadpin,safesetid,smack,selinux,tomoyo,apparmor,bpf,sentinel"
+
+config SECURITY_SENTINEL
+	bool "Sentinel Linux Security Module"
+	depends on SECURITY
+	default n
+	help
+	  This enables the Sentinel LSM, a stacked security module that
+	  provides:
+	    - Path-prefix deny-list for file_open
+	    - Setuid-exec blocking for non-root processes
+	    - Outbound RFC-1918 socket_connect blocking for non-root
+
+	  It stacks on top of SELinux/AppArmor and does not replace them.
+	  Policy is exposed via /proc/sentinel and (optionally) securityfs.
+
+	  If unsure, say N.
+
+config SECURITY_SENTINEL_RUST
+	bool "Sentinel LSM — Rust implementation"
+	depends on SECURITY_SENTINEL && RUST
+	default n
+	help
+	  Enables the Rust companion module for Sentinel.  This demonstrates
+	  rust-for-linux patterns and the RFC-1918 classifier in safe Rust.
+
+	  Requires CONFIG_RUST=y and a compatible Rust toolchain.
+	  If unsure, say N.
