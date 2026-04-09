@@ -1,0 +1,25 @@
+# Kconfig — place in drivers/net/edu_net/Kconfig
+#
+# Kernel configuration for the educational net subsystem module.
+# Follows the conventions in Documentation/kbuild/kconfig-language.rst
+
+config EDU_NET
+	tristate "Educational virtual NIC (C implementation)"
+	depends on NET && NETDEVICES && ETHERNET
+	select NETDEV_LEGACY_INIT
+	help
+	  A minimal virtual Ethernet NIC for studying the Linux kernel
+	  network subsystem. Demonstrates: alloc_netdev, net_device_ops,
+	  sk_buff lifecycle, NAPI polling, per-CPU stats (u64_stats_sync),
+	  and ethtool_ops.
+
+	  If unsure, say N. Build as module (M) for easier iteration.
+
+config EDU_NET_RS
+	tristate "Educational virtual NIC (Rust implementation)"
+	depends on NET && NETDEVICES && RUST
+	help
+	  Rust version of EDU_NET. Requires CONFIG_RUST=y and a kernel
+	  built with the Rust toolchain (rustup + bindgen ≥ 0.65).
+
+	  If unsure, say N.
