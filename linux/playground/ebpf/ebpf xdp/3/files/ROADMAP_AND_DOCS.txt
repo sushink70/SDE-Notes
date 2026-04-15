@@ -1,0 +1,321 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║          ELITE LINUX KERNEL DEVELOPER ROADMAP                              ║
+║          eBPF / XDP Security Subsystem Deep Reference                      ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ OFFICIAL DOCUMENTATION — READ IN THIS ORDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TIER 1 — Kernel Tree Documentation (Source of Truth)
+──────────────────────────────────────────────────────
+1.  linux/Documentation/bpf/
+    ├── bpf_design_QA.rst      — WHY certain BPF design decisions were made
+    ├── bpf_devel_QA.rst       — Kernel developer FAQ
+    ├── btf.rst                — BPF Type Format (BTF) spec
+    ├── ringbuf.rst            — Ring buffer map (modern replacement for perf)
+    ├── verifier.rst           — How the BPF verifier works (CRITICAL READ)
+    ├── map_in_map.rst         — Nested maps
+    └── prog_cgroup_skb.rst    — Cgroup BPF programs
+
+2.  linux/Documentation/networking/
+    ├── xdp-rx-metadata.rst    — XDP hardware metadata
+    ├── af_xdp.rst             — AF_XDP sockets (zero-copy userspace)
+    ├── packet_mmap.txt        — Packet capture without copies
+    └── filter.txt             — Classic BPF (precursor to eBPF)
+
+3.  linux/include/uapi/linux/bpf.h
+    — THE authoritative header. Every BPF program type, map type,
+      helper function, and return code is defined here with comments.
+
+4.  linux/include/linux/bpf.h
+    — Internal kernel BPF structures (not exposed to userspace).
+
+5.  linux/net/core/filter.c
+    — BPF filter core implementation. Read to understand sk_filter,
+      SKB manipulation, and how BPF programs are called.
+
+6.  linux/kernel/bpf/verifier.c
+    — The verifier itself. Understanding this is the difference between
+      a BPF user and a BPF expert. ~14,000 lines of state-machine code.
+
+7.  linux/kernel/bpf/core.c
+    — BPF interpreter and JIT compilation interface.
+
+8.  linux/drivers/net/ethernet/*/
+    — XDP driver support. E.g., intel/ixgbe/ixgbe_main.c has XDP hooks.
+      Real XDP_TX and XDP_REDIRECT require driver-level support.
+
+TIER 2 — External Official Documentation
+──────────────────────────────────────────
+9.  https://docs.kernel.org/bpf/
+    — Rendered kernel BPF docs (same as above, web format)
+
+10. https://libbpf.readthedocs.io/
+    — libbpf API reference. Every function explained.
+
+11. https://aya-rs.dev/book/
+    — Aya Rust BPF framework book (best Rust BPF resource)
+
+12. https://prototype-kernel.readthedocs.io/en/latest/networking/XDP/
+    — XDP architecture deep dive
+
+13. https://www.kernel.org/doc/html/latest/networking/af_xdp.html
+    — AF_XDP sockets for zero-copy packet processing
+
+14. https://ebpf.io/
+    — Community hub, tutorials, landscape
+
+TIER 3 — Source Code References
+──────────────────────────────────
+15. linux/samples/bpf/
+    — Official BPF sample programs (xdp*.c files especially)
+
+16. linux/tools/testing/selftests/bpf/
+    — BPF kernel self-tests. Study these to learn testing patterns.
+
+17. https://github.com/xdp-project/xdp-tutorial
+    — Step-by-step XDP tutorial with exercises (BEST PRACTICAL GUIDE)
+
+18. https://github.com/cilium/ebpf
+    — Go eBPF library — study for alternative API design patterns
+
+19. https://github.com/libbpf/libbpf-bootstrap
+    — Template project for new BPF programs
+
+20. linux/tools/lib/bpf/
+    — libbpf source. Read when you hit cryptic errors.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ HOW A KERNEL DEVELOPER THINKS — THE MENTAL WORKFLOW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Before writing a single line of code, a kernel developer asks:
+
+  1. WHERE does this fit in the kernel?
+     "Is this XDP (driver level), TC (traffic control), or socket filter?"
+     Wrong layer = 10x more complexity for 0.1x the performance benefit.
+
+  2. WHAT are the constraints?
+     "No dynamic memory allocation in BPF hot path.
+      Bounded loops only. Max 1M instructions. No sleeping.
+      Stack limit: 512 bytes. Maps for persistent state."
+
+  3. HOW does the verifier see this?
+     "Will my pointer arithmetic convince the verifier that this is safe?
+      Every if-branch is a separate verifier state to track."
+
+  4. WHAT is the data flow?
+     "Packet arrives → driver DMA ring → XDP hook → [my code] →
+      decision → kernel stack or drop"
+
+  5. HOW do I test without crashing the kernel?
+     "Use a VM. Use network namespaces. Use veth pairs.
+      Never test XDP on your only SSH interface."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ CONTRIBUTING TO LINUS'S TREE — THE EXACT PROCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Linus's tree: https://github.com/torvalds/linux
+
+Step 1: Find the right maintainer
+  $ cat linux/MAINTAINERS | grep -A 10 "BPF"
+  → Shows: Alexei Starovoitov, Daniel Borkmann (BPF maintainers)
+  → Shows: Jesper Dangaard Brouer, Toke Høiland-Jørgensen (XDP)
+
+Step 2: Read the contribution guide
+  linux/Documentation/process/submitting-patches.rst   ← MANDATORY READ
+  linux/Documentation/process/coding-style.rst         ← MANDATORY READ
+  linux/Documentation/process/email-clients.rst        ← Configure git send-email
+
+Step 3: Subscribe to mailing lists
+  netdev@vger.kernel.org        — networking patches
+  bpf@vger.kernel.org           — BPF patches
+  https://patchwork.kernel.org/ — track patch status
+
+Step 4: Clone the BPF development tree (not Linus's)
+  git clone https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git
+
+Step 5: Make your changes following kernel style
+  - No trailing whitespace
+  - 80-char line limit (soft) / 100-char (hard)
+  - struct initialization: .field = value (C99 designated initializers)
+  - Use kernel types: __u32 not uint32_t, __be16 not uint16_t
+
+Step 6: Write the commit message
+  Subject: bpf: xdp: Add rate limiting to security subsystem
+
+  First paragraph: what the patch does and why.
+  Second paragraph: implementation details.
+  Third paragraph: testing done.
+
+  Signed-off-by: Your Name <email@domain.com>
+
+Step 7: Run kernel's own checkers
+  $ ./scripts/checkpatch.pl --strict your.patch
+  $ ./scripts/checkpatch.pl --codestyle your.patch
+  $ make C=1 CHECK=sparse net/core/filter.o  # sparse static analysis
+  $ make W=1 net/core/filter.o               # enable extra warnings
+
+Step 8: Run BPF selftests
+  $ cd tools/testing/selftests/bpf
+  $ make
+  $ sudo ./test_progs -t xdp
+
+Step 9: Send via email (NOT GitHub PR)
+  $ git send-email --to=bpf@vger.kernel.org \
+                   --cc=netdev@vger.kernel.org \
+                   --cc=ast@kernel.org \        # Alexei
+                   --cc=daniel@iogearbox.net \   # Daniel
+                   your.patch
+
+Step 10: Respond to review comments
+  - Reply inline to each comment (quote the comment, reply below)
+  - Every iteration: "v2:" prefix in subject, add changelog at bottom
+  - Be patient: BPF patches get 3-10 revision cycles typically
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TESTING INFRASTRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SAFE TEST ENVIRONMENT SETUP:
+  # Create a network namespace (isolated network stack)
+  sudo ip netns add testns
+
+  # Create a veth pair (virtual Ethernet cable between namespaces)
+  sudo ip link add veth0 type veth peer name veth1
+  sudo ip link set veth1 netns testns
+
+  # Configure both ends
+  sudo ip addr add 10.0.0.1/24 dev veth0
+  sudo ip link set veth0 up
+  sudo ip netns exec testns ip addr add 10.0.0.2/24 dev veth1
+  sudo ip netns exec testns ip link set veth1 up
+
+  # Load XDP on veth0 (safe — in isolated namespace)
+  sudo ./xdp_loader veth0 --mode skb
+
+  # Test from the other namespace
+  sudo ip netns exec testns ping 10.0.0.1
+
+PACKET GENERATION TOOLS:
+  hping3   : Low-level packet generator (SYN floods, custom flags)
+  scapy    : Python packet crafting (most flexible)
+  pktgen   : Kernel's built-in packet generator (highest rate)
+  iperf3   : TCP/UDP bandwidth testing
+  wrk      : HTTP load testing
+
+SYN FLOOD TEST (safe, to your own veth):
+  sudo hping3 -S -p 80 --flood 10.0.0.1
+
+CLEANUP:
+  sudo ip netns del testns
+  sudo ip link del veth0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ ELITE DEVELOPER ROADMAP (12-24 months)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase 0 — Foundation (Months 1-2)
+  □ Read: Understanding the Linux Kernel (Bovet & Cesati, 3rd ed.)
+  □ Read: Linux Kernel Development (Love, 3rd ed.) — Ch. 1-9
+  □ Build a custom kernel from source
+  □ Write and load a minimal kernel module (hello world)
+  □ Study: linux/kernel/module/ — how modules work
+  □ Master: GCC, make, Kconfig, Kbuild system
+
+Phase 1 — BPF Fundamentals (Months 2-4)
+  □ Read: linux/Documentation/bpf/ entirely
+  □ Complete: https://github.com/xdp-project/xdp-tutorial ALL exercises
+  □ Write: socket filter BPF program (simplest BPF type)
+  □ Write: tracepoint BPF program (observability)
+  □ Write: kprobe BPF program (hook any kernel function)
+  □ Master: bpftool, bpf() syscall, verifier error messages
+  □ Read: linux/kernel/bpf/verifier.c (first 500 lines)
+
+Phase 2 — XDP and Networking (Months 4-6)
+  □ Read: linux/Documentation/networking/ entirely
+  □ Write: XDP packet counter (this codebase)
+  □ Write: XDP load balancer (ECMP hashing)
+  □ Write: XDP DDoS mitigation system (this codebase extended)
+  □ Study: linux/net/core/dev.c — network device layer
+  □ Study: linux/net/core/filter.c — BPF + networking intersection
+  □ Write: TC (Traffic Control) BPF classifier
+  □ Implement: AF_XDP zero-copy packet processing
+
+Phase 3 — Advanced BPF (Months 6-9)
+  □ Master: CO-RE (Compile Once, Run Everywhere) with BTF
+  □ Write: BPF ring buffer consumer (modern perf alternative)
+  □ Implement: BPF-LSM (Linux Security Module via BPF)
+  □ Study: linux/security/bpf/ — BPF security hooks
+  □ Write: BPF iterator (walk kernel data structures)
+  □ Master: BPF map-in-map (nested maps for complex data)
+  □ Study: BPF program linking (bpf_link API)
+  □ Implement: BPF struct_ops (override kernel struct function pointers)
+
+Phase 4 — Kernel Subsystem Contribution (Months 9-15)
+  □ Fix a real bug in BPF selftests (easy first patch)
+  □ Add documentation to linux/Documentation/bpf/
+  □ Send first patch to bpf@vger.kernel.org
+  □ Survive review from Alexei/Daniel (they are thorough)
+  □ Get patch merged into bpf-next tree
+  □ Repeat 10x
+
+Phase 5 — Elite Territory (Months 15-24)
+  □ Implement new BPF helper function
+  □ Add new XDP feature to a NIC driver
+  □ Implement new BPF map type
+  □ Propose new BPF program type (via RFC patch)
+  □ Review others' patches on mailing list
+  □ Speak at Linux Plumbers Conference or Netdev conference
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ KEY KERNEL DATA STRUCTURES TO MASTER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+struct sk_buff (skb)    — Socket buffer. Represents a network packet in kernel.
+                          Every field is battle-tested over 30 years.
+                          File: include/linux/skbuff.h (read every field comment)
+
+struct xdp_md           — XDP metadata context passed to XDP programs.
+                          File: include/uapi/linux/bpf.h
+
+struct bpf_map          — In-kernel BPF map representation.
+                          File: include/linux/bpf.h
+
+struct bpf_prog         — In-kernel BPF program representation.
+                          File: include/linux/filter.h
+
+struct net_device       — Network interface card abstraction.
+                          File: include/linux/netdevice.h
+
+struct sock             — Socket abstraction (generic).
+                          File: include/linux/sock.h
+
+struct bpf_verifier_env — Verifier state machine.
+                          File: kernel/bpf/verifier.c
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ CONFERENCES AND COMMUNITY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Linux Plumbers Conference (LPC)     — Annual, BPF microconference
+Netdev Conference                   — Annual, networking focused
+FOSDEM                              — Annual, many kernel talks
+eBPF Summit                         — Annual, eBPF focused
+
+IRC: #bpf on irc.libera.chat
+Slack: https://ebpf.io/slack
+Mailing: bpf@vger.kernel.org
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ BOOKS (ORDERED BY PRIORITY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. "Learning eBPF" — Liz Rice (O'Reilly, 2023) ← START HERE
+2. "Linux Observability with BPF" — Calavera & Fontana (O'Reilly, 2019)
+3. "BPF Performance Tools" — Brendan Gregg (Addison-Wesley, 2019)
+4. "Linux Kernel Development" — Robert Love (Addison-Wesley, 3rd ed.)
+5. "Understanding the Linux Kernel" — Bovet & Cesati (O'Reilly, 3rd ed.)
+6. "Linux Device Drivers" — Corbet, Rubini, Hartman (O'Reilly, 3rd ed.) ← FREE online

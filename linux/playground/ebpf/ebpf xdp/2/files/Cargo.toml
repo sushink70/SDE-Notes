@@ -1,0 +1,100 @@
+# Workspace Cargo.toml — root of the aya BPF project
+# Project layout:
+#   ebpf-prog/   — BPF kernel-side program (no_std, bpf target)
+#   userspace/   — Host binary (std, native target)
+#   xtask/       — Build automation (generates BPF object, skeleton)
+#
+# Build commands:
+#   # Install prerequisites:
+#   rustup target add bpfel-unknown-none bpfeb-unknown-none
+#   cargo install bpf-linker       # aya's BPF linker (wraps llvm)
+#   cargo install aya-tool         # generates Rust BTF bindings
+#
+#   # Generate kernel type bindings from running kernel:
+#   aya-tool generate linux_binprm file inode super_block task_struct cred \
+#     > ebpf-prog/src/bindings.rs
+#
+#   # Build BPF program (requires nightly for build-std):
+#   cargo +nightly build \
+#     --package ebpf-prog \
+#     --target bpfel-unknown-none \
+#     -Z build-std=core
+#
+#   # Build userspace:
+#   cargo build --package userspace --release
+#
+#   # Or use xtask (recommended):
+#   cargo xtask build
+
+[workspace]
+members = [
+    "ebpf-prog",
+    "userspace",
+    # "xtask",    # uncomment when xtask crate added
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Shared version pins across workspace members
+aya-bpf = { version = "0.1" }
+aya-log-ebpf = { version = "0.1" }
+
+---
+# ebpf-prog/Cargo.toml — BPF kernel-side crate
+[package]
+name = "ebpf-prog"
+version = "0.1.0"
+edition = "2021"
+
+# BPF programs must be compiled as a standalone binary (no_std, no main runtime)
+[[bin]]
+name = "ebpf-prog"
+path = "src/main.rs"
+
+[dependencies]
+# aya-bpf: BPF helper wrappers, map types, program macros
+aya-bpf = { version = "0.1", features = ["ring-buf"] }
+# aya-log-ebpf: bpf_printk! bridge (structured logging from BPF)
+aya-log-ebpf = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = true         # cross-crate LTO for smaller BPF objects
+panic = "abort"    # no_std: panic = abort required
+
+---
+# userspace/Cargo.toml — host userspace crate
+[package]
+name = "userspace"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "security-monitor"
+path = "src/main.rs"
+
+[dependencies]
+# aya: userspace BPF management (load, attach, map access)
+aya = { version = "0.12", features = ["async_tokio"] }
+# aya-log: bridges BPF printk log to tracing/env_logger
+aya-log = "0.2"
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+# Error handling
+anyhow = "1"
+thiserror = "1"
+# CLI
+clap = { version = "4", features = ["derive"] }
+# Logging
+log = "0.4"
+env_logger = "0.11"
+# Byte order (for cross-endian BPF)
+bytes = "1"
+
+[build-dependencies]
+# Include BPF object bytes at compile time (include_bytes_aligned!)
+# The build script compiles ebpf-prog and makes the object available.
+
+[profile.release]
+opt-level = 3
+strip = true    # strip debug from production binary (keeps BPF debug info in object)
