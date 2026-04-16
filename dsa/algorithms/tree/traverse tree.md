@@ -1999,3 +1999,67 @@ The guide builds from absolute zero — node anatomy, terminology (depth vs heig
 6. **Complexity table + problem-to-traversal mapping** — use this as your lookup when you see a new problem.
 
 **Next depth to go:** When you're ready, the natural next step is applying these traversals to solve BST problems (validation, LCA, kth smallest), then expression trees, then serialization/deserialization — which combines preorder + BFS.
+
+## Trace Analysis: Inserting 65 into BST
+
+Assuming the tree structure:
+```
+        50
+       /  \
+      ...   70
+           /
+          60
+```
+
+Your comments are **correct**. :
+
+---
+
+### Step 1 ✅
+```python
+else:  # execute 65 > 50  ✓
+    root.right = insert(root.right, val)  # passes node(70) → 70 will be reassigned ✓
+return root
+```
+
+### Step 2 ✅
+```python
+# step 2: root.right (node 70) and val=65 passed here ✓
+if val < root.val:  # execute 65 < 70 ✓
+    root.left = insert(root.left, val)  # passes node(60) → 60 will be reassigned ✓
+```
+
+### Step 3 ✅
+```python
+# step 3: root.left (node 60) and val=65 passed here ✓
+else:  # execute 65 > 60 ✓
+    root.right = insert(root.right, val)  # passes None → TreeNode(65) assigned here ✓
+return root  # returns node(60) ✓
+```
+
+### Step 4 ✅ 
+```python
+# step 4: root.right (None) and val=65 passed here ✓
+if root is None:  # executes ✓
+    return TreeNode(val)  # 65 node created ✓
+
+```
+
+---
+
+### The Fix
+
+`return root` at the bottom of Step 4 **is never executed** — the function exits early at `return TreeNode(val)`. The correct comment:
+
+```python
+return TreeNode(val)  # exits here, returns new node(65)
+return root           # unreachable in this execution path
+```
+
+### Unwind Summary
+```
+Step 4: return TreeNode(65)
+Step 3: node60.right = TreeNode(65), return node(60)
+Step 2: node70.left  = node(60),     return node(70)
+Step 1: node50.right = node(70),     return node(50)
+```
