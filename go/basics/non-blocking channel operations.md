@@ -1,478 +1,3 @@
-package main
-
-import (
-	"fmt"
-	"time"
-)
-
-// ============================================================================
-// PART 1: BLOCKING vs NON-BLOCKING OPERATIONS
-// ============================================================================
-
-// Example 1: Blocking Send Operation (WITHOUT select)
-func blockingSend() {
-	fmt.Println("\n=== Example 1: BLOCKING SEND ===")
-	ch := make(chan string) // Unbuffered channel
-
-	// This will BLOCK forever because no one is receiving
-	// Uncomment to see deadlock:
-	// ch <- "message" // DEADLOCK! Program hangs here
-
-	fmt.Println("This line is never reached")
-	close(ch)
-}
-
-// Example 2: Non-Blocking Send Operation (WITH select)
-func nonBlockingSend() {
-	fmt.Println("\n=== Example 2: NON-BLOCKING SEND ===")
-	ch := make(chan string)
-
-	select {
-	case ch <- "message":
-		fmt.Println("Message sent successfully")
-	default:
-		fmt.Println("Cannot send - channel not ready (no receiver)")
-	}
-	close(ch)
-}
-
-// ============================================================================
-// PART 2: BLOCKING vs NON-BLOCKING RECEIVE
-// ============================================================================
-
-// Example 3: Blocking Receive (WITHOUT select)
-func blockingReceive() {
-	fmt.Println("\n=== Example 3: BLOCKING RECEIVE ===")
-	ch := make(chan string)
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		ch <- "delayed message"
-	}()
-
-	fmt.Println("Waiting for message (BLOCKING)...")
-	msg := <-ch // This BLOCKS until message arrives
-	fmt.Println("Received:", msg)
-}
-
-// Example 4: Non-Blocking Receive (WITH select)
-func nonBlockingReceive() {
-	fmt.Println("\n=== Example 4: NON-BLOCKING RECEIVE ===")
-	ch := make(chan string)
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		ch <- "delayed message"
-	}()
-
-	select {
-	case msg := <-ch:
-		fmt.Println("Received immediately:", msg)
-	default:
-		fmt.Println("No message available right now")
-	}
-}
-
-// ============================================================================
-// PART 3: COMMON ERRORS AND WARNINGS
-// ============================================================================
-
-// ERROR Example 1: Deadlock with blocking operations
-func deadlockExample() {
-	fmt.Println("\n=== ERROR EXAMPLE: DEADLOCK ===")
-	ch := make(chan int)
-
-	// INCORRECT: This causes deadlock
-	// ch <- 42 // No receiver, program hangs
-	// value := <-ch
-
-	// CORRECT: Use goroutine or non-blocking
-	go func() {
-		ch <- 42
-	}()
-	value := <-ch
-	fmt.Println("Received:", value)
-}
-
-// ERROR Example 2: Sending to closed channel (PANIC)
-func sendToClosedChannel() {
-	fmt.Println("\n=== ERROR EXAMPLE: SEND TO CLOSED CHANNEL ===")
-	ch := make(chan int, 1)
-	close(ch)
-
-	// INCORRECT: This causes panic
-	// ch <- 42 // panic: send on closed channel
-
-	// CORRECT: Check before sending
-	select {
-	case ch <- 42:
-		fmt.Println("Sent successfully")
-	default:
-		fmt.Println("Cannot send - channel might be closed")
-	}
-}
-
-// WARNING Example: Race condition without proper synchronization
-func raceConditionWarning() {
-	fmt.Println("\n=== WARNING EXAMPLE: RACE CONDITIONS ===")
-	ch := make(chan int, 1)
-
-	// Multiple goroutines trying to send
-	for i := 0; i < 5; i++ {
-		go func(val int) {
-			select {
-			case ch <- val:
-				fmt.Printf("Goroutine %d sent value\n", val)
-			default:
-				fmt.Printf("Goroutine %d couldn't send (buffer full)\n", val)
-			}
-		}(i)
-	}
-
-	time.Sleep(100 * time.Millisecond)
-	fmt.Println("Received:", <-ch)
-}
-
-// ============================================================================
-// PART 4: CORRECT USAGE PATTERNS
-// ============================================================================
-
-// Pattern 1: Timeout with select
-func timeoutPattern() {
-	fmt.Println("\n=== PATTERN 1: TIMEOUT ===")
-	ch := make(chan string)
-
-	go func() {
-		time.Sleep(3 * time.Second)
-		ch <- "data"
-	}()
-
-	select {
-	case msg := <-ch:
-		fmt.Println("Received:", msg)
-	case <-time.After(1 * time.Second):
-		fmt.Println("Timeout: operation took too long")
-	}
-}
-
-// Pattern 2: Multiple channel operations
-func multipleChannelPattern() {
-	fmt.Println("\n=== PATTERN 2: MULTIPLE CHANNELS ===")
-	ch1 := make(chan string)
-	ch2 := make(chan string)
-
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		ch1 <- "from channel 1"
-	}()
-
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		ch2 <- "from channel 2"
-	}()
-
-	// Non-blocking select on multiple channels
-	for i := 0; i < 2; i++ {
-		select {
-		case msg1 := <-ch1:
-			fmt.Println("Ch1:", msg1)
-		case msg2 := <-ch2:
-			fmt.Println("Ch2:", msg2)
-		}
-	}
-}
-
-// Pattern 3: Try-send pattern
-func trySendPattern() {
-	fmt.Println("\n=== PATTERN 3: TRY-SEND ===")
-	ch := make(chan int, 2)
-
-	// Fill the buffer
-	ch <- 1
-	ch <- 2
-
-	// Try to send without blocking
-	for i := 3; i <= 5; i++ {
-		select {
-		case ch <- i:
-			fmt.Printf("Successfully sent %d\n", i)
-		default:
-			fmt.Printf("Buffer full, cannot send %d\n", i)
-		}
-	}
-
-	// Drain the channel
-	close(ch)
-	for val := range ch {
-		fmt.Println("Received:", val)
-	}
-}
-
-// Pattern 4: Try-receive pattern
-func tryReceivePattern() {
-	fmt.Println("\n=== PATTERN 4: TRY-RECEIVE ===")
-	ch := make(chan int, 3)
-
-	// Send some values
-	ch <- 10
-	ch <- 20
-	close(ch)
-
-	// Try to receive all values
-	for {
-		select {
-		case val, ok := <-ch:
-			if !ok {
-				fmt.Println("Channel closed")
-				return
-			}
-			fmt.Println("Received:", val)
-		default:
-			fmt.Println("No more values available")
-			return
-		}
-	}
-}
-
-// ============================================================================
-// PART 5: INCORRECT USAGE PATTERNS
-// ============================================================================
-
-// INCORRECT: Busy waiting (CPU intensive)
-func incorrectBusyWaiting() {
-	fmt.Println("\n=== INCORRECT: BUSY WAITING ===")
-	ch := make(chan int)
-
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		ch <- 42
-	}()
-
-	// BAD: Burns CPU cycles
-	received := false
-	for !received {
-		select {
-		case val := <-ch:
-			fmt.Println("Received:", val)
-			received = true
-		default:
-			// Spinning in tight loop - wastes CPU!
-		}
-	}
-}
-
-// CORRECT: Use blocking receive when appropriate
-func correctBlocking() {
-	fmt.Println("\n=== CORRECT: USE BLOCKING WHEN APPROPRIATE ===")
-	ch := make(chan int)
-
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		ch <- 42
-	}()
-
-	// GOOD: Let the scheduler handle waiting
-	val := <-ch
-	fmt.Println("Received:", val)
-}
-
-// ============================================================================
-// PART 6: BENEFITS DEMONSTRATION
-// ============================================================================
-
-// Benefit 1: Responsive systems
-func responsiveSystem() {
-	fmt.Println("\n=== BENEFIT 1: RESPONSIVE SYSTEMS ===")
-	dataCh := make(chan string)
-	cancelCh := make(chan bool)
-
-	go func() {
-		time.Sleep(5 * time.Second)
-		dataCh <- "slow operation result"
-	}()
-
-	// Simulate user cancellation after 1 second
-	go func() {
-		time.Sleep(1 * time.Second)
-		cancelCh <- true
-	}()
-
-	select {
-	case data := <-dataCh:
-		fmt.Println("Completed:", data)
-	case <-cancelCh:
-		fmt.Println("User cancelled operation")
-	}
-}
-
-// Benefit 2: Resource management
-func resourceManagement() {
-	fmt.Println("\n=== BENEFIT 2: RESOURCE MANAGEMENT ===")
-	semaphore := make(chan struct{}, 3) // Max 3 concurrent operations
-
-	for i := 0; i < 10; i++ {
-		// Non-blocking attempt to acquire resource
-		select {
-		case semaphore <- struct{}{}:
-			go func(id int) {
-				defer func() { <-semaphore }()
-				fmt.Printf("Worker %d processing\n", id)
-				time.Sleep(100 * time.Millisecond)
-			}(i)
-		default:
-			fmt.Printf("Worker %d: all resources busy, skipping\n", i)
-		}
-	}
-
-	time.Sleep(500 * time.Millisecond)
-}
-
-// Benefit 3: Graceful degradation
-func gracefulDegradation() {
-	fmt.Println("\n=== BENEFIT 3: GRACEFUL DEGRADATION ===")
-	cacheCh := make(chan string, 1)
-
-	// Try cache first
-	select {
-	case data := <-cacheCh:
-		fmt.Println("Cache hit:", data)
-	default:
-		fmt.Println("Cache miss - fetching from database (fallback)")
-		// Fallback to database
-	}
-}
-
-// ============================================================================
-// PART 7: CONTROL FLOW COMPARISON
-// ============================================================================
-
-// Without non-blocking: Simple but inflexible
-func withoutNonBlocking() {
-	fmt.Println("\n=== WITHOUT NON-BLOCKING ===")
-	ch := make(chan int)
-
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		ch <- 42
-	}()
-
-	fmt.Println("Waiting... (no control)")
-	result := <-ch // Must wait, no alternatives
-	fmt.Println("Result:", result)
-}
-
-// With non-blocking: Complex but flexible
-func withNonBlocking() {
-	fmt.Println("\n=== WITH NON-BLOCKING ===")
-	ch := make(chan int)
-	attempts := 0
-
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		ch <- 42
-	}()
-
-	// Can check multiple times, do other work, etc.
-	for attempts < 5 {
-		select {
-		case result := <-ch:
-			fmt.Printf("Result received after %d attempts: %d\n", attempts+1, result)
-			return
-		default:
-			attempts++
-			fmt.Printf("Attempt %d: not ready yet, doing other work...\n", attempts)
-			time.Sleep(50 * time.Millisecond)
-		}
-	}
-	fmt.Println("Gave up after", attempts, "attempts")
-}
-
-// ============================================================================
-// PART 8: REAL-WORLD USE CASE
-// ============================================================================
-
-// Complete example: HTTP request with timeout and cancellation
-func httpRequestSimulation() {
-	fmt.Println("\n=== REAL-WORLD: HTTP REQUEST SIMULATION ===")
-
-	resultCh := make(chan string)
-	errorCh := make(chan error)
-	cancelCh := make(chan struct{})
-
-	// Simulate API call
-	go func() {
-		select {
-		case <-cancelCh:
-			errorCh <- fmt.Errorf("request cancelled")
-			return
-		case <-time.After(3 * time.Second):
-			resultCh <- "API Response Data"
-		}
-	}()
-
-	// Simulate user cancellation after 1 second
-	go func() {
-		time.Sleep(1 * time.Second)
-		close(cancelCh)
-	}()
-
-	// Handle result with timeout
-	select {
-	case result := <-resultCh:
-		fmt.Println("Success:", result)
-	case err := <-errorCh:
-		fmt.Println("Error:", err)
-	case <-time.After(2 * time.Second):
-		fmt.Println("Timeout: request took too long")
-		close(cancelCh) // Cancel the ongoing operation
-	}
-}
-
-// ============================================================================
-// MAIN FUNCTION - RUN ALL EXAMPLES
-// ============================================================================
-
-func main() {
-	fmt.Println("GO NON-BLOCKING CHANNEL OPERATIONS - COMPREHENSIVE GUIDE")
-	fmt.Println("=" + string(make([]byte, 60)) + "=")
-
-	// Part 1: Blocking vs Non-blocking
-	// blockingSend() // Uncomment to see deadlock
-	nonBlockingSend()
-	blockingReceive()
-	nonBlockingReceive()
-
-	// Part 2: Errors and Warnings
-	deadlockExample()
-	sendToClosedChannel()
-	raceConditionWarning()
-
-	// Part 3: Correct Patterns
-	timeoutPattern()
-	multipleChannelPattern()
-	trySendPattern()
-	tryReceivePattern()
-
-	// Part 4: Incorrect vs Correct
-	incorrectBusyWaiting()
-	correctBlocking()
-
-	// Part 5: Benefits
-	responsiveSystem()
-	resourceManagement()
-	gracefulDegradation()
-
-	// Part 6: Control Flow
-	withoutNonBlocking()
-	withNonBlocking()
-
-	// Part 7: Real-world
-	httpRequestSimulation()
-
-	fmt.Println("\n" + string(make([]byte, 60)) + "=")
-	fmt.Println("All examples completed!")
-}
-
 # Non-Blocking Channel Operations in Go - Complete Guide
 
 ## Table of Contents
@@ -1589,3 +1114,481 @@ I'll create a comprehensive ASCII diagram showing Non-Blocking Channel Operation
 6. **Complete Timeline Example**: A producer-consumer pattern showing the entire execution flow with memory states and goroutine states at each time point
 
 Each section includes memory diagrams showing exactly where data lives (stack vs heap) and how it moves through the system. This should give you a complete understanding of how Go's channels work under the hood!
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+// ============================================================================
+// PART 1: BLOCKING vs NON-BLOCKING OPERATIONS
+// ============================================================================
+
+// Example 1: Blocking Send Operation (WITHOUT select)
+func blockingSend() {
+	fmt.Println("\n=== Example 1: BLOCKING SEND ===")
+	ch := make(chan string) // Unbuffered channel
+
+	// This will BLOCK forever because no one is receiving
+	// Uncomment to see deadlock:
+	// ch <- "message" // DEADLOCK! Program hangs here
+
+	fmt.Println("This line is never reached")
+	close(ch)
+}
+
+// Example 2: Non-Blocking Send Operation (WITH select)
+func nonBlockingSend() {
+	fmt.Println("\n=== Example 2: NON-BLOCKING SEND ===")
+	ch := make(chan string)
+
+	select {
+	case ch <- "message":
+		fmt.Println("Message sent successfully")
+	default:
+		fmt.Println("Cannot send - channel not ready (no receiver)")
+	}
+	close(ch)
+}
+
+// ============================================================================
+// PART 2: BLOCKING vs NON-BLOCKING RECEIVE
+// ============================================================================
+
+// Example 3: Blocking Receive (WITHOUT select)
+func blockingReceive() {
+	fmt.Println("\n=== Example 3: BLOCKING RECEIVE ===")
+	ch := make(chan string)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		ch <- "delayed message"
+	}()
+
+	fmt.Println("Waiting for message (BLOCKING)...")
+	msg := <-ch // This BLOCKS until message arrives
+	fmt.Println("Received:", msg)
+}
+
+// Example 4: Non-Blocking Receive (WITH select)
+func nonBlockingReceive() {
+	fmt.Println("\n=== Example 4: NON-BLOCKING RECEIVE ===")
+	ch := make(chan string)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		ch <- "delayed message"
+	}()
+
+	select {
+	case msg := <-ch:
+		fmt.Println("Received immediately:", msg)
+	default:
+		fmt.Println("No message available right now")
+	}
+}
+
+// ============================================================================
+// PART 3: COMMON ERRORS AND WARNINGS
+// ============================================================================
+
+// ERROR Example 1: Deadlock with blocking operations
+func deadlockExample() {
+	fmt.Println("\n=== ERROR EXAMPLE: DEADLOCK ===")
+	ch := make(chan int)
+
+	// INCORRECT: This causes deadlock
+	// ch <- 42 // No receiver, program hangs
+	// value := <-ch
+
+	// CORRECT: Use goroutine or non-blocking
+	go func() {
+		ch <- 42
+	}()
+	value := <-ch
+	fmt.Println("Received:", value)
+}
+
+// ERROR Example 2: Sending to closed channel (PANIC)
+func sendToClosedChannel() {
+	fmt.Println("\n=== ERROR EXAMPLE: SEND TO CLOSED CHANNEL ===")
+	ch := make(chan int, 1)
+	close(ch)
+
+	// INCORRECT: This causes panic
+	// ch <- 42 // panic: send on closed channel
+
+	// CORRECT: Check before sending
+	select {
+	case ch <- 42:
+		fmt.Println("Sent successfully")
+	default:
+		fmt.Println("Cannot send - channel might be closed")
+	}
+}
+
+// WARNING Example: Race condition without proper synchronization
+func raceConditionWarning() {
+	fmt.Println("\n=== WARNING EXAMPLE: RACE CONDITIONS ===")
+	ch := make(chan int, 1)
+
+	// Multiple goroutines trying to send
+	for i := 0; i < 5; i++ {
+		go func(val int) {
+			select {
+			case ch <- val:
+				fmt.Printf("Goroutine %d sent value\n", val)
+			default:
+				fmt.Printf("Goroutine %d couldn't send (buffer full)\n", val)
+			}
+		}(i)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	fmt.Println("Received:", <-ch)
+}
+
+// ============================================================================
+// PART 4: CORRECT USAGE PATTERNS
+// ============================================================================
+
+// Pattern 1: Timeout with select
+func timeoutPattern() {
+	fmt.Println("\n=== PATTERN 1: TIMEOUT ===")
+	ch := make(chan string)
+
+	go func() {
+		time.Sleep(3 * time.Second)
+		ch <- "data"
+	}()
+
+	select {
+	case msg := <-ch:
+		fmt.Println("Received:", msg)
+	case <-time.After(1 * time.Second):
+		fmt.Println("Timeout: operation took too long")
+	}
+}
+
+// Pattern 2: Multiple channel operations
+func multipleChannelPattern() {
+	fmt.Println("\n=== PATTERN 2: MULTIPLE CHANNELS ===")
+	ch1 := make(chan string)
+	ch2 := make(chan string)
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		ch1 <- "from channel 1"
+	}()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		ch2 <- "from channel 2"
+	}()
+
+	// Non-blocking select on multiple channels
+	for i := 0; i < 2; i++ {
+		select {
+		case msg1 := <-ch1:
+			fmt.Println("Ch1:", msg1)
+		case msg2 := <-ch2:
+			fmt.Println("Ch2:", msg2)
+		}
+	}
+}
+
+// Pattern 3: Try-send pattern
+func trySendPattern() {
+	fmt.Println("\n=== PATTERN 3: TRY-SEND ===")
+	ch := make(chan int, 2)
+
+	// Fill the buffer
+	ch <- 1
+	ch <- 2
+
+	// Try to send without blocking
+	for i := 3; i <= 5; i++ {
+		select {
+		case ch <- i:
+			fmt.Printf("Successfully sent %d\n", i)
+		default:
+			fmt.Printf("Buffer full, cannot send %d\n", i)
+		}
+	}
+
+	// Drain the channel
+	close(ch)
+	for val := range ch {
+		fmt.Println("Received:", val)
+	}
+}
+
+// Pattern 4: Try-receive pattern
+func tryReceivePattern() {
+	fmt.Println("\n=== PATTERN 4: TRY-RECEIVE ===")
+	ch := make(chan int, 3)
+
+	// Send some values
+	ch <- 10
+	ch <- 20
+	close(ch)
+
+	// Try to receive all values
+	for {
+		select {
+		case val, ok := <-ch:
+			if !ok {
+				fmt.Println("Channel closed")
+				return
+			}
+			fmt.Println("Received:", val)
+		default:
+			fmt.Println("No more values available")
+			return
+		}
+	}
+}
+
+// ============================================================================
+// PART 5: INCORRECT USAGE PATTERNS
+// ============================================================================
+
+// INCORRECT: Busy waiting (CPU intensive)
+func incorrectBusyWaiting() {
+	fmt.Println("\n=== INCORRECT: BUSY WAITING ===")
+	ch := make(chan int)
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		ch <- 42
+	}()
+
+	// BAD: Burns CPU cycles
+	received := false
+	for !received {
+		select {
+		case val := <-ch:
+			fmt.Println("Received:", val)
+			received = true
+		default:
+			// Spinning in tight loop - wastes CPU!
+		}
+	}
+}
+
+// CORRECT: Use blocking receive when appropriate
+func correctBlocking() {
+	fmt.Println("\n=== CORRECT: USE BLOCKING WHEN APPROPRIATE ===")
+	ch := make(chan int)
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		ch <- 42
+	}()
+
+	// GOOD: Let the scheduler handle waiting
+	val := <-ch
+	fmt.Println("Received:", val)
+}
+
+// ============================================================================
+// PART 6: BENEFITS DEMONSTRATION
+// ============================================================================
+
+// Benefit 1: Responsive systems
+func responsiveSystem() {
+	fmt.Println("\n=== BENEFIT 1: RESPONSIVE SYSTEMS ===")
+	dataCh := make(chan string)
+	cancelCh := make(chan bool)
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		dataCh <- "slow operation result"
+	}()
+
+	// Simulate user cancellation after 1 second
+	go func() {
+		time.Sleep(1 * time.Second)
+		cancelCh <- true
+	}()
+
+	select {
+	case data := <-dataCh:
+		fmt.Println("Completed:", data)
+	case <-cancelCh:
+		fmt.Println("User cancelled operation")
+	}
+}
+
+// Benefit 2: Resource management
+func resourceManagement() {
+	fmt.Println("\n=== BENEFIT 2: RESOURCE MANAGEMENT ===")
+	semaphore := make(chan struct{}, 3) // Max 3 concurrent operations
+
+	for i := 0; i < 10; i++ {
+		// Non-blocking attempt to acquire resource
+		select {
+		case semaphore <- struct{}{}:
+			go func(id int) {
+				defer func() { <-semaphore }()
+				fmt.Printf("Worker %d processing\n", id)
+				time.Sleep(100 * time.Millisecond)
+			}(i)
+		default:
+			fmt.Printf("Worker %d: all resources busy, skipping\n", i)
+		}
+	}
+
+	time.Sleep(500 * time.Millisecond)
+}
+
+// Benefit 3: Graceful degradation
+func gracefulDegradation() {
+	fmt.Println("\n=== BENEFIT 3: GRACEFUL DEGRADATION ===")
+	cacheCh := make(chan string, 1)
+
+	// Try cache first
+	select {
+	case data := <-cacheCh:
+		fmt.Println("Cache hit:", data)
+	default:
+		fmt.Println("Cache miss - fetching from database (fallback)")
+		// Fallback to database
+	}
+}
+
+// ============================================================================
+// PART 7: CONTROL FLOW COMPARISON
+// ============================================================================
+
+// Without non-blocking: Simple but inflexible
+func withoutNonBlocking() {
+	fmt.Println("\n=== WITHOUT NON-BLOCKING ===")
+	ch := make(chan int)
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		ch <- 42
+	}()
+
+	fmt.Println("Waiting... (no control)")
+	result := <-ch // Must wait, no alternatives
+	fmt.Println("Result:", result)
+}
+
+// With non-blocking: Complex but flexible
+func withNonBlocking() {
+	fmt.Println("\n=== WITH NON-BLOCKING ===")
+	ch := make(chan int)
+	attempts := 0
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		ch <- 42
+	}()
+
+	// Can check multiple times, do other work, etc.
+	for attempts < 5 {
+		select {
+		case result := <-ch:
+			fmt.Printf("Result received after %d attempts: %d\n", attempts+1, result)
+			return
+		default:
+			attempts++
+			fmt.Printf("Attempt %d: not ready yet, doing other work...\n", attempts)
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+	fmt.Println("Gave up after", attempts, "attempts")
+}
+
+// ============================================================================
+// PART 8: REAL-WORLD USE CASE
+// ============================================================================
+
+// Complete example: HTTP request with timeout and cancellation
+func httpRequestSimulation() {
+	fmt.Println("\n=== REAL-WORLD: HTTP REQUEST SIMULATION ===")
+
+	resultCh := make(chan string)
+	errorCh := make(chan error)
+	cancelCh := make(chan struct{})
+
+	// Simulate API call
+	go func() {
+		select {
+		case <-cancelCh:
+			errorCh <- fmt.Errorf("request cancelled")
+			return
+		case <-time.After(3 * time.Second):
+			resultCh <- "API Response Data"
+		}
+	}()
+
+	// Simulate user cancellation after 1 second
+	go func() {
+		time.Sleep(1 * time.Second)
+		close(cancelCh)
+	}()
+
+	// Handle result with timeout
+	select {
+	case result := <-resultCh:
+		fmt.Println("Success:", result)
+	case err := <-errorCh:
+		fmt.Println("Error:", err)
+	case <-time.After(2 * time.Second):
+		fmt.Println("Timeout: request took too long")
+		close(cancelCh) // Cancel the ongoing operation
+	}
+}
+
+// ============================================================================
+// MAIN FUNCTION - RUN ALL EXAMPLES
+// ============================================================================
+
+func main() {
+	fmt.Println("GO NON-BLOCKING CHANNEL OPERATIONS - COMPREHENSIVE GUIDE")
+	fmt.Println("=" + string(make([]byte, 60)) + "=")
+
+	// Part 1: Blocking vs Non-blocking
+	// blockingSend() // Uncomment to see deadlock
+	nonBlockingSend()
+	blockingReceive()
+	nonBlockingReceive()
+
+	// Part 2: Errors and Warnings
+	deadlockExample()
+	sendToClosedChannel()
+	raceConditionWarning()
+
+	// Part 3: Correct Patterns
+	timeoutPattern()
+	multipleChannelPattern()
+	trySendPattern()
+	tryReceivePattern()
+
+	// Part 4: Incorrect vs Correct
+	incorrectBusyWaiting()
+	correctBlocking()
+
+	// Part 5: Benefits
+	responsiveSystem()
+	resourceManagement()
+	gracefulDegradation()
+
+	// Part 6: Control Flow
+	withoutNonBlocking()
+	withNonBlocking()
+
+	// Part 7: Real-world
+	httpRequestSimulation()
+
+	fmt.Println("\n" + string(make([]byte, 60)) + "=")
+	fmt.Println("All examples completed!")
+}
+
+```

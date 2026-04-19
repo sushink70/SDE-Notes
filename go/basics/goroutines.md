@@ -1,3 +1,34 @@
+# Comprehensive Guide to Goroutines in Go
+
+I'll create a complete guide covering goroutines from basics to advanced concepts with full implementations.I've created a comprehensive guide to Goroutines in Go covering 20 essential topics with complete, runnable implementations:
+
+## **What's Covered:**
+
+1. **Basic Goroutines** - Simple concurrent execution
+2. **WaitGroups** - Synchronizing multiple goroutines
+3. **Channels** - Basic communication between goroutines
+4. **Channel Synchronization** - Using channels to coordinate work
+5. **Channel Directions** - Send-only and receive-only channels
+6. **Select Statement** - Multiplexing channel operations
+7. **Timeout Patterns** - Implementing timeouts with channels
+8. **Non-blocking Operations** - Using select with default
+9. **Closing Channels** - Proper channel closure
+10. **Range Over Channels** - Iterating until channel closes
+11. **Worker Pool Pattern** - Distributing work across workers
+12. **Rate Limiting** - Controlling operation frequency
+13. **Atomic Counters** - Safe concurrent counting
+14. **Mutexes** - Protecting shared state
+15. **Stateful Goroutines** - Managing state with message passing
+16. **Context Cancellation** - Gracefully stopping goroutines
+17. **Context Timeout** - Time-bound operations
+18. **Pipeline Pattern** - Chaining processing stages
+19. **Fan-Out/Fan-In** - Parallel processing and result merging
+20. **Error Handling** - Managing errors in concurrent code
+
+Each section includes fully functional code demonstrating best practices. Run this program to see all patterns in action! The examples progress from fundamental concepts to advanced patterns used in production Go applications.
+
+
+```go
 package main
 
 import (
@@ -685,32 +716,4 @@ func main() {
 	fmt.Println("\n=== All Examples Completed ===")
 }
 
-# Comprehensive Guide to Goroutines in Go
-
-I'll create a complete guide covering goroutines from basics to advanced concepts with full implementations.I've created a comprehensive guide to Goroutines in Go covering 20 essential topics with complete, runnable implementations:
-
-## **What's Covered:**
-
-1. **Basic Goroutines** - Simple concurrent execution
-2. **WaitGroups** - Synchronizing multiple goroutines
-3. **Channels** - Basic communication between goroutines
-4. **Channel Synchronization** - Using channels to coordinate work
-5. **Channel Directions** - Send-only and receive-only channels
-6. **Select Statement** - Multiplexing channel operations
-7. **Timeout Patterns** - Implementing timeouts with channels
-8. **Non-blocking Operations** - Using select with default
-9. **Closing Channels** - Proper channel closure
-10. **Range Over Channels** - Iterating until channel closes
-11. **Worker Pool Pattern** - Distributing work across workers
-12. **Rate Limiting** - Controlling operation frequency
-13. **Atomic Counters** - Safe concurrent counting
-14. **Mutexes** - Protecting shared state
-15. **Stateful Goroutines** - Managing state with message passing
-16. **Context Cancellation** - Gracefully stopping goroutines
-17. **Context Timeout** - Time-bound operations
-18. **Pipeline Pattern** - Chaining processing stages
-19. **Fan-Out/Fan-In** - Parallel processing and result merging
-20. **Error Handling** - Managing errors in concurrent code
-
-Each section includes fully functional code demonstrating best practices. Run this program to see all patterns in action! The examples progress from fundamental concepts to advanced patterns used in production Go applications.
-
+```

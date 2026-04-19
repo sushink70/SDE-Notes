@@ -1,3 +1,521 @@
+# Comprehensive Guide to Select in Go
+
+I'll create a detailed guide covering the `select` statement in Go with complete implementations, use cases, and comparisons.I've created a comprehensive guide to the `select` statement in Go! Here's what's covered:
+
+## Key Sections:
+
+1. **Basic Select Usage** - Understanding how select works
+2. **Without Select - Problems** - Blocking issues and deadlock risks
+3. **With Select - Solutions** - Non-blocking operations
+4. **Default Case** - Immediate fallback when no channel is ready
+5. **Timeouts** - Preventing indefinite blocking
+6. **Multiplexing** - Handling multiple channels simultaneously
+7. **Common Errors** - Nil channels, deadlocks, closed channels
+8. **Correct vs Incorrect Usage** - Side-by-side comparisons
+9. **Benefits** - Fairness, cancellation, resource efficiency
+10. **Context Integration** - Modern cancellation patterns
+11. **Control Flow Comparison** - Detailed comparison of with/without
+12. **Real-World Patterns** - Fan-in implementation
+
+## Key Benefits of Select:
+
+- **Concurrency**: Handle multiple channels simultaneously
+- **Non-blocking**: Use default case to avoid blocking
+- **Timeout Support**: Built-in via `time.After()`
+- **Fairness**: Random selection when multiple cases are ready
+- **Cancellation**: Easy to implement graceful shutdown
+- **No Polling**: Efficient CPU usage (blocks internally)
+
+## Major Problems Without Select:
+
+- Sequential blocking (can't respond to fastest channel)
+- Deadlock risks with unbuffered channels
+- No timeout mechanism
+- Difficult to implement cancellation
+- Cannot multiplex multiple sources efficiently
+
+You can run this code to see all examples in action. Each section demonstrates practical use cases with clear explanations!
+
+# Go SELECT Statement: Detailed ASCII Diagram
+## Memory Layout, Call Semantics, and Execution Flow
+
+---
+
+## Part 1: Basic Setup - Stack vs Heap Memory
+
+```
+STACK MEMORY (Thread-local, Fast, Auto-managed)
+┌────────────────────────────────────────────────────────────┐
+│  main() goroutine stack                                    │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Local Variables (Call by Value - Copies)            │  │
+│  │                                                      │  │
+│  │  ch1 := make(chan int)    ──┐                       │  │
+│  │  ch2 := make(chan string) ──┼─────────────┐         │  │
+│  │  done := make(chan bool)  ──┘             │         │  │
+│  │                                            │         │  │
+│  │  [ch1 pointer: 0x00A1]  ───────────────┐  │         │  │
+│  │  [ch2 pointer: 0x00B2]  ─────────────┐ │  │         │  │
+│  │  [done pointer: 0x00C3] ───────────┐ │ │  │         │  │
+│  └────────────────────────────────────┼─┼─┼──┼─────────┘  │
+│                                        │ │ │  │            │
+└────────────────────────────────────────┼─┼─┼──┼────────────┘
+                                         │ │ │  │
+                                         │ │ │  │
+HEAP MEMORY (Shared, GC-managed)         │ │ │  │
+┌────────────────────────────────────────┼─┼─┼──┼────────────┐
+│                                        │ │ │  │            │
+│  ┌─────────────────────────────────────┘ │ │  │            │
+│  │  Channel Object (ch1) @ 0x00A1        │ │  │            │
+│  │  ┌─────────────────────────────────┐  │ │  │            │
+│  │  │ hchan struct:                   │  │ │  │            │
+│  │  │  - buf: circular queue          │  │ │  │            │
+│  │  │  - sendx, recvx: indices        │  │ │  │            │
+│  │  │  - lock: mutex                  │  │ │  │            │
+│  │  │  - sendq: waiting senders (G*)  │  │ │  │            │
+│  │  │  - recvq: waiting receivers (G*)│  │ │  │            │
+│  │  └─────────────────────────────────┘  │ │  │            │
+│  │                                        │ │  │            │
+│  └────────────────────────────────────────┘ │  │            │
+│                                              │  │            │
+│  ┌──────────────────────────────────────────┘  │            │
+│  │  Channel Object (ch2) @ 0x00B2              │            │
+│  │  ┌─────────────────────────────────┐        │            │
+│  │  │ hchan struct (similar)          │        │            │
+│  │  └─────────────────────────────────┘        │            │
+│  │                                              │            │
+│  └──────────────────────────────────────────────┘            │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  Channel Object (done) @ 0x00C3                      │   │
+│  │  ┌─────────────────────────────────┐                 │   │
+│  │  │ hchan struct (similar)          │                 │   │
+│  │  └─────────────────────────────────┘                 │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+KEY CONCEPTS:
+• Channel variables (ch1, ch2) are POINTERS stored on stack
+• Channel objects (hchan structs) live on HEAP
+• When passing channels to functions: CALL BY VALUE of the pointer
+  (the pointer is copied, but both point to same heap object)
+```
+
+---
+
+## Part 2: SELECT Statement - Compilation and Runtime
+
+```
+SOURCE CODE:
+───────────────────────────────────────────────────────────────
+select {
+case val := <-ch1:
+    fmt.Println(val)
+case msg := <-ch2:
+    fmt.Println(msg)
+case <-done:
+    return
+default:
+    fmt.Println("no data")
+}
+───────────────────────────────────────────────────────────────
+
+COMPILER TRANSFORMATION:
+───────────────────────────────────────────────────────────────
+The compiler transforms select into runtime calls:
+
+1. Create selectcase array on STACK (call by value - struct copies)
+2. Call runtime.selectgo() with this array
+3. Execute the chosen case based on return value
+───────────────────────────────────────────────────────────────
+
+STACK FRAME DURING SELECT:
+┌─────────────────────────────────────────────────────────────┐
+│  selectgo() stack frame                                     │
+│                                                              │
+│  cases := []scase{                                          │
+│    ┌──────────────────────────────────────────────┐         │
+│    │ scase[0]:  // case val := <-ch1               │         │
+│    │   c: 0x00A1 (copy of ch1 pointer)             │         │
+│    │   kind: caseRecv                               │         │
+│    │   elem: &val (pointer to result variable)     │         │
+│    ├──────────────────────────────────────────────┤         │
+│    │ scase[1]:  // case msg := <-ch2               │         │
+│    │   c: 0x00B2 (copy of ch2 pointer)             │         │
+│    │   kind: caseRecv                               │         │
+│    │   elem: &msg (pointer to result variable)     │         │
+│    ├──────────────────────────────────────────────┤         │
+│    │ scase[2]:  // case <-done                     │         │
+│    │   c: 0x00C3 (copy of done pointer)            │         │
+│    │   kind: caseRecv                               │         │
+│    │   elem: nil (value discarded)                 │         │
+│    ├──────────────────────────────────────────────┤         │
+│    │ scase[3]:  // default                         │         │
+│    │   c: nil                                       │         │
+│    │   kind: caseDefault                            │         │
+│    └──────────────────────────────────────────────┘         │
+│                                                              │
+│  pollOrder := [4]uint16  // randomized case order           │
+│  lockOrder := [3]uint16  // channel lock acquisition order  │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+
+NOTE: scase structs are COPIED (call by value), but contain 
+      POINTERS to channel objects on heap
+```
+
+---
+
+## Part 3: SELECT Execution Flow - Step by Step
+
+```
+STEP 1: RANDOMIZE POLLING ORDER (Prevent starvation)
+═══════════════════════════════════════════════════════════════
+Initial:     [case0, case1, case2, default]
+                 │      │      │       │
+Randomized:  [case1, case2, case0, default]  ← pollOrder
+                 │      │      │       │
+              Random starting point ensures fairness
+
+STEP 2: FAST PATH - Try all cases without blocking
+═══════════════════════════════════════════════════════════════
+For each case in pollOrder:
+  
+  ┌─────────────────────────────────────────────────────┐
+  │ Check case1: ch2 receive                            │
+  │   ├─→ Is ch2 closed? NO                             │
+  │   ├─→ Does ch2 have data in buffer? NO              │
+  │   ├─→ Does ch2 have waiting sender? NO              │
+  │   └─→ SKIP, try next                                │
+  ├─────────────────────────────────────────────────────┤
+  │ Check case2: done receive                           │
+  │   ├─→ Is done closed? NO                            │
+  │   ├─→ Does done have data? NO                       │
+  │   └─→ SKIP, try next                                │
+  ├─────────────────────────────────────────────────────┤
+  │ Check case0: ch1 receive                            │
+  │   ├─→ Is ch1 closed? NO                             │
+  │   ├─→ Does ch1 have data? YES! ✓                    │
+  │   ├─→ DEQUEUE value: 42                             │
+  │   └─→ RETURN index 0                                │
+  └─────────────────────────────────────────────────────┘
+                           │
+                           └─→ Execute case 0 block
+
+If no case ready AND default exists:
+  └─→ RETURN default index immediately (non-blocking)
+
+STEP 3: SLOW PATH - Block until ready (no default case)
+═══════════════════════════════════════════════════════════════
+
+If no case ready and NO default:
+
+A. Lock all channels (in lockOrder to prevent deadlock):
+   ┌──────────────────────────────────────────────────┐
+   │ lockOrder: [ch1, ch2, done]  (sorted by address) │
+   │   │       │     │                                │
+   │   └───────┼─────┼──→ Prevents circular waits    │
+   │           └─────┼──→ Consistent lock ordering    │
+   │                 └──→ Avoids deadlock             │
+   └──────────────────────────────────────────────────┘
+
+B. Enqueue current goroutine (G) on ALL channel wait queues:
+
+   HEAP: Channel Objects
+   ┌───────────────────────────────────────────────────┐
+   │ ch1 @ 0x00A1                                      │
+   │  ┌─────────────────┐                              │
+   │  │ recvq: ┌───┐    │  sudog (stack unwinder)      │
+   │  │        │ G ├────┼──→ points to current G       │
+   │  │        └───┘    │     elem: &val               │
+   │  └─────────────────┘     c: ch1                   │
+   │                          selectdone: &done_flag   │
+   ├───────────────────────────────────────────────────┤
+   │ ch2 @ 0x00B2                                      │
+   │  ┌─────────────────┐                              │
+   │  │ recvq: ┌───┐    │  sudog                       │
+   │  │        │ G ├────┼──→ same G                    │
+   │  │        └───┘    │     elem: &msg               │
+   │  └─────────────────┘     c: ch2                   │
+   ├───────────────────────────────────────────────────┤
+   │ done @ 0x00C3                                     │
+   │  ┌─────────────────┐                              │
+   │  │ recvq: ┌───┐    │  sudog                       │
+   │  │        │ G │    │     elem: nil                │
+   │  │        └───┘    │                              │
+   │  └─────────────────┘                              │
+   └───────────────────────────────────────────────────┘
+
+C. Unlock all channels and park goroutine (BLOCKED):
+   
+   Goroutine State: RUNNING → WAITING
+   
+   ┌─────────────────────────────────────────┐
+   │ Scheduler moves G to wait queue         │
+   │ G will be woken when ANY channel ready  │
+   └─────────────────────────────────────────┘
+
+STEP 4: WAKE UP - Another goroutine sends data
+═══════════════════════════════════════════════════════════════
+
+Another goroutine: ch1 <- 42
+
+  ┌──────────────────────────────────────────────────────┐
+  │ ch1.lock()                                           │
+  │ Check recvq for waiting receivers                    │
+  │   ├─→ Found G waiting!                               │
+  │   ├─→ Copy value 42 to G's elem (&val)              │
+  │   ├─→ Set selectdone flag (atomic)                   │
+  │   │   (tells G which channel fired)                  │
+  │   ├─→ Dequeue G from ch1.recvq                       │
+  │   └─→ Wake up G (WAITING → RUNNABLE)                │
+  │ ch1.unlock()                                         │
+  └──────────────────────────────────────────────────────┘
+
+STEP 5: CLEANUP - Goroutine wakes up
+═══════════════════════════════════════════════════════════════
+
+  ┌──────────────────────────────────────────────────────┐
+  │ G resumes execution                                  │
+  │   ├─→ Lock all channels again                        │
+  │   ├─→ Remove G from ALL other wait queues:          │
+  │   │     - ch2.recvq (remove sudog)                   │
+  │   │     - done.recvq (remove sudog)                  │
+  │   ├─→ Unlock all channels                            │
+  │   ├─→ Check selectdone flag → ch1 fired             │
+  │   └─→ RETURN index 0                                │
+  └──────────────────────────────────────────────────────┘
+                         │
+                         └─→ Execute case 0: fmt.Println(val)
+                             (val now contains 42)
+```
+
+---
+
+## Part 4: Call Semantics - Value vs Reference
+
+```
+CALL BY VALUE (Default in Go):
+═══════════════════════════════════════════════════════════════
+
+func processChannel(ch chan int) {  // ch is COPY of pointer
+    select {
+    case val := <-ch:  // receives from SAME heap object
+        fmt.Println(val)
+    }
+}
+
+main() stack:                    processChannel() stack:
+┌─────────────────┐              ┌─────────────────┐
+│ ch: 0x00A1   ───┼──────────────┼→ ch: 0x00A1     │ (COPY)
+└─────────────────┘              └─────────────────┘
+         │                                │
+         └────────────┬───────────────────┘
+                      ↓
+              HEAP: Channel @ 0x00A1
+              ┌─────────────────┐
+              │ hchan struct    │
+              │  buf: [...]     │
+              └─────────────────┘
+
+• Channel pointer is COPIED (call by value)
+• Both pointers reference SAME heap object
+• Operations affect the same channel
+• Concurrent-safe: channel has internal locks
+
+
+CALL BY REFERENCE (Explicit with pointers):
+═══════════════════════════════════════════════════════════════
+
+func resetChannel(ch *chan int) {  // pointer to pointer
+    *ch = make(chan int)  // replaces channel in caller
+}
+
+main() stack:                    resetChannel() stack:
+┌─────────────────┐              ┌─────────────────┐
+│ ch: 0x00A1      │◄─────────────┤ ch: 0xSTACK_ADDR│
+│   (@ 0xSTACK)   │              │  (ptr to main's  │
+└─────────────────┘              │   ch variable)   │
+                                 └─────────────────┘
+
+• Pointer to channel variable (reference to stack location)
+• Can modify which channel the variable points to
+• Rarely used (channels already reference types)
+
+
+SELECT WITH DIFFERENT VALUE TYPES:
+═══════════════════════════════════════════════════════════════
+
+type LargeStruct struct {
+    data [1000]int
+}
+
+ch := make(chan LargeStruct)
+
+select {
+case val := <-ch:  // val receives COPY of entire struct
+    // val is 1000 ints COPIED to this goroutine's stack
+    // (if fits) or heap-allocated if too large
+}
+
+OPTIMIZATION with pointers:
+ch := make(chan *LargeStruct)  // channel of pointers
+
+select {
+case ptr := <-ch:  // only pointer copied (8 bytes)
+    // ptr points to SAME heap object
+    // No expensive struct copy!
+}
+```
+
+---
+
+## Part 5: Memory Allocation Details
+
+```
+STACK ALLOCATION (Escape Analysis):
+═══════════════════════════════════════════════════════════════
+
+func localSelect() {
+    ch := make(chan int, 1)  // might stay on stack
+    ch <- 42
+    val := <-ch
+    // ch never escapes → compiler may stack-allocate
+}
+
+┌────────────────────────────────┐
+│ localSelect() stack frame      │
+│  ┌──────────────────────────┐  │
+│  │ ch: optimized hchan      │  │ (rare optimization)
+│  │   (if compiler proves    │  │
+│  │    no escape)            │  │
+│  └──────────────────────────┘  │
+└────────────────────────────────┘
+
+
+HEAP ALLOCATION (Common case):
+═══════════════════════════════════════════════════════════════
+
+func shareChannel() chan int {
+    ch := make(chan int)  // ESCAPES to heap
+    return ch  // channel escapes function scope
+}
+
+┌────────────────────────────────┐
+│ shareChannel() stack frame     │
+│  ┌──────────────────────────┐  │
+│  │ ch: 0x00A1 (pointer)  ───┼──┼──→ HEAP
+│  └──────────────────────────┘  │
+└────────────────────────────────┘
+
+Channels escape to heap when:
+• Returned from function
+• Passed to another goroutine
+• Stored in a struct on heap
+• Used in closure that escapes
+• Cannot prove single-goroutine use
+
+
+CHANNEL BUFFER ALLOCATION:
+═══════════════════════════════════════════════════════════════
+
+ch := make(chan int, 100)  // buffered channel
+
+HEAP:
+┌─────────────────────────────────────────────┐
+│ hchan struct @ 0x00A1                       │
+│  ┌─────────────────────────────────────┐    │
+│  │ buf: 0x00D0 ─────────────┐          │    │
+│  │ dataqsiz: 100            │          │    │
+│  │ elemsize: 8              │          │    │
+│  └──────────────────────────┼──────────┘    │
+│                             │                │
+│  ┌──────────────────────────┘                │
+│  ↓                                           │
+│  Ring Buffer @ 0x00D0                        │
+│  ┌────┬────┬────┬─────┬────────┬────┐       │
+│  │ 42 │ 17 │ .. │ ... │  empty │ .. │       │
+│  └────┴────┴────┴─────┴────────┴────┘       │
+│    ↑                            ↑            │
+│  sendx                        recvx          │
+│  (next write)                 (next read)    │
+│                                              │
+│ • Buffer allocated CONTIGUOUSLY on heap     │
+│ • Size: dataqsiz * elemsize bytes           │
+│ • Circular queue for efficiency             │
+└─────────────────────────────────────────────┘
+
+
+GARBAGE COLLECTION:
+═══════════════════════════════════════════════════════════════
+
+Channel becomes garbage when:
+• No goroutines hold references to it
+• All stack pointers out of scope
+• No reachable heap references
+
+┌─────────────────────────────────────────┐
+│ GC marks and sweeps:                    │
+│                                         │
+│  1. Mark phase: trace from roots       │
+│     (stacks, globals)                   │
+│  2. Unreachable channels marked         │
+│  3. Sweep phase: free memory            │
+│  4. Buffers and hchan freed together    │
+└─────────────────────────────────────────┘
+```
+
+---
+
+## Summary: Key Takeaways
+
+1. **SELECT is syntactic sugar**: Compiler transforms it to runtime.selectgo()
+
+2. **Call by value for channel pointers**: Channel variables are pointers 
+   (8 bytes), copied when passed to functions, but reference same heap object
+
+3. **Stack vs Heap**:
+   - Channel pointers: stack (in most cases)
+   - Channel objects (hchan): heap (almost always)
+   - Channel buffers: heap (contiguous allocation)
+   - Large values in channels: may be heap-allocated
+
+4. **SELECT execution**:
+   - Fast path: poll all cases without blocking
+   - Slow path: enqueue on all channels, park goroutine
+   - Wake up: cleanup all wait queues, execute winning case
+
+5. **Fairness**: Random polling order prevents starvation
+
+6. **Thread-safety**: Channels have internal locks; multiple goroutines 
+   can safely select on same channels concurrently
+
+7. **Memory efficiency**: Pass channels by value (pointer copy) is cheap;
+   use pointer channels (`chan *T`) for large structs to avoid copies
+
+   I'll create a comprehensive ASCII diagram showing how `select` works in Go, covering call semantics and memory allocation.I've created a comprehensive ASCII diagram that shows how `select` works in Go with detailed coverage of:
+
+1. **Stack vs Heap Memory**: Shows where channel pointers (stack) and channel objects (heap) are allocated
+
+2. **Call by Value vs Reference**: 
+   - Demonstrates how channel pointers are copied (call by value) but reference the same heap object
+   - Shows when to use pointer-to-channel for true reference semantics
+   - Explains optimization strategies with pointer channels
+
+3. **SELECT Execution Flow**: Step-by-step breakdown including:
+   - Compilation transformation
+   - Randomized polling for fairness
+   - Fast path (non-blocking checks)
+   - Slow path (blocking with wait queues)
+   - Wake-up and cleanup mechanisms
+
+4. **Memory Allocation Details**: Coverage of escape analysis, buffer allocation, and garbage collection
+
+The diagram uses ASCII art to visualize memory layouts, goroutine states, and the flow of data between stack and heap, making it easy to understand the low-level mechanics of Go's `select` statement.
+
+
+```go
 package main
 
 import (
@@ -578,518 +1096,4 @@ func main() {
 	fmt.Println("====================================")
 }
 
-# Comprehensive Guide to Select in Go
-
-I'll create a detailed guide covering the `select` statement in Go with complete implementations, use cases, and comparisons.I've created a comprehensive guide to the `select` statement in Go! Here's what's covered:
-
-## Key Sections:
-
-1. **Basic Select Usage** - Understanding how select works
-2. **Without Select - Problems** - Blocking issues and deadlock risks
-3. **With Select - Solutions** - Non-blocking operations
-4. **Default Case** - Immediate fallback when no channel is ready
-5. **Timeouts** - Preventing indefinite blocking
-6. **Multiplexing** - Handling multiple channels simultaneously
-7. **Common Errors** - Nil channels, deadlocks, closed channels
-8. **Correct vs Incorrect Usage** - Side-by-side comparisons
-9. **Benefits** - Fairness, cancellation, resource efficiency
-10. **Context Integration** - Modern cancellation patterns
-11. **Control Flow Comparison** - Detailed comparison of with/without
-12. **Real-World Patterns** - Fan-in implementation
-
-## Key Benefits of Select:
-
-- **Concurrency**: Handle multiple channels simultaneously
-- **Non-blocking**: Use default case to avoid blocking
-- **Timeout Support**: Built-in via `time.After()`
-- **Fairness**: Random selection when multiple cases are ready
-- **Cancellation**: Easy to implement graceful shutdown
-- **No Polling**: Efficient CPU usage (blocks internally)
-
-## Major Problems Without Select:
-
-- Sequential blocking (can't respond to fastest channel)
-- Deadlock risks with unbuffered channels
-- No timeout mechanism
-- Difficult to implement cancellation
-- Cannot multiplex multiple sources efficiently
-
-You can run this code to see all examples in action. Each section demonstrates practical use cases with clear explanations!
-
-# Go SELECT Statement: Detailed ASCII Diagram
-## Memory Layout, Call Semantics, and Execution Flow
-
----
-
-## Part 1: Basic Setup - Stack vs Heap Memory
-
 ```
-STACK MEMORY (Thread-local, Fast, Auto-managed)
-┌────────────────────────────────────────────────────────────┐
-│  main() goroutine stack                                    │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Local Variables (Call by Value - Copies)            │  │
-│  │                                                      │  │
-│  │  ch1 := make(chan int)    ──┐                       │  │
-│  │  ch2 := make(chan string) ──┼─────────────┐         │  │
-│  │  done := make(chan bool)  ──┘             │         │  │
-│  │                                            │         │  │
-│  │  [ch1 pointer: 0x00A1]  ───────────────┐  │         │  │
-│  │  [ch2 pointer: 0x00B2]  ─────────────┐ │  │         │  │
-│  │  [done pointer: 0x00C3] ───────────┐ │ │  │         │  │
-│  └────────────────────────────────────┼─┼─┼──┼─────────┘  │
-│                                        │ │ │  │            │
-└────────────────────────────────────────┼─┼─┼──┼────────────┘
-                                         │ │ │  │
-                                         │ │ │  │
-HEAP MEMORY (Shared, GC-managed)         │ │ │  │
-┌────────────────────────────────────────┼─┼─┼──┼────────────┐
-│                                        │ │ │  │            │
-│  ┌─────────────────────────────────────┘ │ │  │            │
-│  │  Channel Object (ch1) @ 0x00A1        │ │  │            │
-│  │  ┌─────────────────────────────────┐  │ │  │            │
-│  │  │ hchan struct:                   │  │ │  │            │
-│  │  │  - buf: circular queue          │  │ │  │            │
-│  │  │  - sendx, recvx: indices        │  │ │  │            │
-│  │  │  - lock: mutex                  │  │ │  │            │
-│  │  │  - sendq: waiting senders (G*)  │  │ │  │            │
-│  │  │  - recvq: waiting receivers (G*)│  │ │  │            │
-│  │  └─────────────────────────────────┘  │ │  │            │
-│  │                                        │ │  │            │
-│  └────────────────────────────────────────┘ │  │            │
-│                                              │  │            │
-│  ┌──────────────────────────────────────────┘  │            │
-│  │  Channel Object (ch2) @ 0x00B2              │            │
-│  │  ┌─────────────────────────────────┐        │            │
-│  │  │ hchan struct (similar)          │        │            │
-│  │  └─────────────────────────────────┘        │            │
-│  │                                              │            │
-│  └──────────────────────────────────────────────┘            │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Channel Object (done) @ 0x00C3                      │   │
-│  │  ┌─────────────────────────────────┐                 │   │
-│  │  │ hchan struct (similar)          │                 │   │
-│  │  └─────────────────────────────────┘                 │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
-
-KEY CONCEPTS:
-• Channel variables (ch1, ch2) are POINTERS stored on stack
-• Channel objects (hchan structs) live on HEAP
-• When passing channels to functions: CALL BY VALUE of the pointer
-  (the pointer is copied, but both point to same heap object)
-```
-
----
-
-## Part 2: SELECT Statement - Compilation and Runtime
-
-```
-SOURCE CODE:
-───────────────────────────────────────────────────────────────
-select {
-case val := <-ch1:
-    fmt.Println(val)
-case msg := <-ch2:
-    fmt.Println(msg)
-case <-done:
-    return
-default:
-    fmt.Println("no data")
-}
-───────────────────────────────────────────────────────────────
-
-COMPILER TRANSFORMATION:
-───────────────────────────────────────────────────────────────
-The compiler transforms select into runtime calls:
-
-1. Create selectcase array on STACK (call by value - struct copies)
-2. Call runtime.selectgo() with this array
-3. Execute the chosen case based on return value
-───────────────────────────────────────────────────────────────
-
-STACK FRAME DURING SELECT:
-┌─────────────────────────────────────────────────────────────┐
-│  selectgo() stack frame                                     │
-│                                                              │
-│  cases := []scase{                                          │
-│    ┌──────────────────────────────────────────────┐         │
-│    │ scase[0]:  // case val := <-ch1               │         │
-│    │   c: 0x00A1 (copy of ch1 pointer)             │         │
-│    │   kind: caseRecv                               │         │
-│    │   elem: &val (pointer to result variable)     │         │
-│    ├──────────────────────────────────────────────┤         │
-│    │ scase[1]:  // case msg := <-ch2               │         │
-│    │   c: 0x00B2 (copy of ch2 pointer)             │         │
-│    │   kind: caseRecv                               │         │
-│    │   elem: &msg (pointer to result variable)     │         │
-│    ├──────────────────────────────────────────────┤         │
-│    │ scase[2]:  // case <-done                     │         │
-│    │   c: 0x00C3 (copy of done pointer)            │         │
-│    │   kind: caseRecv                               │         │
-│    │   elem: nil (value discarded)                 │         │
-│    ├──────────────────────────────────────────────┤         │
-│    │ scase[3]:  // default                         │         │
-│    │   c: nil                                       │         │
-│    │   kind: caseDefault                            │         │
-│    └──────────────────────────────────────────────┘         │
-│                                                              │
-│  pollOrder := [4]uint16  // randomized case order           │
-│  lockOrder := [3]uint16  // channel lock acquisition order  │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-
-NOTE: scase structs are COPIED (call by value), but contain 
-      POINTERS to channel objects on heap
-```
-
----
-
-## Part 3: SELECT Execution Flow - Step by Step
-
-```
-STEP 1: RANDOMIZE POLLING ORDER (Prevent starvation)
-═══════════════════════════════════════════════════════════════
-Initial:     [case0, case1, case2, default]
-                 │      │      │       │
-Randomized:  [case1, case2, case0, default]  ← pollOrder
-                 │      │      │       │
-              Random starting point ensures fairness
-
-STEP 2: FAST PATH - Try all cases without blocking
-═══════════════════════════════════════════════════════════════
-For each case in pollOrder:
-  
-  ┌─────────────────────────────────────────────────────┐
-  │ Check case1: ch2 receive                            │
-  │   ├─→ Is ch2 closed? NO                             │
-  │   ├─→ Does ch2 have data in buffer? NO              │
-  │   ├─→ Does ch2 have waiting sender? NO              │
-  │   └─→ SKIP, try next                                │
-  ├─────────────────────────────────────────────────────┤
-  │ Check case2: done receive                           │
-  │   ├─→ Is done closed? NO                            │
-  │   ├─→ Does done have data? NO                       │
-  │   └─→ SKIP, try next                                │
-  ├─────────────────────────────────────────────────────┤
-  │ Check case0: ch1 receive                            │
-  │   ├─→ Is ch1 closed? NO                             │
-  │   ├─→ Does ch1 have data? YES! ✓                    │
-  │   ├─→ DEQUEUE value: 42                             │
-  │   └─→ RETURN index 0                                │
-  └─────────────────────────────────────────────────────┘
-                           │
-                           └─→ Execute case 0 block
-
-If no case ready AND default exists:
-  └─→ RETURN default index immediately (non-blocking)
-
-STEP 3: SLOW PATH - Block until ready (no default case)
-═══════════════════════════════════════════════════════════════
-
-If no case ready and NO default:
-
-A. Lock all channels (in lockOrder to prevent deadlock):
-   ┌──────────────────────────────────────────────────┐
-   │ lockOrder: [ch1, ch2, done]  (sorted by address) │
-   │   │       │     │                                │
-   │   └───────┼─────┼──→ Prevents circular waits    │
-   │           └─────┼──→ Consistent lock ordering    │
-   │                 └──→ Avoids deadlock             │
-   └──────────────────────────────────────────────────┘
-
-B. Enqueue current goroutine (G) on ALL channel wait queues:
-
-   HEAP: Channel Objects
-   ┌───────────────────────────────────────────────────┐
-   │ ch1 @ 0x00A1                                      │
-   │  ┌─────────────────┐                              │
-   │  │ recvq: ┌───┐    │  sudog (stack unwinder)      │
-   │  │        │ G ├────┼──→ points to current G       │
-   │  │        └───┘    │     elem: &val               │
-   │  └─────────────────┘     c: ch1                   │
-   │                          selectdone: &done_flag   │
-   ├───────────────────────────────────────────────────┤
-   │ ch2 @ 0x00B2                                      │
-   │  ┌─────────────────┐                              │
-   │  │ recvq: ┌───┐    │  sudog                       │
-   │  │        │ G ├────┼──→ same G                    │
-   │  │        └───┘    │     elem: &msg               │
-   │  └─────────────────┘     c: ch2                   │
-   ├───────────────────────────────────────────────────┤
-   │ done @ 0x00C3                                     │
-   │  ┌─────────────────┐                              │
-   │  │ recvq: ┌───┐    │  sudog                       │
-   │  │        │ G │    │     elem: nil                │
-   │  │        └───┘    │                              │
-   │  └─────────────────┘                              │
-   └───────────────────────────────────────────────────┘
-
-C. Unlock all channels and park goroutine (BLOCKED):
-   
-   Goroutine State: RUNNING → WAITING
-   
-   ┌─────────────────────────────────────────┐
-   │ Scheduler moves G to wait queue         │
-   │ G will be woken when ANY channel ready  │
-   └─────────────────────────────────────────┘
-
-STEP 4: WAKE UP - Another goroutine sends data
-═══════════════════════════════════════════════════════════════
-
-Another goroutine: ch1 <- 42
-
-  ┌──────────────────────────────────────────────────────┐
-  │ ch1.lock()                                           │
-  │ Check recvq for waiting receivers                    │
-  │   ├─→ Found G waiting!                               │
-  │   ├─→ Copy value 42 to G's elem (&val)              │
-  │   ├─→ Set selectdone flag (atomic)                   │
-  │   │   (tells G which channel fired)                  │
-  │   ├─→ Dequeue G from ch1.recvq                       │
-  │   └─→ Wake up G (WAITING → RUNNABLE)                │
-  │ ch1.unlock()                                         │
-  └──────────────────────────────────────────────────────┘
-
-STEP 5: CLEANUP - Goroutine wakes up
-═══════════════════════════════════════════════════════════════
-
-  ┌──────────────────────────────────────────────────────┐
-  │ G resumes execution                                  │
-  │   ├─→ Lock all channels again                        │
-  │   ├─→ Remove G from ALL other wait queues:          │
-  │   │     - ch2.recvq (remove sudog)                   │
-  │   │     - done.recvq (remove sudog)                  │
-  │   ├─→ Unlock all channels                            │
-  │   ├─→ Check selectdone flag → ch1 fired             │
-  │   └─→ RETURN index 0                                │
-  └──────────────────────────────────────────────────────┘
-                         │
-                         └─→ Execute case 0: fmt.Println(val)
-                             (val now contains 42)
-```
-
----
-
-## Part 4: Call Semantics - Value vs Reference
-
-```
-CALL BY VALUE (Default in Go):
-═══════════════════════════════════════════════════════════════
-
-func processChannel(ch chan int) {  // ch is COPY of pointer
-    select {
-    case val := <-ch:  // receives from SAME heap object
-        fmt.Println(val)
-    }
-}
-
-main() stack:                    processChannel() stack:
-┌─────────────────┐              ┌─────────────────┐
-│ ch: 0x00A1   ───┼──────────────┼→ ch: 0x00A1     │ (COPY)
-└─────────────────┘              └─────────────────┘
-         │                                │
-         └────────────┬───────────────────┘
-                      ↓
-              HEAP: Channel @ 0x00A1
-              ┌─────────────────┐
-              │ hchan struct    │
-              │  buf: [...]     │
-              └─────────────────┘
-
-• Channel pointer is COPIED (call by value)
-• Both pointers reference SAME heap object
-• Operations affect the same channel
-• Concurrent-safe: channel has internal locks
-
-
-CALL BY REFERENCE (Explicit with pointers):
-═══════════════════════════════════════════════════════════════
-
-func resetChannel(ch *chan int) {  // pointer to pointer
-    *ch = make(chan int)  // replaces channel in caller
-}
-
-main() stack:                    resetChannel() stack:
-┌─────────────────┐              ┌─────────────────┐
-│ ch: 0x00A1      │◄─────────────┤ ch: 0xSTACK_ADDR│
-│   (@ 0xSTACK)   │              │  (ptr to main's  │
-└─────────────────┘              │   ch variable)   │
-                                 └─────────────────┘
-
-• Pointer to channel variable (reference to stack location)
-• Can modify which channel the variable points to
-• Rarely used (channels already reference types)
-
-
-SELECT WITH DIFFERENT VALUE TYPES:
-═══════════════════════════════════════════════════════════════
-
-type LargeStruct struct {
-    data [1000]int
-}
-
-ch := make(chan LargeStruct)
-
-select {
-case val := <-ch:  // val receives COPY of entire struct
-    // val is 1000 ints COPIED to this goroutine's stack
-    // (if fits) or heap-allocated if too large
-}
-
-OPTIMIZATION with pointers:
-ch := make(chan *LargeStruct)  // channel of pointers
-
-select {
-case ptr := <-ch:  // only pointer copied (8 bytes)
-    // ptr points to SAME heap object
-    // No expensive struct copy!
-}
-```
-
----
-
-## Part 5: Memory Allocation Details
-
-```
-STACK ALLOCATION (Escape Analysis):
-═══════════════════════════════════════════════════════════════
-
-func localSelect() {
-    ch := make(chan int, 1)  // might stay on stack
-    ch <- 42
-    val := <-ch
-    // ch never escapes → compiler may stack-allocate
-}
-
-┌────────────────────────────────┐
-│ localSelect() stack frame      │
-│  ┌──────────────────────────┐  │
-│  │ ch: optimized hchan      │  │ (rare optimization)
-│  │   (if compiler proves    │  │
-│  │    no escape)            │  │
-│  └──────────────────────────┘  │
-└────────────────────────────────┘
-
-
-HEAP ALLOCATION (Common case):
-═══════════════════════════════════════════════════════════════
-
-func shareChannel() chan int {
-    ch := make(chan int)  // ESCAPES to heap
-    return ch  // channel escapes function scope
-}
-
-┌────────────────────────────────┐
-│ shareChannel() stack frame     │
-│  ┌──────────────────────────┐  │
-│  │ ch: 0x00A1 (pointer)  ───┼──┼──→ HEAP
-│  └──────────────────────────┘  │
-└────────────────────────────────┘
-
-Channels escape to heap when:
-• Returned from function
-• Passed to another goroutine
-• Stored in a struct on heap
-• Used in closure that escapes
-• Cannot prove single-goroutine use
-
-
-CHANNEL BUFFER ALLOCATION:
-═══════════════════════════════════════════════════════════════
-
-ch := make(chan int, 100)  // buffered channel
-
-HEAP:
-┌─────────────────────────────────────────────┐
-│ hchan struct @ 0x00A1                       │
-│  ┌─────────────────────────────────────┐    │
-│  │ buf: 0x00D0 ─────────────┐          │    │
-│  │ dataqsiz: 100            │          │    │
-│  │ elemsize: 8              │          │    │
-│  └──────────────────────────┼──────────┘    │
-│                             │                │
-│  ┌──────────────────────────┘                │
-│  ↓                                           │
-│  Ring Buffer @ 0x00D0                        │
-│  ┌────┬────┬────┬─────┬────────┬────┐       │
-│  │ 42 │ 17 │ .. │ ... │  empty │ .. │       │
-│  └────┴────┴────┴─────┴────────┴────┘       │
-│    ↑                            ↑            │
-│  sendx                        recvx          │
-│  (next write)                 (next read)    │
-│                                              │
-│ • Buffer allocated CONTIGUOUSLY on heap     │
-│ • Size: dataqsiz * elemsize bytes           │
-│ • Circular queue for efficiency             │
-└─────────────────────────────────────────────┘
-
-
-GARBAGE COLLECTION:
-═══════════════════════════════════════════════════════════════
-
-Channel becomes garbage when:
-• No goroutines hold references to it
-• All stack pointers out of scope
-• No reachable heap references
-
-┌─────────────────────────────────────────┐
-│ GC marks and sweeps:                    │
-│                                         │
-│  1. Mark phase: trace from roots       │
-│     (stacks, globals)                   │
-│  2. Unreachable channels marked         │
-│  3. Sweep phase: free memory            │
-│  4. Buffers and hchan freed together    │
-└─────────────────────────────────────────┘
-```
-
----
-
-## Summary: Key Takeaways
-
-1. **SELECT is syntactic sugar**: Compiler transforms it to runtime.selectgo()
-
-2. **Call by value for channel pointers**: Channel variables are pointers 
-   (8 bytes), copied when passed to functions, but reference same heap object
-
-3. **Stack vs Heap**:
-   - Channel pointers: stack (in most cases)
-   - Channel objects (hchan): heap (almost always)
-   - Channel buffers: heap (contiguous allocation)
-   - Large values in channels: may be heap-allocated
-
-4. **SELECT execution**:
-   - Fast path: poll all cases without blocking
-   - Slow path: enqueue on all channels, park goroutine
-   - Wake up: cleanup all wait queues, execute winning case
-
-5. **Fairness**: Random polling order prevents starvation
-
-6. **Thread-safety**: Channels have internal locks; multiple goroutines 
-   can safely select on same channels concurrently
-
-7. **Memory efficiency**: Pass channels by value (pointer copy) is cheap;
-   use pointer channels (`chan *T`) for large structs to avoid copies
-
-   I'll create a comprehensive ASCII diagram showing how `select` works in Go, covering call semantics and memory allocation.I've created a comprehensive ASCII diagram that shows how `select` works in Go with detailed coverage of:
-
-1. **Stack vs Heap Memory**: Shows where channel pointers (stack) and channel objects (heap) are allocated
-
-2. **Call by Value vs Reference**: 
-   - Demonstrates how channel pointers are copied (call by value) but reference the same heap object
-   - Shows when to use pointer-to-channel for true reference semantics
-   - Explains optimization strategies with pointer channels
-
-3. **SELECT Execution Flow**: Step-by-step breakdown including:
-   - Compilation transformation
-   - Randomized polling for fairness
-   - Fast path (non-blocking checks)
-   - Slow path (blocking with wait queues)
-   - Wake-up and cleanup mechanisms
-
-4. **Memory Allocation Details**: Coverage of escape analysis, buffer allocation, and garbage collection
-
-The diagram uses ASCII art to visualize memory layouts, goroutine states, and the flow of data between stack and heap, making it easy to understand the low-level mechanics of Go's `select` statement.

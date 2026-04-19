@@ -2781,3 +2781,750 @@ func main() {
 }
 
 ```
+
+# Go `chan` → Rust Channels: Deep Dive
+
+---
+
+## 🧠 Concept First: What Is a Channel?
+
+Imagine two workers on an assembly line. Worker A produces parts, Worker B installs them. They need to **communicate without colliding**. A channel is the **conveyor belt** between them.
+
+> **Channel** = A typed pipe through which values flow between concurrent execution units (goroutines in Go, threads/tasks in Rust).
+
+---
+
+## Go's `chan` — What It Offers
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Go Channel Types                     │
+├─────────────────┬───────────────────────────────────────┤
+│ chan T           │ Bidirectional (send + receive)        │
+│ chan<- T         │ Send-only  (producer side)            │
+│ <-chan T         │ Receive-only (consumer side)          │
+├─────────────────┼───────────────────────────────────────┤
+│ make(chan T)     │ Unbuffered — BLOCKS until both        │
+│                 │ sender & receiver are ready            │
+│ make(chan T, N)  │ Buffered   — holds N items, sender    │
+│                 │ only blocks when buffer is FULL        │
+└─────────────────┴───────────────────────────────────────┘
+```
+
+---
+
+## Rust's Answer: `std::sync::mpsc`
+
+**mpsc** = **M**ulti **P**roducer, **S**ingle **C**onsumer
+
+Rust's standard library gives you a `Sender<T>` and `Receiver<T>` — **direction is enforced at the type level**, just like Go's `chan<-` and `<-chan`.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                   Rust Channel Model                         │
+│                                                              │
+│   Thread A (Producer)          Thread B (Consumer)           │
+│  ┌─────────────┐              ┌──────────────┐               │
+│  │  Sender<T>  │──── pipe ───▶│ Receiver<T>  │               │
+│  └─────────────┘              └──────────────┘               │
+│                                                              │
+│  • Sender can be cloned → multiple producers                 │
+│  • Receiver cannot be cloned → single consumer               │
+│  • Types enforce direction at COMPILE TIME                   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Side-by-Side Comparison
+
+```
+┌──────────────────────┬────────────────────────────────────────┐
+│        Go            │              Rust                      │
+├──────────────────────┼────────────────────────────────────────┤
+│ make(chan T)          │ mpsc::sync_channel(0)  ← unbuffered    │
+│ make(chan T, N)       │ mpsc::sync_channel(N)  ← buffered      │
+│ make(chan T) (async)  │ mpsc::channel()        ← async sender  │
+│ chan<- T (send-only)  │ Sender<T>                              │
+│ <-chan T (recv-only)  │ Receiver<T>                            │
+│ goroutine            │ std::thread::spawn / tokio::spawn       │
+└──────────────────────┴────────────────────────────────────────┘
+```
+
+---
+
+## Code: Unbuffered Channel (Synchronous — Rendez-vous)
+
+**Go:**
+```go
+ch := make(chan int)  // unbuffered
+
+go func() {
+    ch <- 42  // BLOCKS until receiver is ready
+}()
+
+val := <-ch  // BLOCKS until sender sends
+fmt.Println(val)
+```
+
+**Rust equivalent:**
+```rust
+use std::sync::mpsc;
+use std::thread;
+
+fn main() {
+    // sync_channel(0) = unbuffered = both sides must be ready
+    let (tx, rx) = mpsc::sync_channel::<i32>(0);
+
+    thread::spawn(move || {
+        tx.send(42).unwrap(); // BLOCKS until receiver calls recv()
+    });
+
+    let val = rx.recv().unwrap(); // BLOCKS until sender sends
+    println!("{}", val);
+}
+```
+
+```
+Execution Flow (Unbuffered):
+─────────────────────────────────────────────
+Thread Main          Thread Spawned
+    │                     │
+    │   spawn ────────────▶│
+    │                     │ tx.send(42) ──▶ BLOCKS
+    │                     │                  │
+    rx.recv() ◀───────────────────── rendezvous!
+    │                     │
+    val = 42              │ unblocks
+```
+
+---
+
+## Code: Buffered Channel (Asynchronous until full)
+
+**Go:**
+```go
+ch := make(chan int, 3) // buffer of 3
+
+ch <- 1  // doesn't block
+ch <- 2  // doesn't block
+ch <- 3  // doesn't block
+ch <- 4  // BLOCKS — buffer full!
+```
+
+**Rust equivalent:**
+```rust
+use std::sync::mpsc;
+
+fn main() {
+    let (tx, rx) = mpsc::sync_channel::<i32>(3); // buffer = 3
+
+    tx.send(1).unwrap(); // no block
+    tx.send(2).unwrap(); // no block
+    tx.send(3).unwrap(); // no block
+    // tx.send(4) would BLOCK — buffer full, no receiver draining
+
+    println!("{}", rx.recv().unwrap()); // 1
+    println!("{}", rx.recv().unwrap()); // 2
+    println!("{}", rx.recv().unwrap()); // 3
+}
+```
+
+---
+
+## Direction Constraint: How Rust Enforces It
+
+In Go, `chan<- T` and `<-chan T` are **type annotations** that restrict direction.
+
+In Rust, **`Sender<T>` can only send** and **`Receiver<T>` can only receive** — this is **enforced by the type system**, not an annotation. You physically cannot call `.recv()` on a `Sender`.
+
+```rust
+use std::sync::mpsc;
+use std::thread;
+
+// This function only PRODUCES — it only gets Sender<T>
+// Equivalent to Go's: func producer(ch chan<- int)
+fn producer(tx: mpsc::SyncSender<i32>) {
+    for i in 0..5 {
+        tx.send(i).unwrap();
+    }
+    // tx.recv() ← COMPILE ERROR: method not found on SyncSender
+}
+
+// This function only CONSUMES — it only gets Receiver<T>
+// Equivalent to Go's: func consumer(ch <-chan int)
+fn consumer(rx: mpsc::Receiver<i32>) {
+    for val in rx {  // rx implements Iterator!
+        println!("Got: {}", val);
+    }
+}
+
+fn main() {
+    let (tx, rx) = mpsc::sync_channel::<i32>(5);
+
+    thread::spawn(move || producer(tx));
+    consumer(rx); // runs on main thread
+}
+```
+
+---
+
+## Multiple Producers (Go's goroutines → Rust's cloned Senders)
+
+```rust
+use std::sync::mpsc;
+use std::thread;
+
+fn main() {
+    let (tx, rx) = mpsc::channel::<String>(); // async sender
+
+    for i in 0..3 {
+        let tx_clone = tx.clone(); // clone Sender for each thread
+        thread::spawn(move || {
+            tx_clone.send(format!("Hello from thread {}", i)).unwrap();
+        });
+    }
+
+    drop(tx); // drop original — when all Senders drop, channel closes
+
+    for msg in rx { // iterates until channel is closed
+        println!("{}", msg);
+    }
+}
+```
+
+```
+Multiple Producers → Single Consumer:
+
+Thread 0 ──[tx0]──┐
+Thread 1 ──[tx1]──┼──▶ [ channel buffer ] ──▶ rx (main thread)
+Thread 2 ──[tx2]──┘
+```
+
+---
+
+## `channel()` vs `sync_channel()` — The Critical Difference
+
+```
+┌────────────────────┬────────────────────────────────────────────┐
+│  mpsc::channel()   │ Sender never blocks (unbounded buffer)     │
+│  (async channel)   │ Like Go: make(chan T, ∞) — not really ∞    │
+│                    │ but grows dynamically on heap              │
+├────────────────────┼────────────────────────────────────────────┤
+│ mpsc::sync_channel │ Sender blocks when buffer full             │
+│ (sync channel)     │ sync_channel(0) = true unbuffered          │
+│                    │ sync_channel(N) = bounded buffer of N      │
+└────────────────────┴────────────────────────────────────────────┘
+```
+
+---
+
+## Beyond std: `crossbeam-channel` (The Real Power)
+
+`std::sync::mpsc` is **MPSC only** (multiple producer, single consumer). Go channels are **MPMC** (multiple producer, **multiple consumer**). For true Go parity, use `crossbeam`:
+
+```toml
+# Cargo.toml
+[dependencies]
+crossbeam-channel = "0.5"
+```
+
+```rust
+use crossbeam_channel::bounded;
+use std::thread;
+
+fn main() {
+    let (tx, rx) = bounded(5); // buffered, MPMC
+
+    // Multiple producers
+    let tx2 = tx.clone();
+    thread::spawn(move || tx.send(1).unwrap());
+    thread::spawn(move || tx2.send(2).unwrap());
+
+    // Multiple consumers (impossible with std::mpsc!)
+    let rx2 = rx.clone();
+    thread::spawn(move || println!("Consumer 1: {}", rx.recv().unwrap()));
+    thread::spawn(move || println!("Consumer 2: {}", rx2.recv().unwrap()));
+
+    thread::sleep(std::time::Duration::from_millis(100));
+}
+```
+
+---
+
+## Mental Model Summary
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                  Channel Intuition Map                     │
+│                                                            │
+│  Unbuffered  = walkie-talkie (both must press at once)     │
+│  Buffered    = voicemail box (leave msg, check later)      │
+│  Sender<T>   = write-end of a pipe (can only write)        │
+│  Receiver<T> = read-end of a pipe  (can only read)         │
+│  clone(tx)   = photocopy of write-end (MPSC)               │
+│  crossbeam   = full duplex intercom (MPMC)                 │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🧘 Mentor's Note
+
+> Go's channels are a **language primitive** — deeply baked in with goroutines and `select`. Rust's channels are a **library abstraction** — more explicit, but the **ownership system** guarantees no data races at compile time, something Go can only catch at runtime with the race detector.
+
+The cognitive principle at play here: **transfer learning** — you already have the Go mental model. Rust's channels are the same *idea*, expressed through *ownership* instead of *runtime scheduling*. Map new knowledge onto existing structure. This is **chunking** — your brain learns Go-channels as one unit, and now anchors Rust-channels to it.
+
+# Go Goroutines → Rust Equivalents: Complete Deep Dive
+
+---
+
+## 🧠 First: What IS a Goroutine?
+
+Before comparing, let's deeply understand what makes goroutines special:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  What is a Goroutine?                       │
+│                                                             │
+│  • Lightweight "green thread" managed by Go RUNTIME        │
+│  • NOT an OS thread — much cheaper (starts at ~2KB stack)  │
+│  • Go runtime has its own SCHEDULER (M:N threading)        │
+│  • Can have MILLIONS running simultaneously                 │
+│  • Scheduler multiplexes goroutines onto OS threads        │
+│                                                             │
+│  go func() { ... }()  ← that's ALL it takes               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+```
+Go Runtime Scheduler (M:N Model):
+
+Goroutines (N)          OS Threads (M)
+┌──┐┌──┐┌──┐┌──┐
+│G1││G2││G3││G4│   ←── millions possible
+└──┘└──┘└──┘└──┘
+      │  │  │
+   Scheduler (Go Runtime)
+      │  │  │
+   ┌──┘  │  └──┐
+  [T1]  [T2]  [T3]   ←── few OS threads (= CPU cores)
+   │     │     │
+  CPU   CPU   CPU
+```
+
+> **M:N threading** = M goroutines mapped onto N OS threads. The runtime decides who runs when.
+
+---
+
+## Rust Has THREE Answers
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│           Go goroutine  →  Rust equivalent?                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. std::thread        → OS threads (1:1, heavy, simple)       │
+│                                                                 │
+│  2. async/await        → cooperative tasks (like goroutines)   │
+│     + tokio/async-std    needs a RUNTIME (like Go's)           │
+│                                                                 │
+│  3. rayon              → data parallelism (CPU-bound work)     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## PATH 1: `std::thread` — OS Threads (Simplest)
+
+### What is an OS Thread?
+> An OS thread is a real thread managed by the operating system kernel. Heavy (~1MB stack), but powerful. Rust's default.
+
+```rust
+use std::thread;
+use std::time::Duration;
+
+fn main() {
+    // Equivalent of: go func() { fmt.Println("hello") }()
+    let handle = thread::spawn(|| {
+        println!("Hello from thread!");
+        thread::sleep(Duration::from_millis(100));
+        println!("Thread done.");
+    });
+
+    println!("Main thread continues...");
+
+    handle.join().unwrap(); // wait for thread to finish
+    // Go equivalent: wg.Wait() or <-done
+}
+```
+
+```
+Execution Flow:
+
+main thread                 spawned thread
+     │                           │
+     │──── thread::spawn ────────▶│
+     │                           │ println!("Hello")
+     │ println!("Main...")       │ sleep(100ms)
+     │                           │ println!("done")
+     │──── handle.join() ────────▶│ (waits here)
+     │◀──────────────────────────┘
+     │ continues
+```
+
+### Passing Data INTO a Thread
+
+```rust
+use std::thread;
+
+fn main() {
+    let name = String::from("Alice");
+
+    // 'move' keyword: transfer OWNERSHIP into thread
+    // Go doesn't need this — garbage collector handles it
+    // Rust REQUIRES it — ownership must be clear
+    let handle = thread::spawn(move || {
+        println!("Hello, {}!", name);
+        // 'name' is OWNED by this thread now
+    });
+
+    // println!("{}", name); // ← COMPILE ERROR: name was moved!
+
+    handle.join().unwrap();
+}
+```
+
+```
+Ownership Transfer (move closure):
+
+Before spawn:         After spawn:
+main thread           spawned thread
+owns 'name'  ──move──▶ owns 'name'
+                        (main can no longer use it)
+```
+
+### Returning Data FROM a Thread
+
+```rust
+use std::thread;
+
+fn main() {
+    // thread::spawn returns JoinHandle<T>
+    // T is whatever the closure returns
+    let handle = thread::spawn(|| {
+        let result = 2 + 2;
+        result // return value
+    });
+
+    let answer = handle.join().unwrap(); // unwrap = get T from Result<T>
+    println!("Thread computed: {}", answer); // 4
+}
+```
+
+---
+
+## PATH 2: `async/await` + Tokio — TRUE Goroutine Equivalent
+
+### What is async/await?
+
+> **async** marks a function as "can be paused and resumed." It returns a **Future** — a value representing work that *will* complete.
+> A **Future** is like a promise: "I don't have the result yet, but I will."
+
+```
+┌────────────────────────────────────────────────────────────┐
+│              async/await Mental Model                      │
+│                                                            │
+│  Normal function:  runs start→end, blocks caller          │
+│  async function:   can PAUSE at .await points,            │
+│                    let other tasks run, then RESUME        │
+│                                                            │
+│  Like a chef:                                              │
+│  Blocking: stares at pot until water boils (wastes time)  │
+│  Async:    puts pot on stove, goes to chop vegetables,    │
+│            comes back when water boils                     │
+└────────────────────────────────────────────────────────────┘
+```
+
+### What is Tokio?
+
+> **Tokio** is Rust's async runtime — it IS the scheduler, like Go's built-in goroutine scheduler. Without it, `async` functions don't run.
+
+```
+┌────────────────────────────────────────────────┐
+│         Go vs Rust Runtime                     │
+├────────────────────────────────────────────────┤
+│ Go:   runtime built INTO the language          │
+│       goroutines work out of the box           │
+│                                                │
+│ Rust: NO built-in async runtime                │
+│       YOU choose: tokio / async-std / smol     │
+│       tokio is the industry standard           │
+└────────────────────────────────────────────────┘
+```
+
+### Setup
+
+```toml
+# Cargo.toml
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+```
+
+### Basic Async Task (= goroutine)
+
+```go
+// Go
+go func() {
+    fmt.Println("I am a goroutine")
+}()
+```
+
+```rust
+// Rust + Tokio
+use tokio::task;
+
+#[tokio::main] // sets up the Tokio runtime
+async fn main() {
+    // tokio::spawn = go keyword equivalent
+    let handle = task::spawn(async {
+        println!("I am an async task (like goroutine)!");
+    });
+
+    handle.await.unwrap(); // wait for it
+}
+```
+
+---
+
+### Spawn MANY tasks (like goroutines)
+
+```go
+// Go — spawn 10000 goroutines easily
+for i := 0; i < 10000; i++ {
+    go func(n int) {
+        fmt.Println(n)
+    }(i)
+}
+```
+
+```rust
+use tokio::task;
+
+#[tokio::main]
+async fn main() {
+    let mut handles = vec![];
+
+    for i in 0..10_000 {
+        // Each task is lightweight — like a goroutine
+        let h = task::spawn(async move {
+            println!("{}", i);
+        });
+        handles.push(h);
+    }
+
+    // Wait for all — like sync.WaitGroup in Go
+    for h in handles {
+        h.await.unwrap();
+    }
+}
+```
+
+```
+Task Scheduler (Tokio M:N like Go):
+
+Tasks (N = 10,000)               OS Threads (M = CPU cores)
+┌─┐┌─┐┌─┐┌─┐┌─┐┌─┐...
+│t││t││t││t││t││t│  ← 10,000 tasks
+└─┘└─┘└─┘└─┘└─┘└─┘
+         │
+    Tokio Scheduler
+         │
+   ┌─────┴─────┐
+  [T1]        [T2]     ← only 2-8 OS threads
+   │            │
+  CPU          CPU
+```
+
+---
+
+### Real Example: Concurrent HTTP-style work
+
+```rust
+use tokio::time::{sleep, Duration};
+
+// Simulates fetching data (like an HTTP call)
+async fn fetch_data(id: u32) -> String {
+    sleep(Duration::from_millis(100)).await; // non-blocking wait
+    format!("data from source {}", id)
+}
+
+#[tokio::main]
+async fn main() {
+    // Launch 3 tasks CONCURRENTLY (not sequentially)
+    let t1 = tokio::spawn(fetch_data(1));
+    let t2 = tokio::spawn(fetch_data(2));
+    let t3 = tokio::spawn(fetch_data(3));
+
+    // All 3 run at the same time!
+    // Total time ≈ 100ms, NOT 300ms
+    let (r1, r2, r3) = tokio::join!(t1, t2, t3);
+
+    println!("{}", r1.unwrap());
+    println!("{}", r2.unwrap());
+    println!("{}", r3.unwrap());
+}
+```
+
+```
+Timeline (Concurrent):
+
+t=0ms   t1 starts ──────────────────┐
+        t2 starts ──────────────────┤ all sleeping concurrently
+        t3 starts ──────────────────┤
+t=100ms                             ▼ all complete together
+Total: ~100ms  ✓  (NOT 300ms)
+
+Sequential would be:
+t=0ms   t1 ────────▶ t2 ────────▶ t3 ────────▶
+Total: 300ms  ✗
+```
+
+---
+
+## PATH 3: `rayon` — Data Parallelism (CPU-bound)
+
+> For **CPU-heavy work** (sorting, crunching numbers), `rayon` gives Go-like parallel iteration with zero boilerplate.
+
+```toml
+[dependencies]
+rayon = "1.10"
+```
+
+```rust
+use rayon::prelude::*;
+
+fn main() {
+    let numbers: Vec<i32> = (1..=1_000_000).collect();
+
+    // Sequential — uses 1 CPU core
+    let sum_seq: i32 = numbers.iter().sum();
+
+    // Parallel — uses ALL CPU cores automatically
+    // Like spawning goroutines for each chunk
+    let sum_par: i32 = numbers.par_iter().sum();
+
+    println!("Sequential: {}", sum_seq);
+    println!("Parallel:   {}", sum_par);
+}
+```
+
+```
+par_iter() internals:
+
+[1, 2, 3, 4, 5, 6, 7, 8] ← input
+
+Split into chunks:
+[1,2] [3,4] [5,6] [7,8]
+  │     │     │     │
+ T1    T2    T3    T4   ← each chunk on a thread
+  │     │     │     │
+  3  +  7  + 11  + 15
+         │
+        sum = 36
+```
+
+---
+
+## Complete Comparison Table
+
+```
+┌─────────────────┬──────────────────┬──────────────────────────────┐
+│   Go            │  Rust            │  Notes                       │
+├─────────────────┼──────────────────┼──────────────────────────────┤
+│ go func(){}()   │ thread::spawn    │ OS thread, heavy             │
+│ go func(){}()   │ tokio::spawn     │ lightweight task, like gorout│
+│ sync.WaitGroup  │ JoinHandle.await │ wait for completion          │
+│ runtime schedul │ Tokio scheduler  │ M:N, work-stealing           │
+│ goroutine (2KB) │ async task (~KB) │ both very lightweight        │
+│ select {}       │ tokio::select!   │ wait on multiple futures     │
+│ built-in        │ external crate   │ Rust requires explicit choice│
+│ GC safety       │ ownership safety │ compile-time, zero-cost      │
+└─────────────────┴──────────────────┴──────────────────────────────┘
+```
+
+---
+
+## `tokio::select!` = Go's `select {}`
+
+> **select** = wait on MULTIPLE channels/futures and act on whichever completes first.
+
+```go
+// Go
+select {
+case msg := <-ch1:
+    fmt.Println("from ch1:", msg)
+case msg := <-ch2:
+    fmt.Println("from ch2:", msg)
+}
+```
+
+```rust
+use tokio::sync::mpsc;
+
+#[tokio::main]
+async fn main() {
+    let (tx1, mut rx1) = mpsc::channel(1);
+    let (tx2, mut rx2) = mpsc::channel(1);
+
+    tokio::spawn(async move { tx1.send("from ch1").await.unwrap(); });
+    tokio::spawn(async move { tx2.send("from ch2").await.unwrap(); });
+
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+
+    // Whichever is ready first wins
+    tokio::select! {
+        msg = rx1.recv() => println!("{}", msg.unwrap()),
+        msg = rx2.recv() => println!("{}", msg.unwrap()),
+    }
+}
+```
+
+---
+
+## When To Use What
+
+```
+┌───────────────────────────────────────────────────────────┐
+│              Decision Tree                                │
+│                                                           │
+│  What kind of work?                                       │
+│         │                                                 │
+│    ┌────┴────┐                                            │
+│   CPU       I/O                                           │
+│  bound     bound                                          │
+│    │         │                                            │
+│    │    async/await                                       │
+│    │    + tokio::spawn  ← goroutine equivalent            │
+│    │    (non-blocking,                                    │
+│    │     millions of tasks)                               │
+│    │                                                      │
+│ Need        Simple                                        │
+│ parallel?   script?                                       │
+│    │           │                                          │
+│  rayon     std::thread                                    │
+│ par_iter   (simple, safe,                                 │
+│ (CPU work)  easy to reason)                               │
+└───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🧘 Mentor's Deep Insight
+
+> Go made a **language-level bet**: concurrency is so important, we bake the scheduler into the runtime. Rust made a **philosophy-level bet**: we give you the **primitives** and let the ecosystem choose (tokio won).
+
+The result: Rust's async tasks are **as lightweight as goroutines**, but with **zero-cost abstractions** and **compile-time data-race freedom** — something Go can only check at runtime with `-race`.
+
+**Cognitive principle**: You're now doing **analogical reasoning** — mapping Go constructs to Rust constructs 1:1. This is elite-level learning. The brain doesn't store isolated facts; it builds **relational maps**. Every new language you learn after this gets faster because you're building a **meta-model of concurrency itself**, not just language syntax.

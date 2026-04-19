@@ -1,518 +1,3 @@
-package main
-
-import (
-	"fmt"
-	"sync"
-	"time"
-)
-
-// =============================================================================
-// 1. UNBUFFERED CHANNELS (Without Buffering)
-// =============================================================================
-
-// Unbuffered channels block until both sender and receiver are ready
-func unbufferedChannelBasic() {
-	fmt.Println("\n=== UNBUFFERED CHANNEL - Basic ===")
-	ch := make(chan int) // No buffer capacity
-
-	go func() {
-		fmt.Println("Goroutine: About to send...")
-		ch <- 42 // Blocks until receiver is ready
-		fmt.Println("Goroutine: Sent successfully!")
-	}()
-
-	time.Sleep(2 * time.Second) // Simulate delay
-	fmt.Println("Main: About to receive...")
-	val := <-ch // Blocks until sender sends
-	fmt.Println("Main: Received:", val)
-}
-
-// DEADLOCK ERROR: Sending without a receiver
-func unbufferedDeadlock() {
-	fmt.Println("\n=== UNBUFFERED CHANNEL - DEADLOCK EXAMPLE ===")
-	ch := make(chan int)
-
-	// This will cause a deadlock!
-	// Uncomment to see the error:
-	// ch <- 42  // fatal error: all goroutines are asleep - deadlock!
-	// fmt.Println(<-ch)
-
-	fmt.Println("Deadlock avoided by commenting out the problematic code")
-	close(ch)
-}
-
-// =============================================================================
-// 2. BUFFERED CHANNELS (With Buffering)
-// =============================================================================
-
-// Buffered channels allow sending without immediate receiver
-func bufferedChannelBasic() {
-	fmt.Println("\n=== BUFFERED CHANNEL - Basic ===")
-	ch := make(chan int, 2) // Buffer capacity of 2
-
-	// Send without blocking (until buffer is full)
-	ch <- 1
-	fmt.Println("Sent 1")
-	ch <- 2
-	fmt.Println("Sent 2")
-
-	// Would block here if we sent another value
-	// ch <- 3  // This would block until someone receives
-
-	fmt.Println("Received:", <-ch)
-	fmt.Println("Received:", <-ch)
-}
-
-// =============================================================================
-// 3. COMPARING UNBUFFERED VS BUFFERED
-// =============================================================================
-
-func compareUnbufferedVsBuffered() {
-	fmt.Println("\n=== COMPARISON: Unbuffered vs Buffered ===")
-
-	// Unbuffered: Sender blocks immediately
-	fmt.Println("\n--- Unbuffered Example ---")
-	unbuf := make(chan string)
-	go func() {
-		fmt.Println("Unbuffered: Sending... (will block)")
-		unbuf <- "hello"
-		fmt.Println("Unbuffered: Sent!")
-	}()
-	time.Sleep(1 * time.Second)
-	fmt.Println("Unbuffered: Receiving:", <-unbuf)
-
-	// Buffered: Sender doesn't block until buffer is full
-	fmt.Println("\n--- Buffered Example ---")
-	buf := make(chan string, 1)
-	go func() {
-		fmt.Println("Buffered: Sending... (won't block)")
-		buf <- "world"
-		fmt.Println("Buffered: Sent immediately!")
-	}()
-	time.Sleep(1 * time.Second)
-	fmt.Println("Buffered: Receiving:", <-buf)
-}
-
-// =============================================================================
-// 4. COMMON ERRORS AND WARNINGS
-// =============================================================================
-
-// ERROR: Buffer overflow (sending more than capacity without receiving)
-func bufferOverflowError() {
-	fmt.Println("\n=== ERROR: Buffer Overflow ===")
-	ch := make(chan int, 2)
-
-	ch <- 1
-	ch <- 2
-	fmt.Println("Filled buffer with 2 items")
-
-	// This would block forever and cause deadlock if no receiver:
-	// ch <- 3  // DEADLOCK!
-
-	// Receive to make space
-	fmt.Println("Received:", <-ch)
-	ch <- 3 // Now this works
-	fmt.Println("Successfully sent 3rd item after making space")
-}
-
-// WARNING: Goroutine leak without proper channel management
-func goroutineLeakExample() {
-	fmt.Println("\n=== WARNING: Potential Goroutine Leak ===")
-
-	// BAD: This goroutine will leak if channel is never read
-	leakyChannel := make(chan int)
-	go func() {
-		fmt.Println("Leaky goroutine waiting to send...")
-		leakyChannel <- 42 // Blocks forever if never received
-		fmt.Println("This line may never execute!")
-	}()
-
-	// GOOD: Using buffered channel prevents immediate blocking
-	goodChannel := make(chan int, 1)
-	go func() {
-		fmt.Println("Safe goroutine sending...")
-		goodChannel <- 42 // Doesn't block
-		fmt.Println("Safe goroutine completed!")
-	}()
-
-	time.Sleep(500 * time.Millisecond)
-	fmt.Println("Received from good channel:", <-goodChannel)
-	// Note: leakyChannel is never read, goroutine stays blocked
-}
-
-// =============================================================================
-// 5. CORRECT VS INCORRECT USAGE PATTERNS
-// =============================================================================
-
-// INCORRECT: Unbuffered channel in synchronous code
-func incorrectUnbufferedUsage() {
-	fmt.Println("\n=== INCORRECT: Synchronous use of unbuffered channel ===")
-	ch := make(chan int)
-
-	// This won't work - will deadlock
-	// ch <- 42
-	// val := <-ch
-
-	fmt.Println("Avoided deadlock by not executing problematic code")
-	close(ch)
-}
-
-// CORRECT: Unbuffered channel with goroutines
-func correctUnbufferedUsage() {
-	fmt.Println("\n=== CORRECT: Unbuffered channel with goroutines ===")
-	ch := make(chan int)
-
-	go func() {
-		ch <- 42 // Sender in goroutine
-	}()
-
-	val := <-ch // Receiver in main
-	fmt.Println("Received:", val)
-}
-
-// INCORRECT: Over-sized buffer (waste of memory)
-func incorrectBufferSize() {
-	fmt.Println("\n=== INCORRECT: Oversized buffer ===")
-	// Allocating huge buffer when only need 1-2
-	ch := make(chan int, 10000) // Wasteful!
-
-	ch <- 1
-	fmt.Println("Received:", <-ch)
-	fmt.Println("Used 1 slot out of 10000 - wasteful!")
-}
-
-// CORRECT: Appropriately sized buffer
-func correctBufferSize() {
-	fmt.Println("\n=== CORRECT: Appropriately sized buffer ===")
-	// Buffer size matches expected concurrent operations
-	ch := make(chan int, 3)
-
-	for i := 1; i <= 3; i++ {
-		ch <- i
-	}
-
-	for i := 0; i < 3; i++ {
-		fmt.Println("Received:", <-ch)
-	}
-}
-
-// =============================================================================
-// 6. BENEFITS OF BUFFERING
-// =============================================================================
-
-func benefitsOfBuffering() {
-	fmt.Println("\n=== BENEFITS OF BUFFERING ===")
-
-	// Benefit 1: Decoupling producer and consumer speeds
-	fmt.Println("\n--- Benefit 1: Speed Decoupling ---")
-	ch := make(chan int, 5)
-	var wg sync.WaitGroup
-
-	// Fast producer
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 1; i <= 5; i++ {
-			ch <- i
-			fmt.Printf("Produced: %d\n", i)
-		}
-		close(ch)
-	}()
-
-	// Slow consumer
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for val := range ch {
-			time.Sleep(100 * time.Millisecond) // Slow processing
-			fmt.Printf("Consumed: %d\n", val)
-		}
-	}()
-
-	wg.Wait()
-
-	// Benefit 2: Reducing context switches
-	fmt.Println("\n--- Benefit 2: Fewer Context Switches ---")
-	fmt.Println("Buffered channels reduce goroutine blocking,")
-	fmt.Println("leading to fewer context switches and better performance")
-
-	// Benefit 3: Burst handling
-	fmt.Println("\n--- Benefit 3: Burst Handling ---")
-	burstCh := make(chan string, 10)
-	for i := 0; i < 10; i++ {
-		burstCh <- fmt.Sprintf("burst-%d", i)
-	}
-	fmt.Println("Handled burst of 10 items without blocking")
-	close(burstCh)
-	count := 0
-	for range burstCh {
-		count++
-	}
-	fmt.Printf("Processed %d items\n", count)
-}
-
-// =============================================================================
-// 7. CONTROL FLOW DIFFERENCES
-// =============================================================================
-
-func controlFlowComparison() {
-	fmt.Println("\n=== CONTROL FLOW: Unbuffered vs Buffered ===")
-
-	// Unbuffered: Tight synchronization
-	fmt.Println("\n--- Unbuffered: Lockstep Execution ---")
-	unbuf := make(chan int)
-	go func() {
-		for i := 1; i <= 3; i++ {
-			fmt.Printf("Sending %d... ", i)
-			unbuf <- i // Waits for receiver
-			fmt.Println("acknowledged")
-		}
-		close(unbuf)
-	}()
-
-	for val := range unbuf {
-		fmt.Printf("Received %d\n", val)
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	// Buffered: Looser coupling
-	fmt.Println("\n--- Buffered: Asynchronous Execution ---")
-	buf := make(chan int, 3)
-	go func() {
-		for i := 1; i <= 3; i++ {
-			fmt.Printf("Sending %d (non-blocking)\n", i)
-			buf <- i // Doesn't wait
-		}
-		close(buf)
-	}()
-
-	time.Sleep(500 * time.Millisecond) // Delay before receiving
-	for val := range buf {
-		fmt.Printf("Received %d\n", val)
-	}
-}
-
-// =============================================================================
-// 8. REAL-WORLD PATTERNS
-// =============================================================================
-
-// Pattern 1: Worker Pool with buffered channels
-func workerPoolPattern() {
-	fmt.Println("\n=== PATTERN: Worker Pool with Buffered Channels ===")
-
-	jobs := make(chan int, 10)    // Buffer for incoming jobs
-	results := make(chan int, 10) // Buffer for results
-
-	// Start workers
-	for w := 1; w <= 3; w++ {
-		go func(id int) {
-			for job := range jobs {
-				fmt.Printf("Worker %d processing job %d\n", id, job)
-				time.Sleep(100 * time.Millisecond)
-				results <- job * 2
-			}
-		}(w)
-	}
-
-	// Send jobs
-	for j := 1; j <= 5; j++ {
-		jobs <- j
-	}
-	close(jobs)
-
-	// Collect results
-	for r := 1; r <= 5; r++ {
-		fmt.Printf("Result: %d\n", <-results)
-	}
-}
-
-// Pattern 2: Semaphore with buffered channel
-func semaphorePattern() {
-	fmt.Println("\n=== PATTERN: Semaphore (Rate Limiting) ===")
-
-	// Allow max 3 concurrent operations
-	sem := make(chan struct{}, 3)
-	var wg sync.WaitGroup
-
-	for i := 1; i <= 5; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-
-			sem <- struct{}{} // Acquire
-			fmt.Printf("Task %d: Started\n", id)
-			time.Sleep(200 * time.Millisecond)
-			fmt.Printf("Task %d: Finished\n", id)
-			<-sem // Release
-		}(i)
-	}
-
-	wg.Wait()
-	fmt.Println("All tasks completed with rate limiting")
-}
-
-// Pattern 3: Fan-out/Fan-in
-func fanOutFanInPattern() {
-	fmt.Println("\n=== PATTERN: Fan-Out/Fan-In ===")
-
-	// Input channel
-	input := make(chan int, 5)
-
-	// Fan-out: Multiple workers
-	workers := 3
-	channels := make([]chan int, workers)
-	for i := 0; i < workers; i++ {
-		channels[i] = make(chan int, 2) // Buffered worker channels
-		go func(id int, ch chan int) {
-			for val := range input {
-				result := val * val
-				fmt.Printf("Worker %d: %d^2 = %d\n", id, val, result)
-				ch <- result
-			}
-			close(ch)
-		}(i, channels[i])
-	}
-
-	// Send work
-	for i := 1; i <= 6; i++ {
-		input <- i
-	}
-	close(input)
-
-	// Fan-in: Collect results
-	for _, ch := range channels {
-		for result := range ch {
-			fmt.Printf("Result: %d\n", result)
-		}
-	}
-}
-
-// =============================================================================
-// 9. CHANNEL PROPERTIES AND INTROSPECTION
-// =============================================================================
-
-func channelProperties() {
-	fmt.Println("\n=== CHANNEL PROPERTIES ===")
-
-	ch := make(chan int, 5)
-
-	// Add some items
-	ch <- 1
-	ch <- 2
-	ch <- 3
-
-	fmt.Printf("Channel length: %d\n", len(ch))     // Current items
-	fmt.Printf("Channel capacity: %d\n", cap(ch))   // Max capacity
-	fmt.Printf("Available space: %d\n", cap(ch)-len(ch))
-
-	// Receive one
-	<-ch
-	fmt.Printf("After receiving: length=%d, capacity=%d\n", len(ch), cap(ch))
-}
-
-// =============================================================================
-// 10. BEST PRACTICES AND GUIDELINES
-// =============================================================================
-
-func bestPractices() {
-	fmt.Println("\n=== BEST PRACTICES ===")
-
-	fmt.Println(`
-1. Use unbuffered channels when:
-   - You need strict synchronization
-   - You want guaranteed delivery acknowledgment
-   - Communication is the primary goal
-
-2. Use buffered channels when:
-   - Producer and consumer operate at different speeds
-   - You want to handle bursts of data
-   - You need to reduce goroutine blocking
-   - Implementing patterns like worker pools or semaphores
-
-3. Buffer sizing guidelines:
-   - Start small (1-10) and measure
-   - Match buffer size to expected concurrent operations
-   - Don't over-allocate "just in case"
-   - Consider: buffer size = max expected burst size
-
-4. Always close channels when done sending:
-   - Prevents goroutine leaks
-   - Signals completion to receivers
-   - Only close from sender side
-
-5. Avoid common pitfalls:
-   - Don't send on closed channels (panic!)
-   - Don't close channels multiple times (panic!)
-   - Don't forget to drain channels before closing
-   - Watch for goroutine leaks with blocked sends/receives
-	`)
-}
-
-// =============================================================================
-// MAIN FUNCTION - RUN ALL EXAMPLES
-// =============================================================================
-
-func main() {
-	fmt.Println("=".repeat(70))
-	fmt.Println("COMPREHENSIVE GUIDE TO GO CHANNEL BUFFERING")
-	fmt.Println("=".repeat(70))
-
-	// Section 1: Unbuffered basics
-	unbufferedChannelBasic()
-	unbufferedDeadlock()
-
-	// Section 2: Buffered basics
-	bufferedChannelBasic()
-
-	// Section 3: Comparisons
-	compareUnbufferedVsBuffered()
-
-	// Section 4: Errors and warnings
-	bufferOverflowError()
-	goroutineLeakExample()
-
-	// Section 5: Correct vs incorrect usage
-	incorrectUnbufferedUsage()
-	correctUnbufferedUsage()
-	incorrectBufferSize()
-	correctBufferSize()
-
-	// Section 6: Benefits
-	benefitsOfBuffering()
-
-	// Section 7: Control flow
-	controlFlowComparison()
-
-	// Section 8: Real-world patterns
-	workerPoolPattern()
-	semaphorePattern()
-	fanOutFanInPattern()
-
-	// Section 9: Properties
-	channelProperties()
-
-	// Section 10: Best practices
-	bestPractices()
-
-	fmt.Println("\n" + "=".repeat(70))
-	fmt.Println("GUIDE COMPLETE")
-	fmt.Println("=".repeat(70))
-}
-
-// Helper function for string repetition (Go 1.18+)
-// Note: strings.Repeat() would be the standard library function
-func repeat(s string, count int) string {
-	result := ""
-	for i := 0; i < count; i++ {
-		result += s
-	}
-	return result
-}
-
-// Note: To fix the strings.Repeat issue, add at the top:
-// import "strings"
-// Then replace "=".repeat(70) with strings.Repeat("=", 70)
-
 # Comprehensive Guide to Channel Buffering in Go
 
 I'll create a complete guide covering all aspects of buffered channels in Go with practical examples.I've created a comprehensive guide to channel buffering in Go! Here's what's covered:
@@ -1050,3 +535,522 @@ I'll create a comprehensive ASCII diagram showing how Channels, Buffering, Call 
   - **Channels always escape to heap** (shared between goroutines)
 
 Run `go build -gcflags="-m -m" main.go` to see what escapes!
+
+```go
+
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+// =============================================================================
+// 1. UNBUFFERED CHANNELS (Without Buffering)
+// =============================================================================
+
+// Unbuffered channels block until both sender and receiver are ready
+func unbufferedChannelBasic() {
+	fmt.Println("\n=== UNBUFFERED CHANNEL - Basic ===")
+	ch := make(chan int) // No buffer capacity
+
+	go func() {
+		fmt.Println("Goroutine: About to send...")
+		ch <- 42 // Blocks until receiver is ready
+		fmt.Println("Goroutine: Sent successfully!")
+	}()
+
+	time.Sleep(2 * time.Second) // Simulate delay
+	fmt.Println("Main: About to receive...")
+	val := <-ch // Blocks until sender sends
+	fmt.Println("Main: Received:", val)
+}
+
+// DEADLOCK ERROR: Sending without a receiver
+func unbufferedDeadlock() {
+	fmt.Println("\n=== UNBUFFERED CHANNEL - DEADLOCK EXAMPLE ===")
+	ch := make(chan int)
+
+	// This will cause a deadlock!
+	// Uncomment to see the error:
+	// ch <- 42  // fatal error: all goroutines are asleep - deadlock!
+	// fmt.Println(<-ch)
+
+	fmt.Println("Deadlock avoided by commenting out the problematic code")
+	close(ch)
+}
+
+// =============================================================================
+// 2. BUFFERED CHANNELS (With Buffering)
+// =============================================================================
+
+// Buffered channels allow sending without immediate receiver
+func bufferedChannelBasic() {
+	fmt.Println("\n=== BUFFERED CHANNEL - Basic ===")
+	ch := make(chan int, 2) // Buffer capacity of 2
+
+	// Send without blocking (until buffer is full)
+	ch <- 1
+	fmt.Println("Sent 1")
+	ch <- 2
+	fmt.Println("Sent 2")
+
+	// Would block here if we sent another value
+	// ch <- 3  // This would block until someone receives
+
+	fmt.Println("Received:", <-ch)
+	fmt.Println("Received:", <-ch)
+}
+
+// =============================================================================
+// 3. COMPARING UNBUFFERED VS BUFFERED
+// =============================================================================
+
+func compareUnbufferedVsBuffered() {
+	fmt.Println("\n=== COMPARISON: Unbuffered vs Buffered ===")
+
+	// Unbuffered: Sender blocks immediately
+	fmt.Println("\n--- Unbuffered Example ---")
+	unbuf := make(chan string)
+	go func() {
+		fmt.Println("Unbuffered: Sending... (will block)")
+		unbuf <- "hello"
+		fmt.Println("Unbuffered: Sent!")
+	}()
+	time.Sleep(1 * time.Second)
+	fmt.Println("Unbuffered: Receiving:", <-unbuf)
+
+	// Buffered: Sender doesn't block until buffer is full
+	fmt.Println("\n--- Buffered Example ---")
+	buf := make(chan string, 1)
+	go func() {
+		fmt.Println("Buffered: Sending... (won't block)")
+		buf <- "world"
+		fmt.Println("Buffered: Sent immediately!")
+	}()
+	time.Sleep(1 * time.Second)
+	fmt.Println("Buffered: Receiving:", <-buf)
+}
+
+// =============================================================================
+// 4. COMMON ERRORS AND WARNINGS
+// =============================================================================
+
+// ERROR: Buffer overflow (sending more than capacity without receiving)
+func bufferOverflowError() {
+	fmt.Println("\n=== ERROR: Buffer Overflow ===")
+	ch := make(chan int, 2)
+
+	ch <- 1
+	ch <- 2
+	fmt.Println("Filled buffer with 2 items")
+
+	// This would block forever and cause deadlock if no receiver:
+	// ch <- 3  // DEADLOCK!
+
+	// Receive to make space
+	fmt.Println("Received:", <-ch)
+	ch <- 3 // Now this works
+	fmt.Println("Successfully sent 3rd item after making space")
+}
+
+// WARNING: Goroutine leak without proper channel management
+func goroutineLeakExample() {
+	fmt.Println("\n=== WARNING: Potential Goroutine Leak ===")
+
+	// BAD: This goroutine will leak if channel is never read
+	leakyChannel := make(chan int)
+	go func() {
+		fmt.Println("Leaky goroutine waiting to send...")
+		leakyChannel <- 42 // Blocks forever if never received
+		fmt.Println("This line may never execute!")
+	}()
+
+	// GOOD: Using buffered channel prevents immediate blocking
+	goodChannel := make(chan int, 1)
+	go func() {
+		fmt.Println("Safe goroutine sending...")
+		goodChannel <- 42 // Doesn't block
+		fmt.Println("Safe goroutine completed!")
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+	fmt.Println("Received from good channel:", <-goodChannel)
+	// Note: leakyChannel is never read, goroutine stays blocked
+}
+
+// =============================================================================
+// 5. CORRECT VS INCORRECT USAGE PATTERNS
+// =============================================================================
+
+// INCORRECT: Unbuffered channel in synchronous code
+func incorrectUnbufferedUsage() {
+	fmt.Println("\n=== INCORRECT: Synchronous use of unbuffered channel ===")
+	ch := make(chan int)
+
+	// This won't work - will deadlock
+	// ch <- 42
+	// val := <-ch
+
+	fmt.Println("Avoided deadlock by not executing problematic code")
+	close(ch)
+}
+
+// CORRECT: Unbuffered channel with goroutines
+func correctUnbufferedUsage() {
+	fmt.Println("\n=== CORRECT: Unbuffered channel with goroutines ===")
+	ch := make(chan int)
+
+	go func() {
+		ch <- 42 // Sender in goroutine
+	}()
+
+	val := <-ch // Receiver in main
+	fmt.Println("Received:", val)
+}
+
+// INCORRECT: Over-sized buffer (waste of memory)
+func incorrectBufferSize() {
+	fmt.Println("\n=== INCORRECT: Oversized buffer ===")
+	// Allocating huge buffer when only need 1-2
+	ch := make(chan int, 10000) // Wasteful!
+
+	ch <- 1
+	fmt.Println("Received:", <-ch)
+	fmt.Println("Used 1 slot out of 10000 - wasteful!")
+}
+
+// CORRECT: Appropriately sized buffer
+func correctBufferSize() {
+	fmt.Println("\n=== CORRECT: Appropriately sized buffer ===")
+	// Buffer size matches expected concurrent operations
+	ch := make(chan int, 3)
+
+	for i := 1; i <= 3; i++ {
+		ch <- i
+	}
+
+	for i := 0; i < 3; i++ {
+		fmt.Println("Received:", <-ch)
+	}
+}
+
+// =============================================================================
+// 6. BENEFITS OF BUFFERING
+// =============================================================================
+
+func benefitsOfBuffering() {
+	fmt.Println("\n=== BENEFITS OF BUFFERING ===")
+
+	// Benefit 1: Decoupling producer and consumer speeds
+	fmt.Println("\n--- Benefit 1: Speed Decoupling ---")
+	ch := make(chan int, 5)
+	var wg sync.WaitGroup
+
+	// Fast producer
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 1; i <= 5; i++ {
+			ch <- i
+			fmt.Printf("Produced: %d\n", i)
+		}
+		close(ch)
+	}()
+
+	// Slow consumer
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for val := range ch {
+			time.Sleep(100 * time.Millisecond) // Slow processing
+			fmt.Printf("Consumed: %d\n", val)
+		}
+	}()
+
+	wg.Wait()
+
+	// Benefit 2: Reducing context switches
+	fmt.Println("\n--- Benefit 2: Fewer Context Switches ---")
+	fmt.Println("Buffered channels reduce goroutine blocking,")
+	fmt.Println("leading to fewer context switches and better performance")
+
+	// Benefit 3: Burst handling
+	fmt.Println("\n--- Benefit 3: Burst Handling ---")
+	burstCh := make(chan string, 10)
+	for i := 0; i < 10; i++ {
+		burstCh <- fmt.Sprintf("burst-%d", i)
+	}
+	fmt.Println("Handled burst of 10 items without blocking")
+	close(burstCh)
+	count := 0
+	for range burstCh {
+		count++
+	}
+	fmt.Printf("Processed %d items\n", count)
+}
+
+// =============================================================================
+// 7. CONTROL FLOW DIFFERENCES
+// =============================================================================
+
+func controlFlowComparison() {
+	fmt.Println("\n=== CONTROL FLOW: Unbuffered vs Buffered ===")
+
+	// Unbuffered: Tight synchronization
+	fmt.Println("\n--- Unbuffered: Lockstep Execution ---")
+	unbuf := make(chan int)
+	go func() {
+		for i := 1; i <= 3; i++ {
+			fmt.Printf("Sending %d... ", i)
+			unbuf <- i // Waits for receiver
+			fmt.Println("acknowledged")
+		}
+		close(unbuf)
+	}()
+
+	for val := range unbuf {
+		fmt.Printf("Received %d\n", val)
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	// Buffered: Looser coupling
+	fmt.Println("\n--- Buffered: Asynchronous Execution ---")
+	buf := make(chan int, 3)
+	go func() {
+		for i := 1; i <= 3; i++ {
+			fmt.Printf("Sending %d (non-blocking)\n", i)
+			buf <- i // Doesn't wait
+		}
+		close(buf)
+	}()
+
+	time.Sleep(500 * time.Millisecond) // Delay before receiving
+	for val := range buf {
+		fmt.Printf("Received %d\n", val)
+	}
+}
+
+// =============================================================================
+// 8. REAL-WORLD PATTERNS
+// =============================================================================
+
+// Pattern 1: Worker Pool with buffered channels
+func workerPoolPattern() {
+	fmt.Println("\n=== PATTERN: Worker Pool with Buffered Channels ===")
+
+	jobs := make(chan int, 10)    // Buffer for incoming jobs
+	results := make(chan int, 10) // Buffer for results
+
+	// Start workers
+	for w := 1; w <= 3; w++ {
+		go func(id int) {
+			for job := range jobs {
+				fmt.Printf("Worker %d processing job %d\n", id, job)
+				time.Sleep(100 * time.Millisecond)
+				results <- job * 2
+			}
+		}(w)
+	}
+
+	// Send jobs
+	for j := 1; j <= 5; j++ {
+		jobs <- j
+	}
+	close(jobs)
+
+	// Collect results
+	for r := 1; r <= 5; r++ {
+		fmt.Printf("Result: %d\n", <-results)
+	}
+}
+
+// Pattern 2: Semaphore with buffered channel
+func semaphorePattern() {
+	fmt.Println("\n=== PATTERN: Semaphore (Rate Limiting) ===")
+
+	// Allow max 3 concurrent operations
+	sem := make(chan struct{}, 3)
+	var wg sync.WaitGroup
+
+	for i := 1; i <= 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+
+			sem <- struct{}{} // Acquire
+			fmt.Printf("Task %d: Started\n", id)
+			time.Sleep(200 * time.Millisecond)
+			fmt.Printf("Task %d: Finished\n", id)
+			<-sem // Release
+		}(i)
+	}
+
+	wg.Wait()
+	fmt.Println("All tasks completed with rate limiting")
+}
+
+// Pattern 3: Fan-out/Fan-in
+func fanOutFanInPattern() {
+	fmt.Println("\n=== PATTERN: Fan-Out/Fan-In ===")
+
+	// Input channel
+	input := make(chan int, 5)
+
+	// Fan-out: Multiple workers
+	workers := 3
+	channels := make([]chan int, workers)
+	for i := 0; i < workers; i++ {
+		channels[i] = make(chan int, 2) // Buffered worker channels
+		go func(id int, ch chan int) {
+			for val := range input {
+				result := val * val
+				fmt.Printf("Worker %d: %d^2 = %d\n", id, val, result)
+				ch <- result
+			}
+			close(ch)
+		}(i, channels[i])
+	}
+
+	// Send work
+	for i := 1; i <= 6; i++ {
+		input <- i
+	}
+	close(input)
+
+	// Fan-in: Collect results
+	for _, ch := range channels {
+		for result := range ch {
+			fmt.Printf("Result: %d\n", result)
+		}
+	}
+}
+
+// =============================================================================
+// 9. CHANNEL PROPERTIES AND INTROSPECTION
+// =============================================================================
+
+func channelProperties() {
+	fmt.Println("\n=== CHANNEL PROPERTIES ===")
+
+	ch := make(chan int, 5)
+
+	// Add some items
+	ch <- 1
+	ch <- 2
+	ch <- 3
+
+	fmt.Printf("Channel length: %d\n", len(ch))     // Current items
+	fmt.Printf("Channel capacity: %d\n", cap(ch))   // Max capacity
+	fmt.Printf("Available space: %d\n", cap(ch)-len(ch))
+
+	// Receive one
+	<-ch
+	fmt.Printf("After receiving: length=%d, capacity=%d\n", len(ch), cap(ch))
+}
+
+// =============================================================================
+// 10. BEST PRACTICES AND GUIDELINES
+// =============================================================================
+
+func bestPractices() {
+	fmt.Println("\n=== BEST PRACTICES ===")
+
+	fmt.Println(`
+1. Use unbuffered channels when:
+   - You need strict synchronization
+   - You want guaranteed delivery acknowledgment
+   - Communication is the primary goal
+
+2. Use buffered channels when:
+   - Producer and consumer operate at different speeds
+   - You want to handle bursts of data
+   - You need to reduce goroutine blocking
+   - Implementing patterns like worker pools or semaphores
+
+3. Buffer sizing guidelines:
+   - Start small (1-10) and measure
+   - Match buffer size to expected concurrent operations
+   - Don't over-allocate "just in case"
+   - Consider: buffer size = max expected burst size
+
+4. Always close channels when done sending:
+   - Prevents goroutine leaks
+   - Signals completion to receivers
+   - Only close from sender side
+
+5. Avoid common pitfalls:
+   - Don't send on closed channels (panic!)
+   - Don't close channels multiple times (panic!)
+   - Don't forget to drain channels before closing
+   - Watch for goroutine leaks with blocked sends/receives
+	`)
+}
+
+// =============================================================================
+// MAIN FUNCTION - RUN ALL EXAMPLES
+// =============================================================================
+
+func main() {
+	fmt.Println("=".repeat(70))
+	fmt.Println("COMPREHENSIVE GUIDE TO GO CHANNEL BUFFERING")
+	fmt.Println("=".repeat(70))
+
+	// Section 1: Unbuffered basics
+	unbufferedChannelBasic()
+	unbufferedDeadlock()
+
+	// Section 2: Buffered basics
+	bufferedChannelBasic()
+
+	// Section 3: Comparisons
+	compareUnbufferedVsBuffered()
+
+	// Section 4: Errors and warnings
+	bufferOverflowError()
+	goroutineLeakExample()
+
+	// Section 5: Correct vs incorrect usage
+	incorrectUnbufferedUsage()
+	correctUnbufferedUsage()
+	incorrectBufferSize()
+	correctBufferSize()
+
+	// Section 6: Benefits
+	benefitsOfBuffering()
+
+	// Section 7: Control flow
+	controlFlowComparison()
+
+	// Section 8: Real-world patterns
+	workerPoolPattern()
+	semaphorePattern()
+	fanOutFanInPattern()
+
+	// Section 9: Properties
+	channelProperties()
+
+	// Section 10: Best practices
+	bestPractices()
+
+	fmt.Println("\n" + "=".repeat(70))
+	fmt.Println("GUIDE COMPLETE")
+	fmt.Println("=".repeat(70))
+}
+
+// Helper function for string repetition (Go 1.18+)
+// Note: strings.Repeat() would be the standard library function
+func repeat(s string, count int) string {
+	result := ""
+	for i := 0; i < count; i++ {
+		result += s
+	}
+	return result
+}
+
+// Note: To fix the strings.Repeat issue, add at the top:
+// import "strings"
+// Then replace "=".repeat(70) with strings.Repeat("=", 70)
+
+```
