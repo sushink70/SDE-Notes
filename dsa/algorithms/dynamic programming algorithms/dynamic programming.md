@@ -1853,6 +1853,8 @@ STEP 4: KEY DYNAMIC PROGRAMMING PRINCIPLES
 PERFORMANCE COMPARISON
 =====================
 
+```
+
 Approach          | Time      | Space     | Calls to F(3)
 ─────────────────┼───────────┼───────────┼──────────────
 Naive Recursive  | O(2^n)    | O(n)      | 2
@@ -1865,7 +1867,7 @@ For F(10):
 
 IMPROVEMENT: ~87x faster for F(10)!
 
-
+```
 
 WHEN TO USE DYNAMIC PROGRAMMING
 ==============================

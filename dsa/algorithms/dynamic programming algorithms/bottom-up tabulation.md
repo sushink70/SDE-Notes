@@ -101,3 +101,29 @@ and **Bottom-Up** as *preparing all ingredients in advance* so you can instantly
 ---
 
 Would you like me to show how **Bottom-Up Tabulation** works **step by step** in the call flow — with stack/heap memory visualization — for Fibonacci or another DP problem like **0/1 Knapsack**?
+
+Yes, you can absolutely use a **memo** (a table or array to store computed results) in bottom-up DP — in fact, it's the standard way bottom-up DP is implemented. 
+
+The confusion often comes from terminology:
+- **Top-down DP** uses recursion + memoization (caching results of recursive calls).
+- **Bottom-up DP** uses iteration + tabulation (filling a table iteratively from smaller subproblems to larger ones).
+
+That table in bottom-up DP *is* a memo — it stores previously computed values to avoid recomputation. So bottom-up DP does use a memo, just in an iterative rather than recursive fashion.
+
+### Example: Fibonacci
+**Bottom-up with memo (table):**
+```python
+def fib(n):
+    memo = [0] * (n+1)
+    memo[1] = 1
+    for i in range(2, n+1):
+        memo[i] = memo[i-1] + memo[i-2]
+    return memo[n]
+```
+Here `memo` is the DP table.
+
+### Key takeaway
+- If by "memo" you mean *any data structure that stores solved subproblem results*, then bottom-up DP always uses one.
+- If you specifically mean *the recursive caching technique* (calling the function recursively and storing results), then bottom-up doesn't use recursion, so that exact technique doesn't apply — but the underlying idea of remembering past computations is identical.
+
+So the short answer: **Yes, it's not only possible but standard.**
