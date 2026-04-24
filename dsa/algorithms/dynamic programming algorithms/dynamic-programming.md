@@ -1859,3 +1859,702 @@ Start with Fibonacci. Master it both ways. Then climb the ladder, one problem at
 **Remember:** The gap between knowing about DP and MASTERING DP is filled with deliberate practice. Every top 1% coder walked this same path.
 
 **Your journey to DP enlightenment begins now.** 🚀⚡
+
+# Dynamic Programming: The Mental Framework
+
+Most people struggle with DP not because of the code — but because they don't have a **systematic way to think about it**. Let me fix that.
+
+---
+
+## The Core Insight
+
+> DP = "I've solved smaller versions of this problem. Can I use those answers to build the bigger answer?"
+
+**Analogy:** You're climbing stairs. You don't need to figure out how to climb all 100 stairs at once. You just need to know: *"If I'm at stair N, I got here from stair N-1 or N-2."* That recurrence IS the DP.
+
+---
+
+## The 5-Step Framework (Apply to Every DP Problem)
+
+```
+1. IDENTIFY   → Is this even a DP problem?
+2. STATE      → What are my "variables" that define a subproblem?
+3. TRANSITION → How do I go from smaller to bigger? (The recurrence)
+4. BASE CASE  → Where does the recursion bottom out?
+5. DIRECTION  → Top-down (memo) or Bottom-up (table)?
+```
+
+---
+
+## Step 1: Is it DP?
+
+Ask yourself two questions:
+
+```
+✓ Overlapping subproblems?  → Same sub-calculation appears multiple times
+✓ Optimal substructure?     → Optimal answer is built from optimal sub-answers
+```
+
+**Signal words in problem statements:**
+- "minimum/maximum"
+- "number of ways"
+- "can you reach / is it possible"
+- "longest / shortest"
+- "count distinct"
+
+---
+
+## Step 2: Define the STATE
+
+This is where 90% of people get stuck. The state is what you need to **fully describe** a subproblem.
+
+```go
+// Ask: "dp[?] means what exactly?"
+//
+// Fibonacci:  dp[i] = the i-th fibonacci number
+// Knapsack:   dp[i][w] = max value using first i items, with weight limit w
+// LCS:        dp[i][j] = length of LCS of first i chars of A, first j chars of B
+// Coin Change:dp[i] = min coins needed to make amount i
+```
+
+**Rule of thumb:** If the problem has one "dimension" (index, amount), your state is 1D. If it has two "things changing" (two sequences, index + remaining capacity), your state is 2D.
+
+---
+
+## Step 3: Write the TRANSITION
+
+This is the heart of DP. It's always: **"dp[i] depends on dp[something smaller]"**
+
+```go
+// Fibonacci
+dp[i] = dp[i-1] + dp[i-2]
+
+// Coin Change (min coins for amount i)
+dp[i] = min(dp[i - coin] + 1) for each coin
+
+// 0/1 Knapsack
+// Either take item i, or don't
+dp[i][w] = max(dp[i-1][w], dp[i-1][w-weight[i]] + value[i])
+
+// Longest Common Subsequence
+if A[i] == B[j]:
+    dp[i][j] = dp[i-1][j-1] + 1
+else:
+    dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+```
+
+---
+
+## The 4 Core DP Patterns (Covers ~80% of Problems)
+
+### Pattern 1: Linear DP — "Looking back a few steps"
+
+```go
+// Template: dp[i] depends on dp[i-1], dp[i-2], ...
+// Problems: Fibonacci, Climbing Stairs, House Robber, Jump Game
+
+// House Robber: can't rob adjacent houses, maximize money
+// STATE: dp[i] = max money robbing from houses 0..i
+// TRANSITION: rob house i, or skip it
+func rob(nums []int) int {
+    n := len(nums)
+    if n == 1 {
+        return nums[0]
+    }
+
+    dp := make([]int, n)
+    dp[0] = nums[0]
+    dp[1] = max(nums[0], nums[1])
+
+    for i := 2; i < n; i++ {
+        dp[i] = max(dp[i-1], dp[i-2]+nums[i]) // skip i, OR rob i
+    }
+    return dp[n-1]
+}
+```
+
+### Pattern 2: Knapsack — "Take it or leave it"
+
+```go
+// Template: dp[i][w] = best answer using first i items with constraint w
+// Problems: 0/1 Knapsack, Subset Sum, Partition Equal Subset
+
+// Subset Sum: can we pick numbers that sum to target?
+// STATE: dp[i][s] = can we reach sum s using first i numbers?
+// TRANSITION: use nums[i], or don't
+func canPartition(nums []int) bool {
+    total := 0
+    for _, n := range nums {
+        total += n
+    }
+    if total%2 != 0 {
+        return false
+    }
+    target := total / 2
+    n := len(nums)
+
+    // dp[i][s] = true if sum s is reachable using first i elements
+    dp := make([][]bool, n+1)
+    for i := range dp {
+        dp[i] = make([]bool, target+1)
+        dp[i][0] = true // sum=0 always reachable (pick nothing)
+    }
+
+    for i := 1; i <= n; i++ {
+        for s := 0; s <= target; s++ {
+            dp[i][s] = dp[i-1][s] // don't take nums[i-1]
+            if s >= nums[i-1] {
+                dp[i][s] = dp[i][s] || dp[i-1][s-nums[i-1]] // take it
+            }
+        }
+    }
+    return dp[n][target]
+}
+```
+
+### Pattern 3: Two-Sequence DP — "Comparing two strings/arrays"
+
+```go
+// Template: dp[i][j] = answer for first i elements of A, first j of B
+// Problems: LCS, Edit Distance, Longest Common Substring
+
+// Edit Distance: min operations to convert word1 → word2
+// TRANSITION:
+//   if chars match: dp[i][j] = dp[i-1][j-1]
+//   else: min of insert, delete, replace
+func minDistance(word1 string, word2 string) int {
+    m, n := len(word1), len(word2)
+
+    dp := make([][]int, m+1)
+    for i := range dp {
+        dp[i] = make([]int, n+1)
+    }
+
+    // Base cases: converting to/from empty string
+    for i := 0; i <= m; i++ { dp[i][0] = i } // delete all of word1
+    for j := 0; j <= n; j++ { dp[0][j] = j } // insert all of word2
+
+    for i := 1; i <= m; i++ {
+        for j := 1; j <= n; j++ {
+            if word1[i-1] == word2[j-1] {
+                dp[i][j] = dp[i-1][j-1] // chars match, no cost
+            } else {
+                dp[i][j] = 1 + min3(
+                    dp[i-1][j],   // delete from word1
+                    dp[i][j-1],   // insert into word1
+                    dp[i-1][j-1], // replace
+                )
+            }
+        }
+    }
+    return dp[m][n]
+}
+```
+
+### Pattern 4: Interval DP — "Best way to split a range"
+
+```go
+// Template: dp[i][j] = answer for subarray from i to j
+// Problems: Matrix Chain Multiplication, Burst Balloons, Palindrome Partitioning
+
+// Minimum cost to multiply a chain of matrices
+// dp[i][j] = min multiplications for matrices i..j
+func matrixChainOrder(p []int) int {
+    n := len(p) - 1
+    dp := make([][]int, n)
+    for i := range dp {
+        dp[i] = make([]int, n)
+    }
+
+    // length of chain
+    for length := 2; length <= n; length++ {
+        for i := 0; i <= n-length; i++ {
+            j := i + length - 1
+            dp[i][j] = 1<<31 - 1
+            // try every split point k
+            for k := i; k < j; k++ {
+                cost := dp[i][k] + dp[k+1][j] + p[i]*p[k+1]*p[j+1]
+                if cost < dp[i][j] {
+                    dp[i][j] = cost
+                }
+            }
+        }
+    }
+    return dp[0][n-1]
+}
+```
+
+---
+
+## The Decision Flowchart
+
+```
+Problem arrives
+      │
+      ▼
+Single sequence/value?
+ ├─ YES → 1D DP (Linear / Knapsack)
+ │         ├─ "take or skip"? → Knapsack pattern
+ │         └─ "look back k steps"? → Linear pattern
+ └─ NO
+      │
+Two sequences?
+ ├─ YES → 2D DP (Two-sequence pattern)
+ └─ NO
+      │
+Range/interval problem?
+ └─ YES → Interval DP (split at every point)
+```
+
+---
+
+## Space Optimization (Almost Always Possible)
+
+Once your 2D table works, notice most problems only look back **one row**:
+
+```go
+// Knapsack: O(n*W) space → O(W) space
+// Instead of dp[i][w], just dp[w], iterate backwards
+
+func knapsack(weights, values []int, W int) int {
+    dp := make([]int, W+1)
+
+    for i := range weights {
+        // BACKWARDS to prevent using item twice
+        for w := W; w >= weights[i]; w-- {
+            if val := dp[w-weights[i]] + values[i]; val > dp[w] {
+                dp[w] = val
+            }
+        }
+    }
+    return dp[W]
+}
+```
+
+---
+
+## Top-Down vs Bottom-Up
+
+| | Top-Down (Memoization) | Bottom-Up (Tabulation) |
+|---|---|---|
+| **Code style** | Recursive + cache map | Iterative + array |
+| **When to use** | State space is sparse | State space is dense |
+| **Pitfall** | Stack overflow on large n | Must figure out fill order |
+| **Easier for** | 2D/3D problems | Linear problems |
+
+---
+
+## Your Exercises
+
+1. **Climbing Stairs** → identical structure to Fibonacci. Add a twist: you can take 1, 2, or 3 steps. Modify the transition.
+
+2. **Coin Change** → given coins `[1,5,10,25]` and amount `N`, find minimum coins. State: `dp[i]` = min coins for amount `i`. Transition: `dp[i] = min(dp[i - coin] + 1)` for each coin.
+
+3. **Longest Increasing Subsequence** → `dp[i]` = length of LIS ending at index `i`. For each `j < i`, if `nums[j] < nums[i]`, then `dp[i] = max(dp[i], dp[j] + 1)`.
+
+Solve each of these by **writing the state definition and transition first** before any code. That discipline is what separates people who "get" DP from those who just memorize solutions.
+
+---
+
+**Further reading:**
+- 📖 *"Dynamic Programming for Coding Interviews"* — Meenakshi & Kamal Rawat (very pattern-focused)
+- 🔗 [neetcode.io DP playlist](https://neetcode.io) — problems grouped by exact patterns above
+
+## "If I'm at stair N, I got here from stair N-1 or N-2"
+
+---
+
+## ASCII Diagram — 5 Stairs
+
+```
+STAIR:    [0]   [1]   [2]   [3]   [4]   [5]
+           │     │     │     │     │     │
+           ▼     ▼     ▼     ▼     ▼     ▼
+          GROUND  1     2     3     4    GOAL
+
+You are at stair 5.
+How did you get here?
+
+Option A: You were at stair 4, took 1 step
+          [4] ──(+1)──► [5]
+
+Option B: You were at stair 3, took 2 steps
+          [3] ──(+2)──► [5]
+
+So:  ways(5) = ways(4) + ways(3)
+```
+
+```
+Visualizing ALL paths for n=4:
+
+START
+  │
+  ├─ 1 ─► 2 ─► 3 ─► 4       (1+1+1+1)
+  │
+  ├─ 1 ─► 2 ─► 4             (1+1+2)
+  │
+  ├─ 1 ─► 3 ─► 4             (1+2+1)
+  │
+  ├─ 2 ─► 3 ─► 4             (2+1+1)
+  │
+  └─ 2 ─► 4                  (2+2)
+
+Total = 5 ways
+```
+
+---
+
+## Simulation Table — n = 6
+
+At every stair, ask: **"from where could I have arrived here?"**
+
+```
+┌───────┬──────────────────────────────────────────┬────────────┐
+│ Stair │ Arrived from                             │  ways[i]   │
+├───────┼──────────────────────────────────────────┼────────────┤
+│   0   │ Base case (ground, you start here)       │     1      │
+│   1   │ Only from stair 0 (+1 step)              │     1      │
+│   2   │ From stair 1 (+1)  OR  stair 0 (+2)      │   1+1 = 2  │
+│   3   │ From stair 2 (+1)  OR  stair 1 (+2)      │   2+1 = 3  │
+│   4   │ From stair 3 (+1)  OR  stair 2 (+2)      │   3+2 = 5  │
+│   5   │ From stair 4 (+1)  OR  stair 3 (+2)      │   5+3 = 8  │
+│   6   │ From stair 5 (+1)  OR  stair 4 (+2)      │   8+5 = 13 │
+└───────┴──────────────────────────────────────────┴────────────┘
+
+Recurrence:  ways[i] = ways[i-1] + ways[i-2]
+```
+
+---
+
+## The Key Mental Shift
+
+```
+WRONG way to think:
+  "How do I GET to stair 5?"   ← forward thinking, hard to formulate
+
+RIGHT way to think:
+  "I AM at stair 5.
+   Which stair was I JUST at?" ← backward thinking, always 2 choices
+        │
+        ├── I was at N-1  (took 1 step)
+        └── I was at N-2  (took 2 steps)
+
+This backward question IS the recurrence relation.
+Apply this to EVERY DP problem:
+
+  "I am at state X. Which smaller state did I come from?"
+```
+
+---
+
+## 3-Step Twist: Take 1, 2, or 3 Steps
+
+The moment you add a third choice, the table just gains one more column:
+
+```
+┌───────┬────────────────────────────────────────────────────┬────────────┐
+│ Stair │ Arrived from                                       │  ways[i]   │
+├───────┼────────────────────────────────────────────────────┼────────────┤
+│   0   │ Base case                                          │     1      │
+│   1   │ From 0                                             │     1      │
+│   2   │ From 1 (+1)  OR  from 0 (+2)                       │   1+1 = 2  │
+│   3   │ From 2 (+1)  OR  from 1 (+2)  OR  from 0 (+3)      │  2+1+1 = 4 │
+│   4   │ From 3 (+1)  OR  from 2 (+2)  OR  from 1 (+3)      │  4+2+1 = 7 │
+│   5   │ From 4 (+1)  OR  from 3 (+2)  OR  from 2 (+3)      │  7+4+2 = 13│
+└───────┴────────────────────────────────────────────────────┴────────────┘
+
+Recurrence:  ways[i] = ways[i-1] + ways[i-2] + ways[i-3]
+Code change: ONE extra term. That's it.
+```
+
+```go
+for i := 3; i <= n; i++ {
+    dp[i] = dp[i-1] + dp[i-2] + dp[i-3]  // ← just add the new "from" case
+}
+```
+
+**This is exactly how you extend ANY DP — change the question "where could I have come from", and the recurrence writes itself.**
+
+## The Mental Model: From "Solve It" to "Split It"
+
+---
+
+## The Core Shift in Thinking
+
+```
+NORMAL brain:          "How do I solve the WHOLE problem?"
+DP brain:              "How do I solve it for ONE element,
+                        assuming everything smaller is ALREADY solved?"
+
+That assumption — "already solved" — is the entire trick.
+```
+
+---
+
+## The 3-Question Method (Apply in Order)
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Q1: "What is the LAST thing that happens           │
+│        before I reach the answer?"                  │
+│                                                     │
+│  Q2: "What choices did I have at that last step?"  │
+│                                                     │
+│  Q3: "If I knew the answer to each choice,         │
+│        how do I COMBINE them?"                      │
+└─────────────────────────────────────────────────────┘
+```
+
+This is not intuition. It is a **mechanical process**. Let me show you.
+
+---
+
+## Live Walkthrough — 3 Problems, Same Mental Process
+
+---
+
+### Problem 1: Climbing Stairs
+
+```
+Plain English problem:
+  "Count ways to reach stair N, taking 1 or 2 steps at a time"
+
+───────────────────────────────────────────────
+Q1: What is the LAST thing that happens?
+    → The very last step I take to land on stair N
+
+Q2: What choices did I have at that last step?
+    → I took 1 step  (came from N-1)
+    → I took 2 steps (came from N-2)
+
+Q3: How do I combine them?
+    → Total ways = ways from (N-1) + ways from (N-2)
+───────────────────────────────────────────────
+
+Recurrence writes itself:
+    dp[n] = dp[n-1] + dp[n-2]
+```
+
+---
+
+### Problem 2: Coin Change (minimum coins for amount N)
+
+```
+Plain English:
+  "Given coins [1, 5, 10], find minimum coins to make amount N"
+
+───────────────────────────────────────────────
+Q1: What is the LAST thing that happens?
+    → I place one final coin to complete amount N
+
+Q2: What choices did I have for that final coin?
+    → I placed coin 1  (previous amount was N-1)
+    → I placed coin 5  (previous amount was N-5)
+    → I placed coin 10 (previous amount was N-10)
+
+Q3: How do I combine them?
+    → I want MINIMUM, so:
+    → dp[N] = min(dp[N-1], dp[N-5], dp[N-10]) + 1
+                                                 ↑
+                                    that final coin I placed
+───────────────────────────────────────────────
+
+Recurrence:
+    dp[n] = min(dp[n - coin] + 1) for each coin
+```
+
+---
+
+### Problem 3: Longest Increasing Subsequence (LIS)
+
+```
+Plain English:
+  "Given [3, 1, 8, 2, 5], find length of longest increasing subsequence"
+
+This feels harder. Same 3 questions.
+
+───────────────────────────────────────────────
+Q1: What is the LAST thing that happens?
+    → The sequence ENDS at some element.
+      Pick any index i as "the last element of my LIS"
+
+Q2: What choices did I have before that last element?
+    → Any index j < i where nums[j] < nums[i]
+      (because the sequence must be increasing)
+
+Q3: How do I combine?
+    → I want LONGEST, so:
+    → dp[i] = max(dp[j] + 1) for all j < i where nums[j] < nums[i]
+                          ↑
+                  extend that subsequence by 1 (adding nums[i])
+───────────────────────────────────────────────
+
+Recurrence:
+    dp[i] = max(dp[j] + 1)  for all valid j
+```
+
+---
+
+## The Pattern You Just Saw
+
+```
+Every single problem followed the same skeleton:
+
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  dp[i] = COMBINE( dp[smaller] + cost_of_last_decision )     │
+│                                                              │
+│  COMBINE is:                                                 │
+│    → "count ways"  problem   →  SUM  all choices            │
+│    → "minimum"     problem   →  MIN  all choices             │
+│    → "maximum"     problem   →  MAX  all choices             │
+│    → "is possible" problem   →  OR   all choices             │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## The Full Mental Process as a Flowchart
+
+```
+Read the problem
+      │
+      ▼
+Step 1: RESTATE in one line
+  "Find X for input of size N"
+      │
+      ▼
+Step 2: SHRINK the problem by 1
+  "What if I already knew the answer for N-1?"
+  "Can I use that to get answer for N?"
+      │
+      ├── YES → You have a recurrence. Write it.
+      └── NO  → Your "state" is wrong. Add another variable.
+                (e.g., move from dp[i] to dp[i][j])
+      │
+      ▼
+Step 3: IDENTIFY the last decision
+  "What is the last choice made before reaching state N?"
+  List ALL options for that choice.
+      │
+      ▼
+Step 4: WRITE the recurrence
+  dp[N] = COMBINE over all choices of dp[smaller state]
+      │
+      ▼
+Step 5: BASE CASES
+  "What is the smallest N where the answer is obvious?"
+  Hard-code those.
+      │
+      ▼
+Step 6: FILL ORDER
+  Bottom-up: fill small → large (loop)
+  Top-down:  fill on demand (recursion + memo)
+```
+
+---
+
+## The "Shrink by 1" Practice Drill
+
+This is the single most important habit to build. Take any problem and ask:
+
+```
+"Suppose I have the answer for N-1.
+ Now element N arrives.
+ What do I do with it?"
+
+Problem: Max subarray sum
+  → "I know best sum ending at index N-1.
+     Element N arrives.
+     Do I EXTEND that subarray, or START fresh from N?"
+  → dp[i] = max(dp[i-1] + nums[i],  nums[i])
+                 ↑ extend              ↑ restart
+
+Problem: House Robber
+  → "I know max money from houses 0..N-1.
+     House N arrives.
+     Do I ROB it (skip N-1) or SKIP it?"
+  → dp[i] = max(dp[i-2] + nums[i],  dp[i-1])
+                 ↑ rob N               ↑ skip N
+
+Problem: Unique Paths in Grid
+  → "I know ways to reach cell (i-1,j) and (i,j-1).
+     Cell (i,j) arrives.
+     I could have come from TOP or from LEFT."
+  → dp[i][j] = dp[i-1][j] + dp[i][j-1]
+```
+
+See what's happening? The problem **tells you** the subproblems once you ask the right question.
+
+---
+
+## When 1D Fails: Add a Dimension
+
+```
+If you cannot express the problem with dp[i] alone,
+it means your state is MISSING information.
+
+Signal: "My transition doesn't know enough to decide"
+
+Fix: Add another variable to the state.
+
+Example:
+  "0/1 Knapsack — max value, weight limit W"
+
+  Try dp[i]:
+    → "best value using first i items"
+    → Transition: take item i, or don't
+    → PROBLEM: If I take item i, I need to know remaining weight.
+                dp[i] alone doesn't track that.
+
+  Fix → dp[i][w]:
+    → "best value using first i items WITH weight limit w"
+    → Now I know everything I need.
+    → dp[i][w] = max(dp[i-1][w], dp[i-1][w-wt[i]] + val[i])
+                      ↑ skip i        ↑ take i (weight reduces)
+```
+
+---
+
+## One Rule to Remember
+
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│  Your STATE must contain exactly enough information │
+│  to make the next decision WITHOUT looking at       │
+│  anything you've already passed.                    │
+│                                                     │
+│  Too little info → add a dimension                  │
+│  Right info      → recurrence is clean              │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Your Practice Protocol
+
+Do these 5 problems **in this exact order**. Write the 3 questions on paper before touching code:
+
+```
+1. Coin Change          → min/max + single sequence
+2. House Robber         → skip/take + single sequence  
+3. Unique Paths         → grid, 2D state is obvious
+4. Subset Sum           → take/skip + target constraint → 2D
+5. Longest Common Sub.  → two sequences → 2D, Q1 is tricky
+```
+
+For each one, before writing a single line of Go:
+
+```
+Write on paper:
+  Q1: "Last thing that happens is ___________"
+  Q2: "My choices at that last step are ______"
+  Q3: "I combine them with min/max/sum because ___"
+  STATE: "dp[i] means ___________"
+  BASE:  "dp[0] = ___ because ___"
+```
+
+Once that paper is filled out, the code is just transcription.

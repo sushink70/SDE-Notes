@@ -1043,3 +1043,544 @@ func main() {
 }
 # Output: 2
 ```
+
+```go
+func sameTree(p *TreeNode, q *TreeNode) bool {
+    if p == nil && q == nil {
+        return true
+    }
+    if p == nil || q == nil {
+        return false
+    }
+    if p.Val != q.Val {
+        return false
+    }
+    return sameTree(p.Left, q.Left) &&
+           sameTree(p.Right, q.Right)
+}
+```
+
+# Execution Order in `&&` — Left Side Always Executes First
+
+## The Golden Rule: Left-to-Right with Short-Circuit Evaluation
+
+In Go (and virtually every C-family language: C, C++, Rust, Python), the `&&` operator:
+
+1. **Always evaluates the LEFT side first**
+2. **Only evaluates the RIGHT side IF the left side returned `true`**
+3. If left side is `false` → **right side is SKIPPED entirely** (short-circuit)
+
+---
+
+## ASCII Execution Flow
+
+```
+return sameTree(p.Left, q.Left) && sameTree(p.Right, q.Right)
+         │                              │
+         │                              │
+         ▼                              │
+   ┌─────────────┐                      │
+   │ Execute     │                      │
+   │ LEFT call   │                      │
+   │ first       │                      │
+   └──────┬──────┘                      │
+          │                             │
+          ▼                             │
+   ┌──────────────┐                     │
+   │ Result =     │                     │
+   │ true or      │                     │
+   │ false?       │                     │
+   └──────┬───────┘                     │
+          │                             │
+    ┌─────┴──────┐                      │
+    │            │                      │
+    ▼            ▼                      │
+  false        true ──────────────────►─┘
+    │            │                      │
+    │            │               ┌──────▼──────┐
+    │            │               │ Execute     │
+    │            │               │ RIGHT call  │
+    │            │               └──────┬──────┘
+    │            │                      │
+    ▼            │               ┌──────▼──────┐
+  return         │               │ Return its  │
+  false          │               │ result      │
+  IMMEDIATELY    │               └─────────────┘
+  (right side    │
+  NEVER runs)   (continues)
+```
+
+---
+
+## Concrete Example — Watch the Call Order
+
+```
+        Tree p:          Tree q:
+            1                1
+           / \              / \
+          2   3            2   4   ← different!
+```
+
+```
+Call: sameTree(p=1, q=1)
+│
+├── p.Val == q.Val (1==1) ✓
+│
+├── STEP 1: sameTree(p.Left=2, q.Left=2)   ← LEFT executes FIRST
+│       │
+│       ├── p.Val == q.Val (2==2) ✓
+│       ├── sameTree(nil, nil) → true
+│       ├── sameTree(nil, nil) → true
+│       └── returns TRUE
+│
+│   LEFT returned TRUE → proceed to RIGHT
+│
+└── STEP 2: sameTree(p.Right=3, q.Right=4) ← RIGHT executes NOW
+        │
+        ├── p.Val != q.Val (3 != 4) ✗
+        └── returns FALSE
+
+Final result: true && false = FALSE ✓
+```
+
+---
+
+## Now The Short-Circuit Case — Right Side Never Runs
+
+```
+        Tree p:          Tree q:
+            1                1
+           / \              / \
+          2   3            5   3   ← left subtrees differ
+```
+
+```
+Call: sameTree(p=1, q=1)
+│
+├── p.Val == q.Val (1==1) ✓
+│
+├── STEP 1: sameTree(p.Left=2, q.Left=5)   ← LEFT executes FIRST
+│       │
+│       ├── p.Val != q.Val (2 != 5) ✗
+│       └── returns FALSE  ◄── SHORT CIRCUIT TRIGGERED!
+│
+│   LEFT returned FALSE → && stops here
+│   sameTree(p.Right, q.Right) is NEVER called
+│
+└── STEP 2: ██████ SKIPPED ██████  ← RIGHT never executes!
+
+Final result: false  (immediately)
+```
+
+---
+
+## Why This Matters for Recursive Trees
+
+```
+Short-circuit saves unnecessary work:
+
+Without short-circuit:            With short-circuit (actual):
+─────────────────────             ──────────────────────────
+Check left subtree  ✓             Check left subtree  ✗
+Check right subtree ✓  ← wasted  RIGHT SIDE SKIPPED  ← saved!
+```
+
+The deeper the tree, the more calls get pruned when a mismatch is found early in the left subtree.
+
+---
+
+## The Same Rule in All Your Languages
+
+```
+Go:     left && right   // left first, short-circuits
+C:      left && right   // identical
+C++:    left && right   // identical
+Rust:   left && right   // identical
+Python: left and right  // identical behavior
+```
+
+> **Mental Model:** Think of `&&` as a **security checkpoint**.
+> Guard 1 (left) checks first. If Guard 1 says NO → the person never reaches Guard 2 (right). Guard 2 only does work when Guard 1 approves.
+
+---
+
+## Key Takeaway
+
+| Question | Answer |
+|---|---|
+| Which executes first? | **Left side always** |
+| Does right always run? | **No — only if left returns `true`** |
+| What is this called? | **Short-circuit evaluation** |
+| Is order guaranteed in Go? | **Yes, by the language spec** |
+
+This is not just a Go thing — it's a **fundamental property of boolean logic evaluation** in all serious languages, and a critical detail when your conditions have **side effects** (like recursive calls, I/O, or mutations).
+
+# Recursion + Short-Circuit in a Deep Tree — Unwrapped Completely
+
+## First, Understand One Core Truth
+
+```
+Every single recursive call follows the SAME rule:
+"Execute LEFT child first, RIGHT child only if LEFT returns true"
+
+This rule repeats at EVERY level of the tree.
+```
+
+The complexity is not actually complicated — it's the **same simple rule applied repeatedly**. Let's build this understanding layer by layer.
+
+---
+
+## The Tree We'll Use
+
+```
+        Tree p:                    Tree q:
+              1                          1
+            /   \                      /   \
+           2     3                    2     3
+          / \   / \                  / \   / \
+         4   5 6   7                4   5 6   9  ← different here!
+```
+
+---
+
+## Mental Model — The "Chain of Promises"
+
+```
+Before any code runs, think of it as a CHAIN:
+
+sameTree(1,1)
+    PROMISES: "I will check left subtree first,
+               then right subtree ONLY IF left passed"
+        │
+        ├── sameTree(2,2)
+        │       PROMISES: "I will check left subtree first,
+        │                   then right subtree ONLY IF left passed"
+        │           │
+        │           ├── sameTree(4,4)  → checks its children
+        │           └── sameTree(5,5)  → checks its children
+        │
+        └── sameTree(3,3)  ← WAITS. Will only run after sameTree(2,2) finishes
+                PROMISES: same rule
+                    │
+                    ├── sameTree(6,6)  → checks its children
+                    └── sameTree(7,9)  ← MISMATCH! returns false
+```
+
+---
+
+## Full Execution Order — Step by Step
+
+```
+LEVEL 0:  sameTree(1, 1)
+          1==1 ✓ ... now go LEFT first
+
+  LEVEL 1L:  sameTree(2, 2)        ← LEFT of root executes
+             2==2 ✓ ... now go LEFT first
+
+    LEVEL 2LL:  sameTree(4, 4)     ← LEFT of node-2 executes
+                4==4 ✓
+                sameTree(nil,nil) → true   (left child)
+                sameTree(nil,nil) → true   (right child)
+                RETURNS TRUE ✓
+                ─────────────────────────────────────────────
+                [LEFT passed → RIGHT is allowed to run]
+
+    LEVEL 2LR:  sameTree(5, 5)     ← RIGHT of node-2 executes
+                5==5 ✓
+                sameTree(nil,nil) → true
+                sameTree(nil,nil) → true
+                RETURNS TRUE ✓
+             ─────────────────────────────────────────────────
+             sameTree(2,2) RETURNS TRUE
+             [LEFT of root passed → RIGHT of root allowed to run]
+
+  LEVEL 1R:  sameTree(3, 3)        ← RIGHT of root executes NOW
+             3==3 ✓ ... now go LEFT first
+
+    LEVEL 2RL:  sameTree(6, 6)     ← LEFT of node-3 executes
+                6==6 ✓
+                RETURNS TRUE ✓
+                ─────────────────────────────────────────────
+                [LEFT passed → RIGHT is allowed to run]
+
+    LEVEL 2RR:  sameTree(7, 9)     ← RIGHT of node-3 executes
+                7 != 9 ✗
+                RETURNS FALSE ✗
+             ─────────────────────────────────────────────────
+             sameTree(3,3) RETURNS FALSE
+
+LEVEL 0: true && false = FALSE ← Final answer
+```
+
+---
+
+## The Call Stack Visualization
+
+```
+This is what lives in memory simultaneously:
+
+  ┌────────────────────────────────┐  ← currently executing
+  │  sameTree(7, 9)  → FALSE       │
+  └────────────────────────────────┘
+  ┌────────────────────────────────┐
+  │  sameTree(3, 3)  → waiting...  │  ← waiting for right child result
+  └────────────────────────────────┘
+  ┌────────────────────────────────┐
+  │  sameTree(1, 1)  → waiting...  │  ← waiting for right child result
+  └────────────────────────────────┘
+
+Stack unwinds UPWARD:
+sameTree(7,9) returns FALSE
+    → sameTree(3,3) receives FALSE from right child
+    → sameTree(3,3) returns FALSE
+        → sameTree(1,1) receives FALSE from right child
+        → sameTree(1,1) returns FALSE
+            → DONE
+```
+
+---
+
+## Short-Circuit Scenario — Mismatch Found EARLY (Left Side)
+
+```
+Now imagine node-4 and node-4 are different (4 vs 99):
+
+        p:           q:
+          1            1
+         / \          / \
+        2   3        2   3
+       / \          / \
+      4   5       99   5   ← mismatch here
+```
+
+```
+sameTree(1,1)
+  └── LEFT: sameTree(2,2)
+              └── LEFT: sameTree(4, 99)
+                          4 != 99
+                          RETURNS FALSE ✗
+                          ↑
+              sameTree(2,2):
+                LEFT returned FALSE
+                ██ sameTree(5,5) NEVER CALLED ██  ← short-circuit!
+                RETURNS FALSE ✗
+                ↑
+sameTree(1,1):
+  LEFT returned FALSE
+  ██ sameTree(3,3) and ALL its subtree NEVER CALLED ██ ← entire subtree skipped!
+  RETURNS FALSE ✗
+```
+
+```
+Work saved by short-circuit:
+─────────────────────────────
+Called:    sameTree(1,1)
+           sameTree(2,2)
+           sameTree(4,99)    ← stops here
+
+NEVER called:
+           sameTree(5,5)     ← skipped
+           sameTree(3,3)     ← skipped (entire right subtree!)
+           sameTree(6,6)     ← skipped
+           sameTree(7,7)     ← skipped
+
+4 function calls saved!
+```
+
+---
+
+## The Pattern At Every Level — Decision Tree
+
+```
+At ANY node during recursion:
+
+            sameTree(p, q)
+                  │
+         ┌────────▼────────┐
+         │ p==nil, q==nil? │
+         └────────┬────────┘
+              YES │  NO
+                  │   └──► ┌──────────────────┐
+                  │        │ one of them nil? │
+            return│        └────────┬─────────┘
+             true │            YES  │  NO
+                  │                 │   └──► ┌─────────────┐
+                  │           return│        │ p.Val==q.Val│
+                  │           false │        └──────┬──────┘
+                  │                 │          NO   │  YES
+                  │                 │               │   └──► Execute LEFT child
+                  │                 │  return       │        call first
+                  │                 │  false        │            │
+                  │                 │               │        LEFT returned?
+                  │                 │               │        ┌───┴───┐
+                  │                 │               │      false    true
+                  │                 │               │        │       │
+                  │                 │               │    return   Execute RIGHT
+                  │                 │               │    false    child call
+                  │                 │               │                │
+                  │                 │               │            return its result
+                  ▼                 ▼               ▼
+```
+
+---
+
+## Why It Doesn't Get "Complicated"
+
+```
+Your brain sees the whole tree and gets overwhelmed.
+The COMPUTER only ever sees ONE node at a time.
+
+At any given moment, the computer is only answering:
+"Are these two nodes equal, and are their subtrees equal?"
+
+It doesn't know about the full tree.
+It doesn't care about depth.
+It just answers its tiny local question
+and trusts the recursion to handle the rest.
+```
+
+```
+This is called:
+
+  RECURSIVE FAITH
+  ───────────────
+  "I don't need to understand the whole problem.
+   I solve my tiny piece correctly,
+   and assume the recursive calls do their piece correctly."
+
+  This is the #1 mental model for recursive thinking.
+```
+
+---
+
+## Time Complexity Implication
+
+```
+Best case (mismatch at root):    O(1)   — stops immediately
+Best case (mismatch at level 2): O(1 + left_subtree_size)
+Worst case (trees are identical): O(N)  — every node visited once
+
+N = total number of nodes
+
+Short-circuit makes average case
+much better than worst case.
+```
+
+---
+
+## The Summary
+
+| What feels complicated | What's actually happening |
+|---|---|
+| Deep recursion | Same 3-line logic repeating |
+| Big tree | Computer only sees 1 node at a time |
+| Short-circuit in recursion | Each level independently decides to stop or continue |
+| Call stack | Just "paused" parent calls waiting for children to finish |
+
+> **Cognitive Principle — Chunking:**
+> Your brain tries to simulate the whole tree at once — that's why it feels complex. Expert programmers **chunk** recursion into: *"trust the base case + trust the recursive call + write only the current step."* Train yourself to think locally, not globally, when reading recursive code.
+
+That version is **not correct as written**, because the order of checks matters.
+
+You wrote:
+
+```go
+if treeP == nil || treeQ == nil {
+    return false
+}
+
+if treeP == nil && treeQ == nil {
+    return true
+}
+```
+
+### ❌ Problem
+
+The first condition:
+
+```go
+treeP == nil || treeQ == nil
+```
+
+also covers the case where **both are nil**.
+
+So when both are `nil`:
+
+```go
+treeP == nil && treeQ == nil
+```
+
+👉 the first `if` already triggers and returns `false`
+👉 the second `if` is **never reached**
+
+---
+
+### 🔍 Truth Table
+
+```
+
+| treeP | treeQ | `||` condition | `&&` condition | Your result |
+|------|------|---------------|---------------|------------|
+| nil  | nil  | true          | true          | ❌ false (wrong) |
+| nil  | val  | true          | false         | false |
+| val  | nil  | true          | false         | false |
+```
+
+---
+
+### ✅ Correct Order
+
+You must check the **more specific condition first**:
+
+```go
+if treeP == nil && treeQ == nil {
+    return true
+}
+
+if treeP == nil || treeQ == nil {
+    return false
+}
+```
+
+---
+
+### 🧠 Why this works
+
+* `&&` is **more specific** (both must be nil)
+* `||` is **broader** (any one nil)
+
+So:
+
+```text
+Specific case → General case
+```
+
+---
+
+### ⚡ Rule of thumb
+
+> Always check **strict / exact conditions first**, then broader ones.
+
+---
+
+### Final correct structure
+
+```go
+func sameTree(p *TreeNode, q *TreeNode) bool {
+    if p == nil && q == nil {
+        return true
+    }
+    if p == nil || q == nil {
+        return false
+    }
+    if p.Val != q.Val {
+        return false
+    }
+    return sameTree(p.Left, q.Left) &&
+           sameTree(p.Right, q.Right)
+}
+```
+
+---
+
+If you want, I can show a **minimal failing test case** that proves your version breaks — it’s a good way to lock this concept in.
