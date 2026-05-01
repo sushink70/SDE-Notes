@@ -28,6 +28,46 @@ Binary trees are used because they combine the advantages of:
 
 They provide O(log n) time complexity for many operations in balanced trees, making them efficient for searching, sorting, and hierarchical data representation.
 
+A binary **search tree** (BST) is what’s usually meant when people say binary trees “combine the advantages of arrays and linked lists.” The key idea is about **ordered data** operations, not raw index-based random access. Here’s how it works:
+
+---
+
+### 1. Fast access (like a sorted array)
+
+- **What an array offers**: If an array is sorted, you can find any element in **O(log n)** time using binary search. That’s “fast access” for lookups by value.
+- **How a BST does it**: A binary search tree keeps data ordered: for any node, all keys in the left subtree are smaller, all keys in the right subtree are larger. When you search, you compare the target key with the current node’s key, then move left or right, effectively halving the search space each time. This is exactly the same decision process as binary search in an array.  
+  So a BST provides **O(log n) search** for an element (when balanced), mimicking the “fast access” of a sorted array.
+
+> *Note*: This is about searching by value, not accessing by index. A BST doesn’t give O(1) index access like an unsorted array; the phrase “fast access” in this context usually refers to the ability to **locate an item quickly** in a sorted collection.
+
+---
+
+### 2. Dynamic size & efficient insertions/deletions (like a linked list)
+
+- **What a linked list offers**: A linked list can grow and shrink easily because nodes are allocated individually. Inserting or deleting a node, once you have a pointer to the insertion point, is just a matter of changing a few pointers – an **O(1)** operation. No shifting of elements is needed.
+- **How a BST does it**: A BST is also built from dynamically allocated nodes, connected by pointers (left/right child links).  
+  - **Insertion**: You search for the insertion position (O(log n) traversal) and then add a new leaf node by updating one pointer – just like inserting into a linked list.  
+  - **Deletion**: You locate the node (O(log n)), then rearrange a few child pointers (possibly replacing the node with its in-order successor) – again pointer manipulation, no bulk shifting.  
+  - **Dynamic size**: Nodes are created and destroyed one at a time, so the tree uses exactly as much memory as it needs and can grow arbitrarily (no need to pre-allocate or copy large blocks).
+
+Thus, a BST inherits the **non-contiguous, easily modifiable structure** of a linked list.
+
+---
+
+### Putting it together: BST’s sweet spot
+```
+| Operation         | Sorted Array            | Linked List          | Binary Search Tree (balanced) |
+|-------------------|-------------------------|----------------------|-------------------------------|
+| Search by value   | O(log n) ✅             | O(n) ❌              | O(log n) ✅                   |
+| Insert            | O(n) ❌ (shifting)      | O(1)* ✅ (if pos known) | O(log n) ✅                 |
+| Delete            | O(n) ❌ (shifting)      | O(1)* ✅ (if pos known) | O(log n) ✅                 |
+| Dynamic size      | No (fixed/resize copy)❌| Yes ✅               | Yes ✅                        |
+```
+
+\* For a linked list, insertion/deletion is O(1) only if you already have a pointer to the node before the insertion point; but finding that spot takes O(n) search.
+
+So the BST really does **combine** the fast, log-time searching of a sorted array with the dynamic, pointer-based insert/delete flexibility of a linked list. It sacrifices the array’s O(1) index access and the linked list’s O(1) insert/delete when the position is already known, but it gives you **both** efficient search **and** efficient dynamic updates in a single data structure. That’s why it’s so widely used for things like database indexes, maps, and sets.
+
 ---
 
 ## Basic Terminology
