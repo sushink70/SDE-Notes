@@ -94,6 +94,8 @@ Handle edge cases explicitly at the top.
 ## 2. COMPLEXITY ANALYSIS — THE SCORECARD
 
 ### Time Complexity Quick Reference
+
+
 | Notation | Name | Example |
 |---|---|---|
 | O(1) | Constant | Array index, hash lookup |
@@ -106,6 +108,7 @@ Handle edge cases explicitly at the top.
 | O(n!) | Factorial | Permutations |
 
 ### Space Complexity Notes
+
 - Recursion depth = O(depth) stack space
 - BFS queue = O(width of graph) = O(V) worst case
 - DFS stack = O(depth) = O(V) worst case
