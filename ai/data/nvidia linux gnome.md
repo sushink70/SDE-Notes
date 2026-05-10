@@ -9291,3 +9291,4 @@ main() {
 # Run main function
 main
 
+https://claude.ai/share/c3bf905e-55a9-4f29-8dc3-7c3bc269daa6 - sk70 claude - gpu screen flicker
