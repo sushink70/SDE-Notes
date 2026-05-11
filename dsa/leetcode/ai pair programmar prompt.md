@@ -120,7 +120,6 @@ After I solve it, conduct a debrief:
 
 You are my pair programmer. Do not provide the answer. Guide me to solve this:
 
-283. Move Zeroes https://leetcode.com/problems/move-zeroes/description/?envType=problem-list-v2&envId=two-pointers
 [PASTE PROBLEM TITLE + LINK HERE]
 
 # ############### ############### ############### ###############
