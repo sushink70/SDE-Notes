@@ -1360,3 +1360,21 @@ sudo reboot
 ```
 
 This workflow — **change one print, rebuild, boot, observe** — is how kernel developers actually learn the code. You're not reading about `skb_push`. You're watching it add exactly 20 bytes to your packet in real time.
+
+---
+
+prompt
+
+I’m learning Linux net subsystem. So I selected Ubuntu Server. Because User Space is available. I can get to know how the data go from L7 to L1. If I downloaded the Linux kernel from Linus Git and build, I can’t learn and test, debug all the layers. 
+
+So where I can get the Ubuntu Server source code that have both user space and kernel space. I want to build that. I will make changes in both kernel space and user space and check how things happen and I’m running this in my Dell G3 Ubuntu desktop with KVM/QEMU. Help me with full workflow and roadmap.
+
+My Ubuntu desktop should not break when doing or learning anything. Keep in your mind.
+
+I want to generate traffic from inside this 
+Ubuntu server to outside internet for example trying something curl or wget. Same way I want to run a small server that run in Axum rust web framework. That framework just returns something when asking from outside the VM. I want to check the traffic using wireshark inside this VM Ubuntu server.
+
+How can I learn code level architecture now in the kernel and user space level? For example how the data flow in the code level? How the function calls works, how the buffer allocation works, etc…
+
+Where to add printing statements in the kernel code and what is happening?
+
