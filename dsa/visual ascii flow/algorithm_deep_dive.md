@@ -4364,3 +4364,4 @@ Problem   | Brute Force | Optimal  | Space (optimal)
 > explain its state at every step, and reconstruct it from first principles with eyes closed.*  
 > The simulation table is not a crutch — it is the algorithm made visible.  
 > Build it. Fill it. Trust it.
+
