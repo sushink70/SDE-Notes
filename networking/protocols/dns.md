@@ -55,6 +55,7 @@ Paul Mockapetris published **RFC 882** and **RFC 883** in November 1983, introdu
 
 ### 1.3 Design Principles (and Their Security Implications)
 
+```
 | Principle | Description | Security implication |
 |-----------|-------------|---------------------|
 | Hierarchical delegation | Zones delegate sub-zones | Compromise of parent breaks child trust without DNSSEC |
@@ -63,7 +64,7 @@ Paul Mockapetris published **RFC 882** and **RFC 883** in November 1983, introdu
 | Caching | Resolvers cache answers per TTL | Cache poisoning if TXID/port prediction succeeds |
 | Open recursion | Resolvers accept queries from any IP | Amplification DDoS vector |
 | Cleartext | No encryption in original protocol | On-path eavesdropping, manipulation |
-
+```
 ---
 
 ## 2. DNS Namespace and Hierarchy
