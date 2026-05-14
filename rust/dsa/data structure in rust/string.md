@@ -196,7 +196,7 @@ fn creation_patterns() {
 ```
 Without capacity:          With capacity:
 ┌────┐                    ┌──────────────┐
-│ he │ realloc →         │ hello        │
+│ he │ realloc →          │ hello        │
 └────┘                    └──────────────┘
 ┌──────┐                  (No reallocation)
 │ hell │ realloc →
@@ -2087,3 +2087,1565 @@ Instead chunk: "Pattern matching → avoid re-comparison →
 Master strings in Rust, and you'll master precision thinking itself. Every character, every byte, every allocation choice is a decision—and elite programmers make no decision unconsciously.
 
 **Now go forth and practice with the discipline of a monk and the curiosity of a scientist. The path to mastery is clear—walk it with intention.**
+
+# `&str` vs `String` in Rust — The Definitive Deep-Dive Guide
+
+> *"Understanding the string duality in Rust is not merely about syntax — it is understanding ownership, memory, and the philosophy of zero-cost abstractions."*
+
+---
+
+## Table of Contents
+
+1. [Prerequisites — Memory Fundamentals](#1-prerequisites--memory-fundamentals)
+2. [What Is a String, Really?](#2-what-is-a-string-really)
+3. [The Two String Types at a Glance](#3-the-two-string-types-at-a-glance)
+4. [Deep Dive: `&str` — The String Slice](#4-deep-dive-str--the-string-slice)
+5. [Deep Dive: `String` — The Owned Heap String](#5-deep-dive-string--the-owned-heap-string)
+6. [Memory Layout — ASCII Diagrams](#6-memory-layout--ascii-diagrams)
+7. [Fat Pointers — The Secret Architecture of `&str`](#7-fat-pointers--the-secret-architecture-of-str)
+8. [Ownership, Borrowing, and Lifetimes with Strings](#8-ownership-borrowing-and-lifetimes-with-strings)
+9. [Conversions — The Complete Map](#9-conversions--the-complete-map)
+10. [String Slicing — How It Works Internally](#10-string-slicing--how-it-works-internally)
+11. [UTF-8 Encoding — Why Rust Strings Are Not Arrays of Chars](#11-utf-8-encoding--why-rust-strings-are-not-arrays-of-chars)
+12. [Common Operations with Both Types](#12-common-operations-with-both-types)
+13. [Function Signatures — `&str` vs `&String` vs `String`](#13-function-signatures--str-vs-string-vs-string)
+14. [`Deref` Coercion — The Magic That Connects Both](#14-deref-coercion--the-magic-that-connects-both)
+15. [String Internals — `String` as `Vec<u8>`](#15-string-internals--string-as-vecu8)
+16. [Lifetimes with `&str` — Explained Clearly](#16-lifetimes-with-str--explained-clearly)
+17. [Performance Characteristics](#17-performance-characteristics)
+18. [Common Pitfalls and Gotchas](#18-common-pitfalls-and-gotchas)
+19. [When to Use What — Decision Framework](#19-when-to-use-what--decision-framework)
+20. [Advanced Patterns](#20-advanced-patterns)
+21. [Mental Models Summary](#21-mental-models-summary)
+
+---
+
+## 1. Prerequisites — Memory Fundamentals
+
+Before we can understand `&str` and `String`, we must understand **where data lives** in a running program. There are three regions of memory you must know:
+
+### The Stack
+
+- **What it is**: A region of memory that operates like a stack of plates. Data is pushed on top and popped off the top (LIFO — Last In, First Out).
+- **Who manages it**: The compiler. Completely automatic.
+- **Speed**: Extremely fast. Just incrementing/decrementing a pointer.
+- **Constraint**: Size must be **known at compile time**. You cannot store something of unknown size on the stack.
+- **Lifetime**: Data on the stack lives only as long as the function that owns it is executing.
+
+### The Heap
+
+- **What it is**: A large pool of memory managed dynamically at runtime.
+- **Who manages it**: In C/C++: the programmer. In Rust: the **ownership system** (automatically but deterministically).
+- **Speed**: Slower than stack — requires an allocator call (`malloc`/`free` equivalent). Also causes cache misses because heap data can be scattered.
+- **Constraint**: Size can be determined at **runtime**. You can allocate as much as needed (within OS limits).
+- **Lifetime**: Data on the heap lives until explicitly deallocated (or in Rust: until the owner goes out of scope).
+
+### The Static/Data Segment (Program Binary)
+
+- **What it is**: A region baked into the compiled binary itself.
+- **Who manages it**: The OS and linker.
+- **Speed**: Fast — the data is already loaded.
+- **Lifetime**: Lives for the **entire duration of the program** — it is `'static`.
+- **Example**: String literals like `"hello"` — they are embedded in the binary.
+
+```
+MEMORY LAYOUT OF A RUNNING RUST PROGRAM
+========================================
+
++---------------------------+
+|  TEXT SEGMENT             |  <- Compiled machine code (instructions)
++---------------------------+
+|  DATA / RODATA SEGMENT    |  <- String literals, constants ("hello world")
+|  e.g., b"hello\0"         |     These have 'static lifetime
++---------------------------+
+|  BSS SEGMENT              |  <- Zero-initialized static variables
++---------------------------+
+|         ...               |
+|  HEAP (grows upward)  ^   |  <- Dynamic allocations (String, Vec, Box...)
+|                       |   |     Managed by allocator
+|  [FREE SPACE]             |
+|                       |   |
+|  STACK (grows down)   v   |  <- Function call frames, local variables
+|                           |     Fast, fixed-size at compile time
++---------------------------+
+|  KERNEL SPACE             |  <- OS reserved
++---------------------------+
+```
+
+---
+
+## 2. What Is a String, Really?
+
+At the lowest level, a **string** is just a **sequence of bytes** interpreted as text. In Rust, all strings are guaranteed to be **valid UTF-8**.
+
+> **Terminology — UTF-8**: A variable-length encoding for Unicode. ASCII characters (a-z, 0-9, etc.) use 1 byte. Characters from other languages may use 2, 3, or 4 bytes. This means you **cannot index a Rust string by integer position** like in Python or C — position 3 might not be the 4th character.
+
+A string in memory looks like this at the byte level:
+
+```
+String "Hello" in UTF-8 bytes:
++------+------+------+------+------+
+| 0x48 | 0x65 | 0x6C | 0x6C | 0x6F |
+|  'H' |  'e' |  'l' |  'l' |  'o' |
++------+------+------+------+------+
+  [0]    [1]    [2]    [3]    [4]
+
+Length = 5 bytes = 5 characters (pure ASCII)
+
+String "नमस्ते" (Hindi) in UTF-8:
+Each character is 3 bytes! 
+Length = 18 bytes, but only 6 "characters" (grapheme clusters)
+```
+
+This is why Rust's string handling is strict — it respects the complexity of real Unicode.
+
+---
+
+## 3. The Two String Types at a Glance
+```
+| Property              | `&str`                          | `String`                         |
+|-----------------------|---------------------------------|----------------------------------|
+| Full Type             | `&str` (shared reference to str)| `String` (owned heap string)     |
+| Where data lives      | Anywhere (binary, heap, stack)  | Always on the **heap**           |
+| Ownership             | **Borrowed** — does not own data| **Owned** — owns the data        |
+| Mutable?              | No (immutable view)             | Yes (`&mut String` or methods)   |
+| Size known at compile | Yes (fat pointer: ptr + len)    | Yes (ptr + len + capacity)       |
+| Growable?             | No                              | Yes                              |
+| Allocation required?  | No                              | Yes (heap allocation)            |
+| Lifetime              | Tied to the source data         | Lives until dropped              |
+| `Sized`?              | `str` is NOT, `&str` IS         | Yes                              |
+| Common usage          | Read-only views, function params| Building/owning/modifying strings|
+```
+---
+
+## 4. Deep Dive: `&str` — The String Slice
+
+### What is `str`?
+
+`str` (without the `&`) is a **primitive type** in Rust. It represents a **dynamically-sized slice of UTF-8 bytes**. Because its size is not known at compile time, you can **never hold a `str` directly** — you can only ever hold a **reference to it**: `&str`.
+
+> **Terminology — DST (Dynamically Sized Type)**: A type whose size is not known at compile time. `str` is a DST. `[u8]` is also a DST. You cannot put DSTs on the stack directly; you always go through a reference (which carries size information — the "fat pointer").
+
+### What is `&str`?
+
+`&str` is a **reference to a string slice**. It is a **fat pointer** — it contains:
+1. A **pointer** to the start of the UTF-8 bytes
+2. A **length** (number of bytes)
+
+It does NOT own the data. It merely **borrows a view** into bytes that exist somewhere else.
+
+### Where can `&str` data live?
+
+This is crucial. The bytes that `&str` points to can live in:
+
+1. **The binary (`.rodata` segment)** — String literals
+   ```rust
+   let s: &str = "hello"; // "hello" bytes are in the binary
+   ```
+
+2. **The heap** — A slice into a `String`
+   ```rust
+   let owned = String::from("hello world");
+   let slice: &str = &owned[0..5]; // Points into heap-allocated bytes
+   ```
+
+3. **The stack** — A slice into a stack-allocated byte array (rare but possible)
+   ```rust
+   let bytes: [u8; 5] = [104, 101, 108, 108, 111]; // "hello"
+   let s = std::str::from_utf8(&bytes).unwrap(); // &str pointing to stack
+   ```
+
+### String Literals and `'static` lifetime
+
+```rust
+let greeting: &'static str = "Hello, World!";
+```
+
+The `'static` lifetime means: **this reference is valid for the entire lifetime of the program**. String literals have `'static` because the bytes are compiled into the binary itself and never deallocated.
+
+---
+
+## 5. Deep Dive: `String` — The Owned Heap String
+
+`String` is a **struct** in Rust's standard library. It is defined conceptually as:
+
+```rust
+pub struct String {
+    vec: Vec<u8>,  // internally, String IS a Vec<u8>
+}
+```
+
+And `Vec<u8>` itself is:
+```rust
+pub struct Vec<T> {
+    ptr: NonNull<T>,   // pointer to heap memory
+    len: usize,        // number of initialized bytes
+    cap: usize,        // total allocated capacity
+}
+```
+
+So `String` on the stack holds **three values**:
+1. **`ptr`** — A pointer to the heap-allocated byte array
+2. **`len`** — How many bytes are currently used
+3. **`cap`** — How many bytes are allocated (capacity ≥ len)
+
+The actual bytes live on the **heap**.
+
+### Ownership and Drop
+
+Because `String` **owns** its heap data, when a `String` goes out of scope, Rust automatically calls its `Drop` implementation, which deallocates the heap memory. No garbage collector needed — this is **RAII** (Resource Acquisition Is Initialization).
+
+```rust
+{
+    let s = String::from("hello"); // heap allocated here
+    // ... use s ...
+}  // s goes out of scope -> drop() is called -> heap memory freed
+```
+
+---
+
+## 6. Memory Layout — ASCII Diagrams
+
+### Case 1: String Literal (`&'static str`)
+
+```
+SOURCE CODE:
+    let s: &str = "hello";
+
+MEMORY:
+                                      BINARY (rodata segment)
+                                  +---+---+---+---+---+
+                              +-> | H | e | l | l | o |  (5 bytes, read-only)
+                              |   +---+---+---+---+---+
+                              |   address: 0x40_1000
+STACK
++-------------------+
+| s: &str           |
+|  .ptr = 0x40_1000 |---+  (points into binary)
+|  .len = 5         |
++-------------------+
+  16 bytes on stack
+  (ptr=8, len=8 on 64-bit)
+```
+
+### Case 2: `String` (Owned, Heap-Allocated)
+
+```
+SOURCE CODE:
+    let s = String::from("hello");
+
+MEMORY:
+STACK                          HEAP
++--------------------+         +---+---+---+---+---+-------+
+| s: String          |         | H | e | l | l | o |  ...  |
+|  .ptr = 0x7f_3000  |-------> +---+---+---+---+---+-------+
+|  .len = 5          |         address: 0x7f_3000
+|  .cap = 5          |         (5 bytes used, 5 allocated in this example)
++--------------------+
+  24 bytes on stack
+  (ptr=8, len=8, cap=8)
+```
+
+### Case 3: `&str` Slice into a `String`
+
+```
+SOURCE CODE:
+    let owned = String::from("hello world");
+    let slice: &str = &owned[6..11]; // "world"
+
+MEMORY:
+STACK                          HEAP
++--------------------+         +---+---+---+---+---+---+---+---+---+---+---+
+| owned: String      |         | h | e | l | l | o |   | w | o | r | l | d |
+|  .ptr = 0x7f_3000  |-------> +---+---+---+---+---+---+---+---+---+---+---+
+|  .len = 11         |         0x7f_3000                  ^
+|  .cap = 11         |                                    | offset +6
++--------------------+                                    |
+                                                          |
++--------------------+                                    |
+| slice: &str        |                                    |
+|  .ptr = 0x7f_3006  |-----------------------------------+
+|  .len = 5          |   (points 6 bytes into the same heap allocation)
++--------------------+
+```
+
+> **Key Insight**: The `&str` slice does NOT copy the bytes. It simply holds a pointer into the middle of the `String`'s heap buffer. This is why slicing is O(1) — it's just pointer arithmetic.
+
+### Case 4: After `String::push_str` (Capacity vs Length)
+
+```
+SOURCE CODE:
+    let mut s = String::with_capacity(10);
+    s.push_str("hi");
+
+MEMORY:
+STACK                          HEAP
++--------------------+         +---+---+---+---+---+---+---+---+---+---+
+| s: String          |         | h | i |[u]|[u]|[u]|[u]|[u]|[u]|[u]|[u]|
+|  .ptr = 0x7f_4000  |-------> +---+---+---+---+---+---+---+---+---+---+
+|  .len = 2          |         [u] = uninitialized/reserved memory
+|  .cap = 10         |         10 bytes allocated, only 2 used
++--------------------+
+```
+
+---
+
+## 7. Fat Pointers — The Secret Architecture of `&str`
+
+In C, a pointer is just an address: 8 bytes on a 64-bit system. But `&str` in Rust is a **fat pointer** — it is **16 bytes** (on 64-bit): an address AND a length.
+
+Why? Because `str` is a DST (Dynamically Sized Type). The compiler needs to know the length of the slice to:
+- Prevent out-of-bounds access
+- Know how many bytes to copy (if needed)
+- Support `len()` in O(1)
+
+```
+A NORMAL POINTER (like *const u8 in C):
++-------------------+
+| address (8 bytes) |
++-------------------+
+  Just tells WHERE. Does not tell HOW MANY.
+
+A FAT POINTER (&str in Rust):
++-------------------+-------------------+
+| address (8 bytes) | length (8 bytes)  |
++-------------------+-------------------+
+  Tells WHERE and HOW MANY bytes.
+
+Proof in code:
+    use std::mem;
+    println!("{}", mem::size_of::<&str>());         // prints 16
+    println!("{}", mem::size_of::<*const u8>());    // prints 8
+    println!("{}", mem::size_of::<String>());       // prints 24
+```
+
+This is the same reason `&[T]` (slice reference) is also a fat pointer — all DST references carry extra metadata.
+
+---
+
+## 8. Ownership, Borrowing, and Lifetimes with Strings
+
+### Ownership Rules (Recap)
+
+Rust's ownership rules:
+1. Each value has exactly **one owner**.
+2. When the owner goes out of scope, the value is **dropped** (memory freed).
+3. There can only be **one mutable reference** OR **any number of immutable references** at a time — never both.
+
+### `String` and Ownership
+
+```rust
+let s1 = String::from("hello");
+let s2 = s1;  // MOVE: s1 is no longer valid. s2 owns the heap data.
+// println!("{}", s1);  // ERROR: value moved
+println!("{}", s2);  // OK
+```
+
+```
+BEFORE MOVE:
+STACK                   HEAP
+s1: ptr=0x7f  -------> [h][e][l][l][o]
+    len=5
+    cap=5
+
+AFTER  let s2 = s1;
+STACK                   HEAP
+s1: (invalidated)
+s2: ptr=0x7f  -------> [h][e][l][l][o]
+    len=5
+    cap=5
+
+Rust does NOT copy heap data. It moves ownership.
+The ptr is copied on the stack, but s1 is invalidated.
+```
+
+### `&str` and Borrowing
+
+`&str` is a **borrow** — it does not take ownership. The borrow checker ensures the underlying data outlives the `&str`.
+
+```rust
+let s = String::from("hello");
+let slice: &str = &s;  // borrow a view into s
+println!("{}", slice); // OK
+// s is still the owner; slice just "peeks" at the data
+```
+
+```
+BORROW RELATIONSHIP:
+                 LIFETIME OF s (owner)
+                 |-------------------------|
+                 |
+s: String -----> [heap: "hello"]
+                        ^
+                        |  (borrows from s)
+slice: &str  ----------+
+                 |-----|
+                 LIFETIME OF slice (must be inside s's lifetime)
+```
+
+### The Borrow Checker in Action
+
+```rust
+fn main() {
+    let slice;
+    {
+        let s = String::from("hello");
+        slice = &s[..]; // &str borrows from s
+    } // s is dropped here! heap memory freed!
+    
+    println!("{}", slice); // ERROR: slice points to freed memory!
+}
+```
+
+The compiler **rejects** this at compile time — no runtime crash. This is Rust's core safety guarantee.
+
+---
+
+## 9. Conversions — The Complete Map
+
+```
+CONVERSION MAP
+==============
+
+  &str  ──────────────────────────────────────────────────►  String
+         .to_string()
+         .to_owned()
+         String::from(s)
+         format!("{}", s)
+
+  String ─────────────────────────────────────────────────►  &str
+          &s          (Deref coercion, &String -> &str)
+          s.as_str()  (explicit, preferred in generic code)
+          &s[..]      (explicit slice of entire string)
+
+  String ─────────────────────────────────────────────────►  &str (partial slice)
+          &s[0..3]    (first 3 bytes — must be valid UTF-8 boundary!)
+
+  &str ───────────────────────────────────────────────────►  &[u8]  (raw bytes)
+          s.as_bytes()
+
+  &[u8] ──────────────────────────────────────────────────►  &str
+          std::str::from_utf8(bytes)  -> Result<&str, Utf8Error>
+          unsafe: std::str::from_utf8_unchecked(bytes)
+
+  String ─────────────────────────────────────────────────►  Vec<u8>
+          s.into_bytes()   (consumes String, returns Vec<u8>)
+          s.as_bytes()     (borrows as &[u8], does not consume)
+
+  Vec<u8> ────────────────────────────────────────────────►  String
+          String::from_utf8(v)         -> Result<String, FromUtf8Error>
+          String::from_utf8_lossy(&v)  -> Cow<str> (replaces invalid bytes)
+```
+
+### Code for All Conversions
+
+```rust
+fn main() {
+    // ── &str ──────────────────────────────────────────────────
+    let literal: &str = "hello";
+
+    // &str -> String  (3 idiomatic ways)
+    let s1: String = literal.to_string();
+    let s2: String = literal.to_owned();
+    let s3: String = String::from(literal);
+
+    // ── String ────────────────────────────────────────────────
+    let owned = String::from("hello world");
+
+    // String -> &str  (borrowing)
+    let borrow1: &str = &owned;         // Deref coercion
+    let borrow2: &str = owned.as_str(); // explicit, clearest
+    let borrow3: &str = &owned[..];     // slice of full string
+
+    // Partial slice
+    let partial: &str = &owned[0..5];  // "hello"
+    println!("{}", partial);
+
+    // ── Bytes ─────────────────────────────────────────────────
+    let bytes: &[u8] = owned.as_bytes(); // borrow as bytes
+    let vec_bytes: Vec<u8> = owned.into_bytes(); // consume into Vec<u8>
+
+    // Vec<u8> -> String
+    let back = String::from_utf8(vec_bytes).expect("valid utf8");
+    println!("{}", back);
+
+    // &[u8] -> &str
+    let raw: &[u8] = b"hello";
+    let s = std::str::from_utf8(raw).expect("valid utf8");
+    println!("{}", s);
+}
+```
+
+---
+
+## 10. String Slicing — How It Works Internally
+
+Slicing syntax `&s[start..end]` creates a `&str` that is a **view into a range of bytes**.
+
+### The Index Type
+
+In Rust, `String` and `str` implement `Index<Range<usize>>`. The indices are **byte offsets**, NOT character positions.
+
+```rust
+let s = "hello";
+let h = &s[0..1];  // "h" — byte 0 to byte 1 (exclusive)
+let e = &s[1..2];  // "e"
+```
+
+### The UTF-8 Boundary Rule
+
+You MUST slice at valid UTF-8 character boundaries. Slicing in the middle of a multi-byte character causes a **panic at runtime**.
+
+```rust
+let s = "नमस्ते"; // Each character is 3 bytes in UTF-8
+
+// &s[0..3]  -> OK: "न"  (one full character)
+// &s[0..1]  -> PANIC: not a valid UTF-8 boundary!
+// &s[0..6]  -> OK: "नम"
+
+let first_char = &s[0..3]; // "न"
+println!("{}", first_char);
+```
+
+### How `&s[0..5]` Works Step by Step
+
+```
+s = "hello world"
+bytes: [h][e][l][l][o][ ][w][o][r][l][d]
+index:  0   1   2   3   4   5   6   7   8   9  10
+
+&s[0..5] creates a &str:
+  - ptr = base_ptr + 0  (points to 'h')
+  - len = 5 - 0 = 5
+
+BOUNDARY CHECK (at runtime, in debug + release):
+  - Is 0 on a char boundary? YES (always for index 0)
+  - Is 5 on a char boundary? YES ('o' ends at byte 4, ' ' starts at byte 5)
+  - 0 <= 5 <= 11? YES
+  - SLICE IS VALID
+```
+
+### Safe Iteration Over Characters
+
+Because you can't index strings by character position safely, Rust provides iterators:
+
+```rust
+let s = "नमस्ते";
+
+// Iterate over Unicode scalar values (chars)
+for c in s.chars() {
+    println!("{}", c);  // न, म, स, ्, त, े
+}
+
+// Iterate over bytes
+for b in s.bytes() {
+    print!("{} ", b);
+}
+
+// Get nth character safely (O(n), not O(1)!)
+let third = s.chars().nth(2); // Some('स')
+```
+
+---
+
+## 11. UTF-8 Encoding — Why Rust Strings Are Not Arrays of Chars
+
+### Why Not Just Use `[char]`?
+
+In Rust, `char` is a **4-byte Unicode scalar value** (u32). If `String` were `Vec<char>`, then "hello" (5 ASCII chars) would consume **20 bytes**. UTF-8 encoding stores ASCII in 1 byte, making it **space-efficient and C-compatible**.
+
+### UTF-8 Byte Structure
+
+```
+UTF-8 ENCODING RULES:
+======================
+
+1-byte (U+0000 to U+007F) — ASCII
+  Bit pattern: 0xxxxxxx
+  Example: 'H' = 0x48 = 0100_1000
+
+2-byte (U+0080 to U+07FF)
+  Bit pattern: 110xxxxx 10xxxxxx
+  Example: 'é' = 0xC3 0xA9
+
+3-byte (U+0800 to U+FFFF)
+  Bit pattern: 1110xxxx 10xxxxxx 10xxxxxx
+  Example: 'न' (U+0928) = 0xE0 0xA4 0xA8
+
+4-byte (U+10000 to U+10FFFF)
+  Bit pattern: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+  Example: '😀' (U+1F600) = 0xF0 0x9F 0x98 0x80
+
+VALID BOUNDARY RULE:
+A byte that starts with 10xxxxxx is a CONTINUATION byte.
+  You cannot start a slice at a continuation byte — Rust panics.
+  A valid boundary byte starts with: 0xxxxxxx OR 110xxxxx OR 1110xxxx OR 11110xxx
+```
+
+```rust
+fn demonstrate_utf8() {
+    let s = "Hello, 世界!"; // ASCII + Chinese + ASCII
+
+    println!("byte length: {}", s.len());        // 14 bytes
+    println!("char count:  {}", s.chars().count()); // 10 chars
+
+    // Show byte values
+    for (i, byte) in s.bytes().enumerate() {
+        println!("byte[{}] = 0x{:02X}", i, byte);
+    }
+
+    // Show char boundaries
+    for (i, c) in s.char_indices() {
+        println!("char '{}' starts at byte {}", c, i);
+    }
+}
+```
+
+---
+
+## 12. Common Operations with Both Types
+
+### Operations on `&str`
+
+```rust
+fn str_operations() {
+    let s = "  Hello, World!  ";
+
+    // Length (in bytes)
+    println!("{}", s.len());           // 19
+
+    // Is empty?
+    println!("{}", "".is_empty());     // true
+
+    // Contains a substring
+    println!("{}", s.contains("World")); // true
+
+    // Starts/ends with
+    println!("{}", s.starts_with("  Hello")); // true
+    println!("{}", s.ends_with("!  "));       // true
+
+    // Trim whitespace
+    println!("'{}'", s.trim());        // 'Hello, World!'
+    println!("'{}'", s.trim_start()); // 'Hello, World!  '
+    println!("'{}'", s.trim_end());   // '  Hello, World!'
+
+    // Split
+    let csv = "a,b,c,d";
+    let parts: Vec<&str> = csv.split(',').collect();
+    println!("{:?}", parts); // ["a", "b", "c", "d"]
+
+    // Split and collect — parts point into csv's bytes (no allocation!)
+
+    // Lines
+    let multiline = "line1\nline2\nline3";
+    for line in multiline.lines() {
+        println!("{}", line);
+    }
+
+    // Find / position
+    println!("{:?}", s.find('W'));    // Some(9)
+    println!("{:?}", s.rfind('l'));   // Some(12)
+
+    // Replace — returns a NEW String (because &str can't own new data)
+    let replaced: String = s.replace("World", "Rust");
+    println!("{}", replaced);
+
+    // To uppercase/lowercase — returns String
+    let up: String = s.to_uppercase();
+    let lo: String = s.to_lowercase();
+
+    // Parse into other types
+    let n: i32 = "42".parse().unwrap();
+    let f: f64 = "3.14".parse().unwrap();
+    println!("{} {}", n, f);
+
+    // chars() and char_indices()
+    for (idx, ch) in "hello".char_indices() {
+        println!("byte {} => '{}'", idx, ch);
+    }
+}
+```
+
+### Operations on `String`
+
+```rust
+fn string_operations() {
+    // Creation
+    let mut s = String::new();                        // empty
+    let s2 = String::from("hello");                   // from &str
+    let s3 = String::with_capacity(50);               // pre-allocated
+    let s4 = "world".to_string();                     // from &str
+    let s5 = format!("{} {}", "hello", "world");      // from format macro
+
+    // Push (append)
+    let mut s = String::from("Hello");
+    s.push(',');             // push a single char
+    s.push_str(" World!");   // push a &str (no ownership taken)
+    println!("{}", s);       // "Hello, World!"
+
+    // Concatenation with +  (moves left operand!)
+    let s1 = String::from("Hello, ");
+    let s2 = String::from("world!");
+    let s3 = s1 + &s2; // s1 is MOVED here! s2 is borrowed.
+    // s1 is no longer valid:
+    // println!("{}", s1); // ERROR
+    println!("{}", s3);  // "Hello, world!"
+
+    // Concatenation with format! (no moves, no ownership change)
+    let s1 = String::from("Hello, ");
+    let s2 = String::from("world!");
+    let s3 = format!("{}{}", s1, s2); // s1 and s2 still valid
+    println!("{} {}", s1, s2); // both still usable
+
+    // Capacity management
+    let mut s = String::with_capacity(10);
+    println!("len={} cap={}", s.len(), s.capacity()); // len=0 cap=10
+    s.push_str("hello");
+    println!("len={} cap={}", s.len(), s.capacity()); // len=5 cap=10
+
+    // Truncate and clear
+    let mut s = String::from("hello world");
+    s.truncate(5);   // keeps first 5 bytes — "hello"
+    println!("{}", s);
+    s.clear();       // empties but keeps capacity
+    println!("len={} cap={}", s.len(), s.capacity()); // len=0 cap=5
+
+    // Insert
+    let mut s = String::from("helo");
+    s.insert(3, 'l');        // insert char at byte index 3
+    println!("{}", s);       // "hello"
+    s.insert_str(5, " world");
+    println!("{}", s);       // "hello world"
+
+    // Remove char at byte index
+    let mut s = String::from("hello");
+    let c = s.remove(0); // removes 'h'
+    println!("{} => {}", c, s); // h => ello
+
+    // Retain characters matching predicate
+    let mut s = String::from("hello 123 world");
+    s.retain(|c| !c.is_numeric());
+    println!("{}", s); // "hello  world"
+
+    // Split off — takes tail, keeps head
+    let mut head = String::from("Hello, World!");
+    let tail = head.split_off(7); // head="Hello, " tail="World!"
+    println!("head='{}' tail='{}'", head, tail);
+}
+```
+
+---
+
+## 13. Function Signatures — `&str` vs `&String` vs `String`
+
+This is one of the most important practical decisions in Rust API design.
+
+### The Rule: Prefer `&str` Over `&String` in Function Parameters
+
+```rust
+// BAD: Takes &String — caller must own a String
+fn greet_bad(name: &String) {
+    println!("Hello, {}!", name);
+}
+
+// GOOD: Takes &str — works with &String AND &str literals
+fn greet_good(name: &str) {
+    println!("Hello, {}!", name);
+}
+
+fn main() {
+    let owned = String::from("Alice");
+    let literal = "Bob";
+
+    greet_bad(&owned);       // OK
+    // greet_bad(literal);   // ERROR: expected &String, found &str
+
+    greet_good(&owned);      // OK — Deref coercion: &String -> &str
+    greet_good(literal);     // OK — &str directly
+    greet_good("Charlie");   // OK — string literal
+}
+```
+
+**Why `&str` is more flexible**: Due to `Deref` coercion (explained next), a `&String` automatically coerces to `&str`. So a function accepting `&str` can accept:
+- `&String` (via coercion)
+- `&str` literals
+- `&str` slices from anywhere
+
+A function accepting `&String` can ONLY accept `&String`.
+
+### When to Accept `String` (by value)
+
+Accept `String` when you need to **own** the data — for storing it in a struct, or when you need to modify it.
+
+```rust
+// Storing in a struct — must own
+struct User {
+    name: String, // must own it, can't just borrow
+}
+
+// Returning an owned string
+fn build_greeting(name: &str) -> String {
+    format!("Hello, {}!", name) // must return owned
+}
+
+// Taking ownership to store
+fn create_user(name: String) -> User {
+    User { name } // takes ownership of the String
+}
+
+// Common pattern: accept &str, clone if needed
+impl User {
+    fn new(name: &str) -> Self {
+        User { name: name.to_string() } // convert &str -> String
+    }
+}
+```
+
+### Decision Flowchart
+
+```
+FUNCTION PARAMETER DECISION:
+=============================
+
+Do you need to OWN the string (store it, return it, modify it)?
+     |
+    YES ──> Take String (by value)
+     |
+    NO  ──> Do you only need to READ the string?
+                 |
+                YES ──> Take &str  (ALWAYS prefer over &String)
+                 |
+                NO  ──> Do you need to mutate through the reference?
+                             |
+                            YES ──> Take &mut String
+                             |
+                            NO  ──> Take &str
+```
+
+---
+
+## 14. `Deref` Coercion — The Magic That Connects Both
+
+`Deref` coercion is an automatic type conversion that Rust applies when types don't exactly match but a coercion path exists.
+
+### The `Deref` Chain
+
+```
+String  implements  Deref<Target = str>
+
+This means:
+  &String  ──(deref coercion)──►  &str
+
+The compiler inserts a deref automatically when needed.
+```
+
+```rust
+fn takes_str(s: &str) {
+    println!("{}", s);
+}
+
+fn main() {
+    let owned: String = String::from("hello");
+    
+    // These are all equivalent:
+    takes_str(&owned);      // compiler does: &*owned = &str
+    takes_str(&owned[..]);  // explicit slice
+    takes_str(owned.as_str()); // explicit method
+}
+```
+
+### How Deref Coercion Works Step by Step
+
+```
+COMPILER SEES: takes_str(&owned) where owned: String
+
+STEP 1: Function expects &str
+STEP 2: We have &String
+STEP 3: Does &String coerce to &str?
+STEP 4: Check: String implements Deref<Target = str>
+STEP 5: So *(&owned) gives str (via Deref)
+STEP 6: &(*(&owned)) = &str ✓
+STEP 7: Insert implicit deref. Code becomes: takes_str(&*owned)
+```
+
+### Deref Coercion Chain (Multiple Levels)
+
+```rust
+// Multiple dereferences can be chained:
+// &&String -> &String -> &str
+// Box<String> -> String -> str (so &Box<String> -> &str)
+
+fn takes_str(s: &str) { println!("{}", s); }
+
+fn main() {
+    let s = Box::new(String::from("hello"));
+    takes_str(&s); // &Box<String> -> &String -> &str — TWO coercions!
+}
+```
+
+---
+
+## 15. String Internals — `String` as `Vec<u8>`
+
+Understanding that `String` is just a `Vec<u8>` with a UTF-8 guarantee unlocks many insights.
+
+```rust
+// String is a newtype wrapper around Vec<u8>
+// These are the key internal methods:
+
+fn string_internals() {
+    let mut s = String::from("hello");
+
+    // Get the Vec<u8> without copying
+    let bytes: &[u8] = s.as_bytes(); // borrows the internal Vec
+    
+    // Get mutable bytes — UNSAFE because you could break UTF-8
+    // Rust forces you to use unsafe here as a warning
+    unsafe {
+        let bytes_mut: &mut Vec<u8> = s.as_mut_vec();
+        // You are now responsible for maintaining UTF-8 validity!
+    }
+
+    // Consume String into Vec<u8>
+    let vec: Vec<u8> = s.into_bytes(); // s is moved, returns Vec<u8>
+
+    // Get capacity
+    let mut s = String::with_capacity(100);
+    println!("{}", s.capacity()); // 100
+    s.push_str("hi");
+    println!("{}", s.capacity()); // still 100 (no reallocation needed)
+    s.shrink_to_fit();            // release excess capacity
+    println!("{}", s.capacity()); // 2 (matches len)
+}
+```
+
+### Growth Strategy (Amortized O(1) Push)
+
+When a `String` exceeds its capacity, it reallocates — typically doubling capacity. This is the same strategy as `Vec`. The amortized cost of `push_str` is O(1).
+
+```
+PUSH GROWTH EXAMPLE:
+====================
+
+Initial: String::from("ab") -> len=2, cap=2
+         [a][b]
+
+push('c') -> len=2+1=3 > cap=2 -> REALLOCATE!
+             new_cap = 4 (or some multiple of old cap)
+             NEW HEAP BUFFER: [a][b][c][ ]
+             len=3, cap=4
+
+push('d') -> len=4 == cap=4 -> fits, no realloc
+             [a][b][c][d]
+             len=4, cap=4
+
+push('e') -> len=5 > cap=4 -> REALLOCATE!
+             new_cap = 8
+             [a][b][c][d][e][ ][ ][ ]
+             len=5, cap=8
+
+LESSON: Use String::with_capacity(n) when you know the
+        approximate size ahead of time to avoid reallocations.
+```
+
+---
+
+## 16. Lifetimes with `&str` — Explained Clearly
+
+### What is a Lifetime?
+
+A **lifetime** is a compile-time label that tracks how long a reference is valid. It is NOT about runtime — it is purely a **static analysis tool** for the borrow checker.
+
+Lifetime annotations look like `'a`, `'b`, `'static`.
+
+### Why `&str` Often Needs Lifetime Annotations
+
+Since `&str` is a borrowed view into data owned somewhere else, the compiler must ensure the data lives long enough. In simple cases, **lifetime elision** (implicit inference) handles this. But in complex cases, you must annotate explicitly.
+
+```rust
+// LIFETIME ELISION (compiler infers lifetimes):
+fn first_word(s: &str) -> &str {
+    // Compiler infers: fn first_word<'a>(s: &'a str) -> &'a str
+    // The return &str lives as long as the input &str
+    let bytes = s.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b' ' {
+            return &s[0..i];
+        }
+    }
+    s
+}
+
+// EXPLICIT LIFETIME ANNOTATION (same function, explicit):
+fn first_word_explicit<'a>(s: &'a str) -> &'a str {
+    // 'a means: the returned &str lives as long as the input &str
+    let bytes = s.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b' ' {
+            return &s[0..i];
+        }
+    }
+    s
+}
+```
+
+### Two Inputs, Lifetime Choice
+
+```rust
+// With two inputs, compiler cannot infer which one the output borrows from
+fn longer<'a>(s1: &'a str, s2: &'a str) -> &'a str {
+    // 'a = the SHORTER of s1's and s2's lifetimes
+    // The returned &str is valid only as long as BOTH inputs are valid
+    if s1.len() >= s2.len() { s1 } else { s2 }
+}
+
+fn main() {
+    let s1 = String::from("long string");
+    let result;
+    {
+        let s2 = String::from("xyz");
+        result = longer(s1.as_str(), s2.as_str());
+        println!("{}", result); // OK: s2 still alive here
+    } // s2 dropped here
+    // println!("{}", result); // ERROR: result might point to s2's data
+}
+```
+
+### `'static` Lifetime
+
+```rust
+// 'static: valid for the entire program duration
+let s: &'static str = "I live forever"; // string literal
+
+// Functions returning &'static str
+fn get_greeting() -> &'static str {
+    "Hello, World!" // literal — 'static
+}
+
+// Trait objects sometimes require 'static:
+fn store<T: 'static>(val: T) {
+    // T must not contain non-static references
+}
+```
+
+### Lifetimes in Structs Holding `&str`
+
+```rust
+// If a struct holds a &str, the struct needs a lifetime parameter
+struct Excerpt<'a> {
+    part: &'a str, // 'a: the &str must outlive the struct
+}
+
+impl<'a> Excerpt<'a> {
+    fn announce_and_return(&self, announcement: &str) -> &str {
+        println!("Attention: {}", announcement);
+        self.part // lifetime of self.part is 'a
+    }
+}
+
+fn main() {
+    let novel = String::from("Call me Ishmael. Some years ago...");
+    let first_sentence: &str = novel.split('.').next().unwrap();
+    
+    let excerpt = Excerpt { part: first_sentence };
+    // excerpt borrows from novel; novel must outlive excerpt
+    
+    println!("{}", excerpt.part);
+} // excerpt dropped first, then novel — correct order
+```
+
+---
+
+## 17. Performance Characteristics
+
+### Summary Table
+
+```
+| Operation                    | `&str`              | `String`                |
+|------------------------------|---------------------|--------- ----- -------  |
+| Creation (literal)           | O(1), zero alloc    | O(n), heap alloc        |
+| Creation (from data)         | O(1) pointer        | O(n) copy + alloc       |
+| Cloning                      | O(1) (copy ptr+len) | O(n) (copy bytes)       |
+| Slicing                      | O(1)                | O(1) as `&str`          |
+| Passing to function          | O(1) (copy 16 bytes)| O(1) (copy 24 bytes)    |
+| Growing/appending            | Not possible        | Amortized O(1)          |
+| Memory overhead              | 16 bytes on stack   | 24 bytes on stack + heap|
+| Cache behavior               | Depends on source   | Possible heap miss      |
+```
+
+### Key Performance Insights
+
+**1. Avoid unnecessary String allocations in hot paths:**
+
+```rust
+// SLOW: Allocates a String just to check a condition
+fn is_hello_slow(s: &String) -> bool {
+    s.to_lowercase() == "hello" // allocates new String!
+}
+
+// FAST: Use &str, no allocation
+fn is_hello_fast(s: &str) -> bool {
+    s.eq_ignore_ascii_case("hello") // no allocation!
+}
+```
+
+**2. Pre-allocate when size is known:**
+
+```rust
+// SLOW: Multiple reallocations
+let mut s = String::new();
+for i in 0..1000 {
+    s.push_str("hello"); // may reallocate multiple times
+}
+
+// FAST: One allocation upfront
+let mut s = String::with_capacity(5 * 1000);
+for i in 0..1000 {
+    s.push_str("hello"); // never reallocates
+}
+```
+
+**3. Prefer `&str` for read-only operations in function signatures** — zero extra cost, maximum flexibility.
+
+**4. `format!` always allocates.** For simple concatenation, `push_str` is faster:
+
+```rust
+// Allocates temporary Strings
+let result = format!("{}{}{}", a, b, c);
+
+// Single allocation, append in place
+let mut result = String::with_capacity(a.len() + b.len() + c.len());
+result.push_str(a);
+result.push_str(b);
+result.push_str(c);
+```
+
+---
+
+## 18. Common Pitfalls and Gotchas
+
+### Pitfall 1: Indexing a String with `[n]`
+
+```rust
+let s = String::from("hello");
+// let c = s[0]; // ERROR: cannot index String by integer
+// Why? Because index returns a str (DST), which has unknown size.
+// Also, "index 0" is ambiguous — byte 0? char 0? grapheme 0?
+
+// CORRECT: Use slicing (bytes)
+let first_byte_str: &str = &s[0..1]; // "h"
+
+// CORRECT: Use chars() for character access
+let first_char: char = s.chars().next().unwrap();
+```
+
+### Pitfall 2: Slicing on Non-Boundary
+
+```rust
+let s = "日本語"; // Each char is 3 bytes
+// let bad = &s[0..2]; // PANIC at runtime: not a char boundary!
+let good = &s[0..3]; // OK: "日"
+```
+
+### Pitfall 3: The `+` Operator Moves the Left Operand
+
+```rust
+let s1 = String::from("hello");
+let s2 = String::from(" world");
+let s3 = s1 + &s2; // s1 is MOVED here!
+// println!("{}", s1); // ERROR: s1 moved
+println!("{}", s3);  // "hello world"
+
+// If you need both after, use format!:
+let s1 = String::from("hello");
+let s2 = String::from(" world");
+let s3 = format!("{}{}", s1, s2); // neither moved
+println!("{} {}", s1, s2); // still valid
+```
+
+### Pitfall 4: Returning a `&str` That References a Local Variable
+
+```rust
+// DOES NOT COMPILE:
+fn bad_function() -> &str {
+    let s = String::from("hello");
+    &s[..]  // ERROR: s dropped at end of function, &str would dangle
+}
+
+// CORRECT: Return an owned String
+fn good_function() -> String {
+    let s = String::from("hello");
+    s  // transfer ownership out
+}
+
+// CORRECT: Return a 'static &str
+fn also_fine() -> &'static str {
+    "hello" // literal — lives forever
+}
+```
+
+### Pitfall 5: Confusing `.len()` with Character Count
+
+```rust
+let s = "日本語";
+println!("{}", s.len());           // 9 (bytes)
+println!("{}", s.chars().count()); // 3 (Unicode scalar values)
+// For user-visible characters (grapheme clusters), need unicode-segmentation crate
+```
+
+### Pitfall 6: `String` Comparison vs `&str` Comparison
+
+```rust
+// Both work due to PartialEq implementations:
+let s1: String = String::from("hello");
+let s2: &str = "hello";
+
+println!("{}", s1 == s2);     // true — String == &str
+println!("{}", s2 == s1);     // true — &str == String
+println!("{}", s1 == s2.to_string()); // true, but wasteful allocation!
+```
+
+---
+
+## 19. When to Use What — Decision Framework
+
+```
+COMPLETE DECISION TREE FOR CHOOSING &str vs String
+====================================================
+
+1. Are you storing a string in a struct or enum?
+      YES ──► Use String (you need to own it)
+
+2. Are you returning a string from a function and it's newly created?
+      YES ──► Return String
+
+3. Are you returning a view into the input string?
+      YES ──► Return &str (with lifetime tied to input)
+
+4. Is this a function parameter that only reads the string?
+      YES ──► Use &str (ALWAYS prefer over &String)
+
+5. Do you need to modify/build a string dynamically?
+      YES ──► Use String (possibly start with &str, call .to_string())
+
+6. Is this a string constant / literal in your code?
+      YES ──► &'static str is fine (or just &str)
+
+7. Are you working with a string from a config / user input / file?
+      YES ──► Store as String (unknown size, needs heap)
+
+8. Do you need to share the string across threads?
+      YES ──► Arc<String> or Arc<str> (shared ownership + thread safety)
+
+9. Do you want sometimes-owned, sometimes-borrowed?
+      YES ──► std::borrow::Cow<'a, str> (Clone on Write)
+```
+
+### `Cow<str>` — The Best of Both Worlds
+
+```rust
+use std::borrow::Cow;
+
+// Cow<'a, str> can be either:
+//   Cow::Borrowed(&'a str)  — no allocation
+//   Cow::Owned(String)      — heap allocated
+
+fn process_string(s: &str) -> Cow<str> {
+    if s.contains(' ') {
+        // Need to modify — allocate
+        Cow::Owned(s.replace(' ', "_"))
+    } else {
+        // No modification needed — just borrow
+        Cow::Borrowed(s)
+    }
+}
+
+fn main() {
+    let a = process_string("hello");      // Borrowed — no alloc!
+    let b = process_string("hello world"); // Owned — one alloc
+    println!("{} {}", a, b); // "hello hello_world"
+}
+```
+
+---
+
+## 20. Advanced Patterns
+
+### Pattern 1: `Box<str>` — Immutable Heap String (Smaller than String)
+
+`Box<str>` is a heap-allocated `str` with no capacity field. It's smaller than `String` (16 bytes vs 24 bytes) and is useful when you have an immutable string you want to own on the heap.
+
+```rust
+// String:   ptr(8) + len(8) + cap(8) = 24 bytes on stack
+// Box<str>: ptr(8) + len(8)           = 16 bytes on stack
+
+let s: Box<str> = "hello".into();         // &str -> Box<str>
+let s2: Box<str> = String::from("hello").into_boxed_str(); // String -> Box<str>
+
+// Can borrow as &str
+let borrowed: &str = &s;
+println!("{}", borrowed);
+
+// Convert back to String (re-allocates to add capacity field)
+let owned: String = s.into_string();
+```
+
+### Pattern 2: `Arc<str>` — Shared Ownership Across Threads
+
+```rust
+use std::sync::Arc;
+
+// Arc<str> is 16 bytes (fat pointer) + heap (ref count + bytes)
+// Cheaper to clone than Arc<String> because String has extra indirection
+
+let shared: Arc<str> = Arc::from("shared string");
+let clone1 = Arc::clone(&shared); // reference count + 1, no data copy
+let clone2 = Arc::clone(&shared); // reference count + 1, no data copy
+
+// All three point to the same heap bytes — immutable, thread-safe
+```
+
+### Pattern 3: String Interning with `&'static str`
+
+When you have many repeated strings (e.g., identifiers, keywords), you can intern them — store unique copies and return `&'static str`:
+
+```rust
+use std::collections::HashSet;
+use std::sync::Mutex;
+
+// Simple intern pool
+static INTERN_POOL: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
+
+fn intern(s: &str) -> &'static str {
+    let mut pool = INTERN_POOL.lock().unwrap();
+    let pool = pool.get_or_insert_with(HashSet::new);
+    
+    if let Some(&existing) = pool.get(s) {
+        return existing;
+    }
+    
+    // Leak the allocation to get &'static str
+    // (justified: intern pool lives forever)
+    let leaked: &'static str = Box::leak(s.to_string().into_boxed_str());
+    pool.insert(leaked);
+    leaked
+}
+```
+
+### Pattern 4: Building Strings Efficiently
+
+```rust
+fn build_efficiently() {
+    // Use a Vec<&str> and join — single allocation
+    let parts = vec!["hello", " ", "world", "!"];
+    let result: String = parts.join(""); // one allocation
+    println!("{}", result);
+
+    // Use collect() on an iterator of chars/strs
+    let result: String = (0..5).map(|i| format!("{}", i)).collect();
+    println!("{}", result); // "01234"
+
+    // Use write! macro with String as a buffer
+    use std::fmt::Write;
+    let mut buffer = String::with_capacity(64);
+    for i in 0..5 {
+        write!(buffer, "item{} ", i).unwrap();
+    }
+    println!("{}", buffer); // "item0 item1 item2 item3 item4 "
+}
+```
+
+### Pattern 5: Parsing &str into Typed Data
+
+```rust
+fn parsing_examples() {
+    // The FromStr trait makes any type parseable from &str
+    let n: i32 = "42".parse().unwrap();
+    let f: f64 = "3.14".parse::<f64>().unwrap();
+    let b: bool = "true".parse().unwrap();
+    
+    // Handle errors properly
+    match "not_a_number".parse::<i32>() {
+        Ok(n) => println!("Parsed: {}", n),
+        Err(e) => println!("Error: {}", e),
+    }
+    
+    // Implement FromStr for your own type
+    use std::str::FromStr;
+    
+    #[derive(Debug)]
+    struct Point { x: i32, y: i32 }
+    
+    impl FromStr for Point {
+        type Err = String;
+        
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            let parts: Vec<&str> = s.split(',').collect();
+            if parts.len() != 2 {
+                return Err(format!("expected 'x,y', got '{}'", s));
+            }
+            let x = parts[0].trim().parse::<i32>()
+                .map_err(|e| e.to_string())?;
+            let y = parts[1].trim().parse::<i32>()
+                .map_err(|e| e.to_string())?;
+            Ok(Point { x, y })
+        }
+    }
+    
+    let p: Point = "3, 5".parse().unwrap();
+    println!("{:?}", p); // Point { x: 3, y: 5 }
+}
+```
+
+---
+
+## 21. Mental Models Summary
+
+### The Core Mental Model
+
+```
+THINK OF IT AS A LIBRARY ANALOGY:
+
+String = The BOOK ITSELF
+  - You OWN it
+  - It lives on your shelf (heap)
+  - You can write in it, extend it, modify it
+  - When you give it away, you no longer have it
+  - Dropping it removes it from existence
+
+&str = A WINDOW into a BOOK
+  - You are READING a book that belongs somewhere
+  - You see the words, but you don't own the book
+  - You cannot write in it
+  - Multiple people can have windows into the same book
+  - If the book is destroyed, your window is invalid (borrow checker prevents this)
+  - The window tells you: "start at page 5, read 3 pages" (ptr + len)
+```
+
+### The Three Questions
+
+When you see a string type, ask:
+1. **Who owns it?** `String` = I own it. `&str` = Someone else owns it, I'm borrowing.
+2. **Where does it live?** `String` = Heap. `&str` = Wherever the owner is.
+3. **Can it grow?** `String` = Yes. `&str` = No (read-only view).
+
+### The Duality Principle
+
+```
+&str is to String
+  as
+&[T] is to Vec<T>
+  as
+&T   is to Box<T>
+
+Rust's ownership duality: every owned type has a borrowed view type.
+Borrowed views are always cheaper to pass around.
+Use owned types for storage, borrowed views for reading.
+```
+
+### Full Architecture Diagram
+
+```
+COMPLETE ARCHITECTURE OF RUST STRINGS
+=======================================
+
+SOURCE CODE / BINARY (Read-Only Memory)
++----------------------------------------+
+|  "hello world" <- string literal       |
+|  b"raw bytes"  <- byte literal         |
+|  Each has 'static lifetime             |
++----------------------------------------+
+    ^                   ^
+    | ptr               | ptr
+    |                   |
++--------+          +--------+
+| &'s str|          |&'static|
+| ptr    |          | str    |
+| len    |          | ptr    |
++--------+          | len    |
+ (borrows           +--------+
+  from heap          (borrows
+  or binary)         from binary)
+
+
+HEAP (Dynamic Memory)
++------------------------------------------+
+|  [h][e][l][l][o][ ][w][o][r][l][d]       |
+|   0   1   2   3   4   5   6   7   8  9 10|
++------------------------------------------+
+    ^                   ^
+    | ptr               | ptr+6
+    |                   |
++----------+        +--------+
+| String   |        | &str   |
+| ptr  ----+        | ptr  --+
+| len = 11 |        | len = 5|
+| cap = 11 |        +--------+
++----------+         (slice "world"
+(owns heap data)      borrows from String)
+
+
+STACK (Local Variables in a Function)
++-----------------------------------+
+| owned: String  (24 bytes)         |
+|   ptr = 0x7f..  ──► [heap data]   |
+|   len = 11                        |
+|   cap = 11                        |
++-----------------------------------+
+| slice: &str    (16 bytes)         |
+|   ptr = 0x7f.. + 6 ──► [heap]     |
+|   len = 5                         |
++-----------------------------------+
+| literal: &str  (16 bytes)         |
+|   ptr = 0x40.. ──► [binary]       |
+|   len = 5                         |
++-----------------------------------+
+
+All three live on the STACK.
+String's DATA lives on the HEAP.
+literal's DATA lives in the BINARY.
+slice's DATA is INSIDE owned's heap buffer.
+```
+
+---
+
+## Quick Reference Card
+
+```
+RUST STRING QUICK REFERENCE
+=============================
+
+TYPE       SIZE   OWNED  GROWABLE  MUTABLE  WHERE DATA
+--------   ----   -----  --------  -------  ----------
+&str        16B    No     No        No       Anywhere
+String      24B    Yes    Yes       Yes      Heap
+&String     8B     No     No        No       Heap (via ref)
+Box<str>    16B    Yes    No        No       Heap
+Arc<str>    16B    Shared No        No       Heap (ref-counted)
+Cow<str>    32B    Maybe  No/Yes    No/Yes   Heap or borrowed
+
+CONVERSIONS (most common):
+  "literal"             -> &'static str (automatic)
+  "literal".to_string() -> String
+  "literal".to_owned()  -> String
+  String::from("lit")   -> String
+  &string               -> &str  (Deref coercion)
+  string.as_str()       -> &str  (explicit)
+  &string[start..end]   -> &str  (slice)
+  string.into_bytes()   -> Vec<u8>
+  String::from_utf8(v)  -> Result<String, _>
+
+GOLDEN RULES:
+  1. Function params that only read: use &str
+  2. Return newly created strings: use String
+  3. Store in structs: use String
+  4. String literals are &'static str
+  5. Never index a String with s[n] — use slices or .chars()
+  6. Slicing indices are BYTE offsets, must be char boundaries
+  7. &String always coerces to &str — never take &String as param
+  8. format!() always allocates — use push_str for performance
+```
+
+---
+
+*This guide covers the complete mental model, memory architecture, ownership semantics, and practical usage of `&str` and `String` in Rust. Mastering this duality is foundational to writing idiomatic, performant, and safe Rust code.*
