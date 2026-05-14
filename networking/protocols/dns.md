@@ -55,7 +55,7 @@ Paul Mockapetris published **RFC 882** and **RFC 883** in November 1983, introdu
 
 ### 1.3 Design Principles (and Their Security Implications)
 
-```
+
 | Principle | Description | Security implication |
 |-----------|-------------|---------------------|
 | Hierarchical delegation | Zones delegate sub-zones | Compromise of parent breaks child trust without DNSSEC |
@@ -64,7 +64,7 @@ Paul Mockapetris published **RFC 882** and **RFC 883** in November 1983, introdu
 | Caching | Resolvers cache answers per TTL | Cache poisoning if TXID/port prediction succeeds |
 | Open recursion | Resolvers accept queries from any IP | Amplification DDoS vector |
 | Cleartext | No encryption in original protocol | On-path eavesdropping, manipulation |
-```
+
 ---
 
 ## 2. DNS Namespace and Hierarchy
@@ -292,7 +292,7 @@ This is the most critical section for implementation and security analysis. Ever
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                          ID (16 bits)                         |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|QR|  Opcode   |AA|TC|RD|RA| Z|AD|CD|        RCODE (4 bits)    |
+|QR|  Opcode   |AA|TC|RD|RA| Z|AD|CD|        RCODE (4 bits)     |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                       QDCOUNT (16 bits)                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -350,12 +350,12 @@ Follows the header. Each question entry:
 
 ```
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                      QNAME                      |
-|           (variable length, encoded name)        |
+|                      QNAME                    |
+|           (variable length, encoded name)     |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                      QTYPE                      |
+|                      QTYPE                    |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                     QCLASS                      |
+|                     QCLASS                    |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ```
 
@@ -369,20 +369,20 @@ All sections (Answer, Authority, Additional) contain Resource Records:
 
 ```
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                       NAME                      |
-|           (compressed or full domain name)       |
+|                       NAME                    |
+|           (compressed or full domain name)    |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                       TYPE         (16 bits)     |
+|                       TYPE         (16 bits)  |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                      CLASS         (16 bits)     |
+|                      CLASS         (16 bits)  |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                       TTL          (32 bits)     |
-|                                                  |
+|                       TTL          (32 bits)  |
+|                                               |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                     RDLENGTH       (16 bits)     |
+|                     RDLENGTH       (16 bits)  |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                      RDATA                      |
-|             (variable, RDLENGTH bytes)           |
+|                      RDATA                    |
+|             (variable, RDLENGTH bytes)        |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ```
 
@@ -1164,19 +1164,19 @@ Appears in the Additional section. Not stored in zone data. Present in messages 
 
 ```
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                    NAME = 0x00                  |  (root label = empty)
+|                    NAME = 0x00                |  (root label = empty)
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|              TYPE = 41 (OPT)      (16 bits)     |
+|              TYPE = 41 (OPT)      (16 bits)   |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|         UDP PAYLOAD SIZE          (16 bits)     |  (replaces CLASS field)
+|         UDP PAYLOAD SIZE          (16 bits)   |  (replaces CLASS field)
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-| EXTENDED RCODE (8) | VERSION (8)  (these two)   |  (replaces TTL high 16 bits)
+| EXTENDED RCODE (8) | VERSION (8)  (these two) |  (replaces TTL high 16 bits)
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|     Z (DO bit = bit 15)  + reserved (15 bits)   |  (replaces TTL low 16 bits)
+|     Z (DO bit = bit 15)  + reserved (15 bits) |  (replaces TTL low 16 bits)
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                   RDLENGTH        (16 bits)     |
+|                   RDLENGTH        (16 bits)   |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|                   RDATA (options)               |
+|                   RDATA (options)             |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ```
 
@@ -1192,11 +1192,11 @@ RDATA contains TLV-encoded options:
 
 ```
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|               OPTION-CODE         (16 bits)     |
+|               OPTION-CODE         (16 bits)   |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|               OPTION-LENGTH       (16 bits)     |
+|               OPTION-LENGTH       (16 bits)   |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-|               OPTION-DATA         (variable)    |
+|               OPTION-DATA         (variable)  |
 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ```
 
@@ -1292,14 +1292,14 @@ Client                              Server (port 853)
   |                                    |
   |--- TCP SYN ----------------------->|
   |<-- TCP SYN-ACK --------------------|
-  |--- TCP ACK, TLS ClientHello ------->|
-  |<-- TLS ServerHello, Certificate ----|
-  |--- TLS Finished ------------------->|
+  |--- TCP ACK, TLS ClientHello ------>|
+  |<-- TLS ServerHello, Certificate ---|
+  |--- TLS Finished ------------------>|
   |                                    |
-  |--- [2-byte len][DNS query] -------->|  (TLS-encrypted)
-  |<-- [2-byte len][DNS response] ------|
+  |--- [2-byte len][DNS query] ------->|  (TLS-encrypted)
+  |<-- [2-byte len][DNS response] -----|
   |                                    |
-  |--- TCP FIN ------------------------>|
+  |--- TCP FIN ----------------------->|
 
 Authentication:
   - Opportunistic: connect to any server at port 853; no cert validation
@@ -4060,7 +4060,7 @@ dnsperf -s 8.8.8.8 -d queryfile.txt -l 30 -c 10 -Q 1000
 
 ```
                     ┌─────────────────────────────────────────────────────────┐
-                    │                    THREAT ZONES                          │
+                    │                    THREAT ZONES                         │
                     └─────────────────────────────────────────────────────────┘
 
 [Attacker]
