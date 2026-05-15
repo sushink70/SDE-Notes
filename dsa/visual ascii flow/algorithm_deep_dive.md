@@ -2391,7 +2391,7 @@ is what separates analysts who "understand algorithms" from those who "know them
 
 ---
 
-## How to Read This Guide <a name="how-to-read"></a>
+## How to Read This Guide 
 
 For each problem, we follow this fixed mental pipeline:
 
@@ -2406,7 +2406,7 @@ UNDERSTAND → BRUTE FORCE → IDENTIFY BOTTLENECK → OPTIMIZE → SIMULATE →
 
 ---
 
-## Pattern Recognition Master Map <a name="pattern-map"></a>
+## Pattern Recognition Master Map
 
 ```
 PROBLEM CLASS           TRIGGER WORDS                    TOOL
@@ -2666,7 +2666,7 @@ def search(nums: list[int], target: int) -> int:
 ---
 ---
 
-# Problem #45 — Jump Game II <a name="p45"></a>
+# Problem #45 — Jump Game II 
 
 ---
 
@@ -2846,9 +2846,9 @@ RETURN 2
           │         │  = farthest │                                 │   │
           │         └──────┬──────┘                                 │   │
           │                │                                        │   │
-          │         ┌──────▼──────────────────┐                     │   │
-          │         │   current_end >= n-1 ?   │                    │   │
-          │         └──────┬──────────┬────────┘                    │   │
+          │         ┌──────▼────────────────────┐                   │   │
+          │         │   current_end >= n-1 ?    │                   │   │
+          │         └──────┬───────── ─┬────────┘                   │   │
           │               YES          NO                           │   │
           │                │           │                            │   │
           │              BREAK    ┌────▼────┐                       │   │
@@ -3211,7 +3211,7 @@ def permute(nums: list[int]) -> list[list[int]]:
 ---
 ---
 
-# Problem #57 — Insert Interval <a name="p57"></a>
+# Problem #57 — Insert Interval 
 
 ---
 
@@ -3594,8 +3594,8 @@ row = [1, 4, 6, 4, 1]
      prev = result[i-1]                   |
      row = [1]                            |
             |                             |
-     j = 1 ──────────────┐                |
-            |              |              |
+     j = 1 ─────────────────┐             |
+            |               |             |
      j <= i-1 ?──NO──→ row.append(1)      |
             |YES            |             |
      row.append(            |             |
@@ -3679,7 +3679,7 @@ def generate(numRows: int) -> list[list[int]]:
 ---
 ---
 
-# Problem #164 — Maximum Gap <a name="p164"></a>
+# Problem #164 — Maximum Gap 
 
 ---
 
@@ -4267,7 +4267,7 @@ def rob(nums: list[int]) -> int:
 ---
 
 ## Pattern → Problem Mapping
-
+ 
 ```
 PATTERN              | PROBLEM            | KEY DATA STRUCTURE | KEY INSIGHT
 ---------------------|------------------  |------------------- |-------------------------------
@@ -4391,7 +4391,7 @@ Problem   | Brute Force | Optimal  | Space (optimal)
 
 ---
 
-<a name="106"></a>
+
 # PROBLEM 1: Construct Binary Tree from Inorder and Postorder Traversal
 **LeetCode 106 | Medium | Tree | Divide & Conquer | Recursion**
 
@@ -4649,7 +4649,7 @@ func buildTree(inorder []int, postorder []int) *TreeNode {
 
 ---
 
-<a name="138"></a>
+
 # PROBLEM 2: Copy List with Random Pointer
 **LeetCode 138 | Medium | Linked List | HashMap | Interleaving**
 
@@ -4911,7 +4911,7 @@ func copyRandomListO1(head *Node) *Node {
 
 ---
 
-<a name="229"></a>
+
 # PROBLEM 3: Majority Element II
 **LeetCode 229 | Medium | Array | Boyer-Moore Voting**
 
@@ -5118,7 +5118,6 @@ func majorityElement(nums []int) []int {
 
 ---
 
-<a name="349"></a>
 # PROBLEM 4: Intersection of Two Arrays
 **LeetCode 349 | Easy | Array | HashSet | Two Pointers | Binary Search**
 
@@ -5311,7 +5310,6 @@ func intersectionTwoPointer(nums1 []int, nums2 []int) []int {
 
 ---
 
-<a name="5"></a>
 # PROBLEM 5: Longest Palindromic Substring
 **LeetCode 5 | Medium | String | Dynamic Programming | Expand Around Center | Manacher**
 
@@ -5578,7 +5576,6 @@ func longestPalindromeDP(s string) string {
 
 ---
 
-<a name="451"></a>
 # PROBLEM 6: Sort Characters By Frequency
 **LeetCode 451 | Medium | String | HashMap | Bucket Sort | Heap**
 
@@ -5782,7 +5779,6 @@ func frequencySortBucket(s string) string {
 
 ---
 
-<a name="457"></a>
 # PROBLEM 7: Circular Array Loop
 **LeetCode 457 | Medium | Array | Two Pointers | Fast & Slow Pointer**
 
@@ -6011,7 +6007,6 @@ func circularArrayLoop(nums []int) bool {
 
 ---
 
-<a name="525"></a>
 # PROBLEM 8: Contiguous Array
 **LeetCode 525 | Medium | Array | HashMap | Prefix Sum**
 
@@ -6205,7 +6200,6 @@ we always get the longest possible subarray for that sum.
 
 ---
 
-<a name="patterns"></a>
 # PATTERN SUMMARY & MENTAL MODEL CHEATSHEET
 
 ---

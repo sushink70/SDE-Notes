@@ -1378,3 +1378,652 @@ How can I learn code level architecture now in the kernel and user space level? 
 
 Where to add printing statements in the kernel code and what is happening?
 
+Based on your terminal output, you're on **Ubuntu 26.04 "resolute"** with kernel `7.0.0-15-generic`. There are three issues to fix and then several steps to complete on the host before the VM work begins. Here's everything in order:
+
+---
+
+## Issue 1 — Fix `apt source` (no deb-src lines)
+
+```bash
+# Open your sources file
+sudo nano /etc/apt/sources.list
+```
+
+Add a `deb-src` line matching each `deb` line. For Ubuntu 26.04 it should look like:
+
+```
+deb     http://archive.ubuntu.com/ubuntu resolute main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu resolute main restricted universe multiverse
+
+deb     http://archive.ubuntu.com/ubuntu resolute-updates main restricted universe multiverse
+deb-src http://archive.ubuntu.com/ubuntu resolute-updates main restricted universe multiverse
+```
+
+Then:
+```bash
+sudo apt update
+apt source iproute2   # should work now
+```
+
+---
+
+## Issue 2 — Fix the Kernel Git Repo (wrong/missing branches)
+
+Your `git branch -r | grep jammy` returned nothing because you're on **26.04 resolute**, not jammy (22.04). The Ubuntu kernel git uses release codenames as branch names. Since you cloned the repo but see no ubuntu/* branches, it probably fetched from the wrong remote. Fix it:
+
+```bash
+cd ~/Documents/clion/opensource_sushink70/linux_kernel_net_playground/ubuntu-kernel-server-os/linux
+
+# Check what remotes exist
+git remote -v
+
+# If it's pointing to vanilla Linus kernel (kernel.org), the ubuntu branches won't exist there.
+# Add the Ubuntu kernel remote:
+git remote add ubuntu git://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux
+
+# Fetch all ubuntu branches (takes a while)
+git fetch ubuntu
+
+# Now check
+git branch -r | grep -E "resolute|noble"
+
+# Checkout your distro's branch (resolute = 26.04)
+git checkout ubuntu/resolute
+```
+
+If Launchpad is slow, the faster alternative is just `apt source linux`:
+
+```bash
+mkdir ~/ubuntu-kernel && cd ~/ubuntu-kernel
+apt source linux    # pulls exact source matching your running 7.0.0-15-generic
+```
+
+---
+
+## Issue 3 — Install All Host Packages
+
+Run this all at once:
+
+```bash
+sudo apt install -y \
+  qemu-kvm libvirt-daemon-system virt-manager \
+  bridge-utils virtinst qemu-utils \
+  build-essential libncurses-dev bison flex \
+  libssl-dev libelf-dev dwarves bc cpio pahole \
+  crash gdb-multiarch kdump-tools \
+  linux-tools-common linux-tools-$(uname -r) \
+  trace-cmd kernelshark \
+  git devscripts dpkg-dev quilt fakeroot \
+  cscope exuberant-ctags tmux \
+  cpu-checker
+```
+
+Verify KVM works:
+```bash
+kvm-ok
+# Must say: KVM acceleration can be used
+sudo systemctl enable --now libvirtd
+```
+
+---
+
+## Step 4 — Create VM Disk
+
+```bash
+mkdir -p ~/vms
+qemu-img create -f qcow2 ~/vms/netlab.qcow2 40G
+```
+
+---
+
+## Step 5 — Download Ubuntu Server ISO
+
+Since you're studying the network stack, use Ubuntu Server 22.04 (jammy) **inside the VM** — it's well-documented and stable for kernel work. Your host stays on 26.04:
+
+```bash
+wget -P ~/vms https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+```
+
+---
+
+## Step 6 — Create the VM
+
+```bash
+virt-install \
+  --name netlab \
+  --ram 4096 \
+  --vcpus 4 \
+  --disk ~/vms/netlab.qcow2,format=qcow2 \
+  --cdrom ~/vms/ubuntu-22.04.4-live-server-amd64.iso \
+  --os-variant ubuntu22.04 \
+  --network bridge=virbr0 \
+  --graphics vnc \
+  --serial pty
+```
+
+Check the libvirt NAT network is up first:
+```bash
+sudo virsh net-list --all
+sudo virsh net-start default
+sudo virsh net-autostart default
+```
+
+---
+
+## Step 7 — Enable Kernel Build Config (Host)
+
+Copy your running config as the base for building:
+
+```bash
+cd ~/ubuntu-kernel/linux   # or wherever apt source extracted it
+cp /boot/config-$(uname -r) .config
+make olddefconfig
+
+# Enable debug symbols needed for KGDB later
+scripts/config --enable CONFIG_DEBUG_INFO
+scripts/config --enable CONFIG_DEBUG_KERNEL
+scripts/config --enable CONFIG_KGDB
+scripts/config --enable CONFIG_KGDB_SERIAL_CONSOLE
+scripts/config --enable CONFIG_DYNAMIC_DEBUG
+scripts/config --enable CONFIG_FTRACE
+scripts/config --enable CONFIG_FUNCTION_TRACER
+scripts/config --enable CONFIG_FUNCTION_GRAPH_TRACER
+```
+
+---
+
+## Checklist Summary
+
+| Task | Command to verify |
+|---|---|
+| KVM works | `kvm-ok` |
+| libvirtd running | `sudo virsh net-list --all` |
+| deb-src added | `apt source iproute2` (no error) |
+| Kernel source fetched | `ls ~/ubuntu-kernel/linux/net/` |
+| Ubuntu kernel branch checked out | `git log --oneline -3` (shows Ubuntu commits) |
+| VM disk created | `ls -lh ~/vms/netlab.qcow2` |
+| ISO downloaded | `ls ~/vms/*.iso` |
+
+Once the VM is installed and you can SSH into it, the next phase (building your custom kernel, installing it in the VM, and setting up KGDB) is all done inside/between host↔VM. Let me know when you hit the VM install step.
+
+Here's everything you need to do **on the host system** to get started, in order:
+
+---
+
+## Step 1 — Verify KVM Support
+
+Before anything, confirm your CPU supports virtualization:
+
+```bash
+egrep -c '(vmx|svm)' /proc/cpuinfo
+# Must return > 0
+
+sudo kvm-ok
+# Must say "KVM acceleration can be used"
+```
+
+---
+
+## Step 2 — Install All Required Packages on Host
+
+```bash
+# KVM/QEMU + libvirt
+sudo apt install -y qemu-kvm libvirt-daemon-system virt-manager \
+    bridge-utils virtinst qemu-utils
+
+# Kernel build dependencies
+sudo apt install -y build-essential libncurses-dev bison flex \
+    libssl-dev libelf-dev dwarves bc cpio pahole
+
+# Debug/trace tooling
+sudo apt install -y crash gdb-multiarch kdump-tools \
+    linux-tools-common trace-cmd kernelshark
+
+# Source fetching tools
+sudo apt install -y git devscripts dpkg-dev apt-src quilt fakeroot
+```
+
+---
+
+## Step 3 — Add Yourself to Required Groups
+
+```bash
+sudo usermod -aG kvm $USER
+sudo usermod -aG libvirt $USER
+
+# Log out and back in, then verify
+groups | grep -E "kvm|libvirt"
+```
+
+---
+
+## Step 4 — Start and Enable libvirt
+
+```bash
+sudo systemctl enable --now libvirtd
+sudo virsh net-list --all
+# You should see "default" network listed
+
+# If not active:
+sudo virsh net-start default
+sudo virsh net-autostart default
+```
+
+---
+
+## Step 5 — Create VM Directory and Download ISO
+
+```bash
+mkdir -p ~/vms
+wget -P ~/vms https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+```
+
+---
+
+## Step 6 — Create the VM Disk
+
+```bash
+qemu-img create -f qcow2 ~/vms/netlab.qcow2 40G
+```
+
+---
+
+## Step 7 — Install Ubuntu Server into the VM
+
+```bash
+virt-install \
+  --name netlab \
+  --ram 4096 \
+  --vcpus 4 \
+  --disk ~/vms/netlab.qcow2,format=qcow2 \
+  --cdrom ~/vms/ubuntu-22.04.4-live-server-amd64.iso \
+  --os-variant ubuntu22.04 \
+  --network bridge=virbr0 \
+  --graphics vnc \
+  --serial pty
+```
+
+This opens a VNC window. Go through the Ubuntu Server installer normally. When it asks about SSH, **enable it** — you'll need it.
+
+---
+
+## Step 8 — Verify VM Networking from Host
+
+After the VM installs and boots:
+
+```bash
+# Find the VM's IP
+sudo virsh domifaddr netlab
+
+# SSH into it (replace with actual IP shown)
+ssh user@192.168.122.x
+```
+
+---
+
+## Step 9 — Get the Ubuntu Kernel Source (on Host)
+
+```bash
+mkdir ~/ubuntu-kernel && cd ~/ubuntu-kernel
+apt source linux
+# OR via git:
+git clone git://git.launchpad.net/~ubuntu-kernel/ubuntu/+source/linux
+cd linux
+git checkout ubuntu/jammy   # for Ubuntu 22.04
+```
+
+---
+
+## That's the complete host setup.
+
+After this, everything else (building the kernel, installing it into the VM, Rust/Axum server, tracing, `printk` instrumentation) happens **inside the VM** — your host desktop stays untouched.
+
+**Quick recap of what you've done on host:**
+
+| Step | Purpose |
+|------|---------|
+| Install packages | KVM, build tools, debug tools |
+| Groups | Permission to use KVM/libvirt without sudo |
+| libvirt service | The daemon that manages VMs |
+| ISO download | Ubuntu Server installer |
+| `qemu-img` | VM disk |
+| `virt-install` | Create and boot the VM |
+| `apt source linux` | Kernel source to read/modify on host |
+
+Once you can `ssh user@192.168.122.x` into the VM successfully, you're ready for every subsequent phase in your notes.
+
+KVM is ready. 16 cores confirmed, `/dev/kvm` exists. Move to Step 2:
+
+```bash
+sudo apt install -y qemu-kvm libvirt-daemon-system virt-manager \
+    bridge-utils virtinst qemu-utils \
+    build-essential libncurses-dev bison flex \
+    libssl-dev libelf-dev dwarves bc cpio pahole \
+    crash gdb-multiarch kdump-tools \
+    linux-tools-common trace-cmd kernelshark \
+    git devscripts dpkg-dev apt-src quilt fakeroot
+```
+
+Run that, then paste the output (or just confirm it finished without errors) and we'll move to Step 3.
+
+You're on a newer Ubuntu where `qemu-kvm` was split. Use `qemu-system-x86` instead:
+
+```bash
+sudo apt install -y qemu-system-x86 libvirt-daemon-system virt-manager \
+    bridge-utils virtinst qemu-utils \
+    build-essential libncurses-dev bison flex \
+    libssl-dev libelf-dev dwarves bc cpio pahole \
+    crash gdb-multiarch kdump-tools \
+    linux-tools-common trace-cmd kernelshark \
+    git devscripts dpkg-dev apt-src quilt fakeroot
+```
+
+After it finishes, verify KVM is wired correctly:
+
+```bash
+ls -la /dev/kvm
+# should show: crw-rw----+ ... /dev/kvm
+
+qemu-system-x86_64 --version
+# should print QEMU version 10.x
+```
+
+Paste the result and we'll continue to Step 3 (groups).
+
+QEMU 10.2.1 installed. Now Step 3 — add yourself to the required groups:
+
+```bash
+sudo usermod -aG kvm $USER
+sudo usermod -aG libvirt $USER
+```
+
+Then **log out and log back in** (or reboot). After that, verify:
+
+```bash
+groups | grep -E "kvm|libvirt"
+```
+
+You should see both `kvm` and `libvirt` in the output. Paste the result and we'll move to Step 4 (starting libvirt).
+
+The groups aren't active yet in your current session — that's expected. You need to log out and back in first. But you can avoid a full logout with:
+
+```bash
+newgrp libvirt
+```
+
+Then in the new shell:
+
+```bash
+groups | grep -E "kvm|libvirt"
+```
+
+Or just **log out of your desktop session and log back in**, then run the `groups` check. That's the cleanest way.
+
+Which did you do — and what does `groups` show after?
+
+`libvirt` is active. `kvm` will show up after a full logout/login, but it won't block us now. Move to Step 4:
+
+```bash
+sudo systemctl enable --now libvirtd
+```
+
+Then verify the default NAT network is ready:
+
+```bash
+sudo virsh net-list --all
+```
+
+You should see something like:
+```
+ Name      State    Autostart   Persistent
+--------------------------------------------
+ default   active   yes         yes
+```
+
+Paste the output and we'll continue.
+
+Got it — that's your original goal statement. Everything in your notes document (and what we're doing step by step) is exactly the right path for this.
+
+You're currently at **Step 4**. Run this and paste the output:
+
+```bash
+sudo systemctl enable --now libvirtd
+sudo virsh net-list --all
+```
+
+We'll keep going from there.
+
+libvirtd is running, default NAT network is active and set to autostart. Step 4 done.
+
+Now **Step 5 — Create VM directory and download the ISO:**
+
+```bash
+mkdir -p ~/vms
+wget -O ~/vms/ubuntu-22.04.4-live-server-amd64.iso \
+  https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+```
+
+This is ~2GB so it'll take a few minutes depending on your connection. Let it finish, then verify:
+
+```bash
+ls -lh ~/vms/ubuntu-22.04.4-live-server-amd64.iso
+```
+
+Paste the output and we'll move to Step 6 (creating the VM disk).
+
+Yes, absolutely. Run this from inside that directory:
+
+```bash
+wget -O ubuntu-22.04.4-live-server-amd64.iso \
+  https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+```
+
+And create the VM disk there too:
+
+```bash
+qemu-img create -f qcow2 netlab.qcow2 40G
+```
+
+So your project structure will be clean:
+
+```
+linux_kernel_net_playground/
+├── linux-7.0.6/                  ← kernel source (already here)
+├── linux-7.0.6.tar.xz
+└── ubuntu-server-os/
+    ├── ubuntu-22.04.4-live-server-amd64.iso   ← OS installer
+    └── netlab.qcow2                            ← VM disk
+```
+
+Everything in one place, easy to manage. Let the ISO download finish, then paste `ls -lh` and we'll run `virt-install`.
+
+Good question to clarify before going further. Here's the full picture:
+
+---
+
+## The Two Separate Codebases
+
+```
+linux_kernel_net_playground/
+├── linux-7.0.6/          ← Edit kernel code HERE (on host)
+│   ├── net/              ← network stack
+│   ├── drivers/net/      ← NIC drivers
+│   └── include/          ← headers
+│
+└── ubuntu-server-os/
+    └── netlab.qcow2      ← VM disk (Ubuntu Server runs inside)
+                             userspace lives here
+```
+
+---
+
+## Kernel Space — Edit on Host, Run in VM
+
+You edit the kernel source **on your host** using CLion (which you already have open based on your path). Then build it on the host and install into the VM.
+
+```
+Host (CLion)              →   Build    →   Install into VM   →   Boot VM with new kernel
+edit net/ipv4/tcp.c           make -j16     scp *.deb → VM        sudo dpkg -i *.deb
+```
+
+CLion already has great kernel source navigation — open `linux-7.0.6/` as a project in CLion directly.
+
+---
+
+## User Space — Edit and Build Inside the VM
+
+Userspace tools (`iproute2`, `glibc`, your Axum server) are edited and built **inside the VM itself** via SSH.
+
+```
+Host terminal
+  └── ssh user@192.168.122.x
+        └── vim/nano net-tools source
+        └── make
+        └── test immediately
+```
+
+---
+
+## Your Actual Workflow Day-to-Day
+
+```
+┌─────────────────────────────────────────────────┐
+│  HOST                                           │
+│                                                 │
+│  CLion → open linux-7.0.6/                     │
+│    edit net/ipv4/tcp.c                          │
+│    add pr_info("[NETLAB]...")                   │
+│    make -j16                                    │
+│    scp linux-image-*.deb user@vm-ip:~           │
+└───────────────────────┬─────────────────────────┘
+                        │ SSH
+┌───────────────────────▼─────────────────────────┐
+│  VM (Ubuntu Server)                             │
+│                                                 │
+│  sudo dpkg -i linux-image-*.deb                 │
+│  sudo reboot                                    │
+│                                                 │
+│  # now test:                                    │
+│  sudo dmesg -w | grep NETLAB   ← see your print │
+│  curl http://example.com       ← trigger it     │
+│                                                 │
+│  # userspace editing:                           │
+│  apt source iproute2           ← get source     │
+│  vim iproute2-*/ip/link.c      ← edit           │
+│  make && sudo cp ip /usr/sbin/ ← install        │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Set Up CLion for Kernel Source Right Now
+
+Since you already have CLion open at that path:
+
+1. **File → Open** → select `linux-7.0.6/`
+2. CLion will ask about CMake — **cancel/skip** it
+3. Instead go to **Tools → Compilation Database** or just use **Navigate → File/Symbol** (`Ctrl+N`, `Ctrl+Shift+N`)
+
+Better — generate a proper index so CLion understands the kernel:
+
+```bash
+# Inside linux-7.0.6/ on host
+cp /boot/config-$(uname -r) .config
+make olddefconfig
+make -j16 compile_commands.json   # generates CLion-compatible index
+```
+
+Then in CLion: **Tools → Compile commands → select** `compile_commands.json`. Now `Ctrl+Click` on any function like `tcp_sendmsg` jumps to its definition correctly.
+
+---
+
+## Summary
+
+| What | Where you edit | Where it runs |
+|------|---------------|---------------|
+| Kernel (`net/`, `drivers/`) | Host — CLion | VM |
+| Userspace tools (`iproute2` etc.) | VM — vim/nano via SSH | VM |
+| Your Rust/Axum server | VM | VM |
+| Wireshark/tshark captures | VM | VM |
+
+Let the ISO finish downloading and we'll get the VM running — then this all becomes hands-on.
+
+Yes, force IPv4 with `-4`:
+
+```bash
+wget -4 -O ubuntu-22.04.4-live-server-amd64.iso \
+  https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+```
+
+If that's still slow, try the mirror closer to Kerala:
+
+```bash
+wget -4 -O ubuntu-22.04.4-live-server-amd64.iso \
+  https://mirror.cse.iitk.ac.in/ubuntu-releases/22.04/ubuntu-22.04.4-live-server-amd64.iso
+```
+
+IIT Kanpur mirror is usually fast from India. Try the first one, and if it stalls again switch to the mirror.
+
+The 22.04.4 ISO has been replaced. Let me find the correct current URL:It's **22.04.5** now (not 22.04.4). Try this Indian/Asian mirror:
+
+```bash
+wget -4 -O ubuntu-22.04.5-live-server-amd64.iso \
+  https://ftp.unpad.ac.id/iso/ubuntu/releases/releases/22.04/ubuntu-22.04.5-live-server-amd64.iso
+```
+
+If that's slow, try the official URL with the correct filename:
+
+```bash
+wget -4 -O ubuntu-22.04.5-live-server-amd64.iso \
+  https://releases.ubuntu.com/22.04/ubuntu-22.04.5-live-server-amd64.iso
+```
+
+The file is about **2GB**. Once it starts downloading and showing progress, let it run and we'll do the next steps in parallel (creating the VM disk doesn't need the ISO to finish):
+
+```bash
+# Open a second terminal and run this while ISO downloads
+qemu-img create -f qcow2 \
+  ~/Documents/clion/opensource_sushink70/linux_kernel_net_playground/ubuntu-server-os/netlab.qcow2 \
+  40G
+```
+
+Good catch. Let me check what Ubuntu 22.04 actually uses:This is actually important. Here's what the version mismatch means:
+
+| Ubuntu Version | Kernel |
+|---|---|
+| 22.04 (Jammy) | 5.15 |
+| 24.04 (Noble) | 6.8 |
+| **26.04 (Resolute Raccoon)** | **7.0** ← your kernel |
+
+**Your `linux-7.0.6` matches Ubuntu 26.04**, which was just released on April 23, 2026. So you have two clean options:
+
+---
+
+**Option A — Switch to Ubuntu 26.04 Server ISO** *(recommended — matches your kernel exactly)*
+```bash
+wget -4 -O ubuntu-26.04-live-server-amd64.iso \
+  https://releases.ubuntu.com/26.04/ubuntu-26.04-live-server-amd64.iso
+```
+
+---
+
+**Option B — Keep Ubuntu 22.04, but replace kernel source with 5.15**
+```bash
+# Discard linux-7.0.6, get the matching source instead
+apt source linux   # after VM is installed, inside it
+```
+
+---
+
+**Option A is the better choice** because:
+- Your kernel source (`linux-7.0.6`) and the VM's userspace will be in sync
+- No version mismatch when you build and install your custom kernel into the VM
+- 26.04 is an LTS release — stable and supported
+
+Try downloading the 26.04 ISO:
+```bash
+wget -4 -O ubuntu-26.04-live-server-amd64.iso \
+  https://releases.ubuntu.com/26.04/ubuntu-26.04-live-server-amd64.iso
+```
+
+Which option do you prefer?

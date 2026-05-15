@@ -45,9 +45,9 @@ Before we dive deep, you need to understand that RFCs and production code exist 
 |                                                  |  and what happens when everything goes wrong?    |
 |                                                  |                                                  |
 |  Audience: Protocol designers, implementers,     |  Audience: Compilers, CPUs, kernels, networks,   |
-|            standards bodies                      |            attackers, broken hardware             |
+|            standards bodies                      |            attackers, broken hardware            |
 |                                                  |                                                  |
-|  Describes: The HAPPY PATH                       |  Must handle: ALL paths including impossible ones |
+|  Describes: The HAPPY PATH                       |  Must handle: ALL paths including impossible ones|
 |                                                  |                                                  |
 |  Assumes: Cooperative participants               |  Assumes: Hostile environment, malicious actors, |
 |                                                  |           hardware faults, cosmic rays           |
@@ -56,7 +56,7 @@ Before we dive deep, you need to understand that RFCs and production code exist 
 |                                                  |                                                  |
 |  Time: Timeless (describes behavior)             |  Time: Real-time (must meet deadlines)           |
 |                                                  |                                                  |
-|  Errors: "MUST return error"                     |  Errors: WHICH error? When? Logged? Retried?      |
+|  Errors: "MUST return error"                     |  Errors: WHICH error? When? Logged? Retried?     |
 |                                                  |           Propagated? Recovered?                 |
 |                                                  |                                                  |
 +--------------------------------------------------+--------------------------------------------------+
@@ -121,8 +121,8 @@ RFC 2119 defines the meaning of these words:
 | REQUIRED | Same as MUST                                                     |
 | SHALL    | Same as MUST                                                     |
 | SHOULD   | Recommended. Can be ignored with valid reason.                   |
-| SHOULD NOT | Not recommended but not forbidden.                            |
-| RECOMMENDED | Same as SHOULD                                               |
+|SHOULD NOT| Not recommended but not forbidden.                               |
+|RECOMMENDED| Same as SHOULD                                                  |
 | MAY      | Optional. Implementation's choice.                               |
 | OPTIONAL | Same as MAY                                                      |
 +----------+------------------------------------------------------------------+
@@ -1262,19 +1262,19 @@ LINUX NETWORKING ECOSYSTEM VXLAN MUST INTEGRATE WITH:
                     └────────────────┬────────────────────┘
                                      │ netlink
                     ┌────────────────▼────────────────────┐
-                    │  rtnetlink / generic netlink         │
+                    │  rtnetlink / generic netlink        │
                     └──────────────────┬──────────────────┘
                                        │
          ┌─────────────────────────────▼─────────────────────────────┐
-         │                   NETWORK DEVICE LAYER                     │
-         │               (net/core/dev.c — struct net_device)         │
+         │                   NETWORK DEVICE LAYER                    │
+         │               (net/core/dev.c — struct net_device)        │
          └──┬────────────┬────────────┬──────────────┬───────────────┘
             │            │            │              │
     ┌───────▼──┐  ┌──────▼────┐  ┌───▼──────┐  ┌───▼──────────────┐
     │ Netfilter│  │  Traffic  │  │ Bonding/ │  │  Bridging        │
     │ (iptables│  │  Control  │  │  LACP    │  │  (bridge.ko)     │
     │  nftables│  │  (tc/BPF) │  │          │  │  STP, FDB        │
-    │  conntrack│  └──────┬────┘  └───┬──────┘  └───┬──────────────┘
+    │ conntrack│  └──────┬────┘  └───┬──────┘  └─ ──┬─────────────┘
     └───────┬──┘         │           │              │
             │            │           │              │
             └────────────┴─────┬─────┴──────────────┘
@@ -1424,41 +1424,41 @@ EDGE CASE CATALOG FOR VXLAN:
   │ EDGE CASES NOT IN RFC (found through production experience)     │
   ├─────────────────────────────────────────────────────────────────┤
   │ MTU CASES:                                                      │
-  │ - Inner MTU = 9000 (jumbo), outer MTU = 1500 → MUST fragment   │
+  │ - Inner MTU = 9000 (jumbo), outer MTU = 1500 → MUST fragment    │
   │   or send ICMP "fragmentation needed" back                      │
-  │ - Outer MTU unknown (tunnel to internet) → PMTUD               │
+  │ - Outer MTU unknown (tunnel to internet) → PMTUD                │
   │ - MTU changes during active connections → notify inner devices  │
-  │ - MTU = 0 (interface not yet configured) → don't crash         │
+  │ - MTU = 0 (interface not yet configured) → don't crash          │
   │                                                                 │
   │ FDB CASES:                                                      │
-  │ - FDB entry for broadcast MAC (ff:ff:ff:ff:ff:ff)              │
-  │ - FDB entry for multicast MAC (01:xx:xx:xx:xx:xx)              │
-  │ - Source MAC = 00:00:00:00:00:00 (null MAC — don't learn)      │
-  │ - FDB table full → drop new entries? evict old? notify?        │
-  │ - Two VTEPs claim same MAC in different VNIs → OK (isolated)   │
-  │ - Two VTEPs claim same MAC in SAME VNI → FDB conflict          │
+  │ - FDB entry for broadcast MAC (ff:ff:ff:ff:ff:ff)               │
+  │ - FDB entry for multicast MAC (01:xx:xx:xx:xx:xx)               │
+  │ - Source MAC = 00:00:00:00:00:00 (null MAC — don't learn)       │
+  │ - FDB table full → drop new entries? evict old? notify?         │
+  │ - Two VTEPs claim same MAC in different VNIs → OK (isolated)    │
+  │ - Two VTEPs claim same MAC in SAME VNI → FDB conflict           │
   │                                                                 │
   │ TUNNEL CASES:                                                   │
-  │ - VXLAN inside VXLAN (recursive tunneling) → TTL prevents loop │
-  │ - VXLAN packet arrives on wrong UDP port                       │
-  │ - VXLAN packet from same VTEP as self (hairpin) → drop?        │
-  │ - Outer IP TTL expires in transit → ICMP Time Exceeded         │
-  │ - Outer IP DF bit + MTU exceeded → ICMP Frag Needed            │
+  │ - VXLAN inside VXLAN (recursive tunneling) → TTL prevents loop  │
+  │ - VXLAN packet arrives on wrong UDP port                        │
+  │ - VXLAN packet from same VTEP as self (hairpin) → drop?         │
+  │ - Outer IP TTL expires in transit → ICMP Time Exceeded          │
+  │ - Outer IP DF bit + MTU exceeded → ICMP Frag Needed             │
   │                                                                 │
   │ NETWORKING PROTOCOL CASES:                                      │
-  │ - ARP over VXLAN (needs special handling for proxy ARP)        │
-  │ - IPv6 Neighbor Discovery over VXLAN                           │
-  │ - IGMP (multicast group management) over VXLAN                 │
-  │ - STP (Spanning Tree Protocol) BPDUs — should they pass?       │
-  │ - LACP (Link Aggregation) PDUs — should they pass?             │
+  │ - ARP over VXLAN (needs special handling for proxy ARP)         │
+  │ - IPv6 Neighbor Discovery over VXLAN                            │
+  │ - IGMP (multicast group management) over VXLAN                  │
+  │ - STP (Spanning Tree Protocol) BPDUs — should they pass?        │
+  │ - LACP (Link Aggregation) PDUs — should they pass?              │
   │                                                                 │
   │ SYSTEM CASES:                                                   │
-  │ - Network namespace deletion while VXLAN device exists         │
-  │ - Physical NIC removed (hotplug) while VXLAN tunnel active     │
-  │ - System suspend/resume with active VXLAN tunnels              │
-  │ - Memory pressure: kmalloc fails for FDB entry                 │
-  │ - CPU hotplug: CPU added/removed while VXLAN active           │
-  │ - Kernel module unload while packets are in flight             │
+  │ - Network namespace deletion while VXLAN device exists          │
+  │ - Physical NIC removed (hotplug) while VXLAN tunnel active      │
+  │ - System suspend/resume with active VXLAN tunnels               │
+  │ - Memory pressure: kmalloc fails for FDB entry                  │
+  │ - CPU hotplug: CPU added/removed while VXLAN active             │
+  │ - Kernel module unload while packets are in flight              │
   └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1735,7 +1735,7 @@ EVERY LINE OF CODE BELONGS TO ONE DOMAIN:
   │  DOMAIN 1: PROTOCOL LOGIC                                       │
   │  "What does the RFC say we must do?"                            │
   │  ~10% of production code                                        │
-  │  Example: Parse VNI field, look up FDB, encapsulate            │
+  │  Example: Parse VNI field, look up FDB, encapsulate             │
   └─────────────────────────────────────────────────────────────────┘
   
   ┌─────────────────────────────────────────────────────────────────┐
@@ -1853,8 +1853,8 @@ VXLAN CORE CHUNKS:
     ┌─────────────────────────────────────────────────────────────────┐
     │                                                                 │
     │                    INVISIBLE CORRECTNESS                        │
-    │                     (Not in RFC)                               │
-    │                     90% of code                                │
+    │                     (Not in RFC)                                │
+    │                     90% of code                                 │
     │                                                                 │
     │  Memory safety          Thread safety         Error recovery    │
     │  Resource management    Platform portability  Performance       │
@@ -1875,55 +1875,55 @@ VXLAN CORE CHUNKS:
 ║  RFC SAYS                    ║  CODE DOES (All the "extra")                                  ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
 ║ "VXLAN header has VNI field" ║ Define struct with __be32, endian conversion, bit extraction  ║
-║                              ║ with shifts, validation that VNI < 2^24, special handling    ║
-║                              ║ of VNI=0, slab cache for VNI data structures                 ║
+║                              ║ with shifts, validation that VNI < 2^24, special handling     ║
+║                              ║ of VNI=0, slab cache for VNI data structures                  ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "Look up the FDB"            ║ Hash table with per-bucket spinlocks, RCU read path, aging   ║
+║ "Look up the FDB"            ║ Hash table with per-bucket spinlocks, RCU read path, aging    ║
 ║                              ║ timer, max size limit, eviction policy, notification on miss  ║
-║                              ║ (L2MISS), per-CPU stats for lookups/misses/hits              ║
+║                              ║ (L2MISS), per-CPU stats for lookups/misses/hits               ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "Encapsulate the packet"     ║ skb headroom check, realloc if needed, endian conversion of  ║
+║ "Encapsulate the packet"     ║ skb headroom check, realloc if needed, endian conversion of   ║
 ║                              ║ all header fields, checksum calculation or offload, GSO meta  ║
-║                              ║ data update, DSCP/TOS inheritance, TTL setting, DF bit       ║
-║                              ║ handling, IPv4/IPv6 outer header selection                   ║
+║                              ║ data update, DSCP/TOS inheritance, TTL setting, DF bit        ║
+║                              ║ handling, IPv4/IPv6 outer header selection                    ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "Send to VTEP"               ║ Route lookup for VTEP IP, source IP selection, UDP socket    ║
-║                              ║ selection, source port hash for ECMP, NUMA-aware socket      ║
-║                              ║ selection, send buffer full handling, ICMP error processing  ║
+║ "Send to VTEP"               ║ Route lookup for VTEP IP, source IP selection, UDP socket     ║
+║                              ║ selection, source port hash for ECMP, NUMA-aware socket       ║
+║                              ║ selection, send buffer full handling, ICMP error processing   ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "Learn source MAC"           ║ Rate limit learning, check for existing entry (update vs     ║
-║                              ║ create), notify bridge via netlink RTM_NEWNEIGH, update      ║
-║                              ║ aging timer, enforce max FDB size, generate notification     ║
-║                              ║ event via VXLAN_F_LEARN flag check                          ║
+║ "Learn source MAC"           ║ Rate limit learning, check for existing entry (update vs      ║
+║                              ║ create), notify bridge via netlink RTM_NEWNEIGH, update       ║
+║                              ║ aging timer, enforce max FDB size, generate notification      ║
+║                              ║ event via VXLAN_F_LEARN flag check                            ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "Drop invalid packets"       ║ Increment one of 15 specific drop counters, rate-limited     ║
-║                              ║ log message, free skb (kfree_skb with drop reason), update  ║
-║                              ║ netdev stats, potentially trace via tracepoint              ║
+║ "Drop invalid packets"       ║ Increment one of 15 specific drop counters, rate-limited      ║
+║                              ║ log message, free skb (kfree_skb with drop reason), update    ║
+║                              ║ netdev stats, potentially trace via tracepoint                ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "Support multicast mode"     ║ Join IGMP group, handle group membership changes, process    ║
+║ "Support multicast mode"     ║ Join IGMP group, handle group membership changes, process     ║
 ║                              ║ IGMP queries, age out unused groups, handle multicast         ║
-║                              ║ routing table changes, IPv6 MLD support                      ║
+║                              ║ routing table changes, IPv6 MLD support                       ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "Configure VNI"              ║ Parse IFLA_VXLAN_ID netlink attribute, validate range,       ║
-║                              ║ check for VNI conflict with existing devices, store in       ║
-║                              ║ cfg struct, expose via rtnetlink, validate in changelink,    ║
-║                              ║ document in rtnl_link_ops.policy array                      ║
+║ "Configure VNI"              ║ Parse IFLA_VXLAN_ID netlink attribute, validate range,        ║
+║                              ║ check for VNI conflict with existing devices, store in        ║
+║                              ║ cfg struct, expose via rtnetlink, validate in changelink,     ║
+║                              ║ document in rtnl_link_ops.policy array                        ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ "UDP destination port 4789"  ║ Default value, but configurable via IFLA_VXLAN_PORT, validate║
-║                              ║ range 1-65535, IANA port 4789 as default, socket binding,   ║
-║                              ║ port matching in recv path, multiple VTEPs per port possible ║
+║ "UDP destination port 4789"  ║ Default value, but configurable via IFLA_VXLAN_PORT, validate ║
+║                              ║ range 1-65535, IANA port 4789 as default, socket binding,     ║
+║                              ║ port matching in recv path, multiple VTEPs per port possible  ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ (nothing about performance)  ║ GRO callbacks, GSO segmentation, XDP hooks, NAPI batching,  ║
-║                              ║ per-CPU statistics (no lock), hot/cold struct layout,        ║
-║                              ║ likely/unlikely branch hints, RCU for FDB reads             ║
+║ (nothing about performance)  ║ GRO callbacks, GSO segmentation, XDP hooks, NAPI batching,    ║
+║                              ║ per-CPU statistics (no lock), hot/cold struct layout,         ║
+║                              ║ likely/unlikely branch hints, RCU for FDB reads               ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ (nothing about monitoring)   ║ ethtool statistics (40+ counters), /proc/net/vxlan, sysfs   ║
-║                              ║ attributes, ftrace tracepoints, netlink notifications,       ║
-║                              ║ dynamic debug messages, RTNL link info dump                 ║
+║ (nothing about monitoring)   ║ ethtool statistics (40+ counters), /proc/net/vxlan, sysfs     ║
+║                              ║ attributes, ftrace tracepoints, netlink notifications,        ║
+║                              ║ dynamic debug messages, RTNL link info dump                   ║
 ╠══════════════════════════════╬═══════════════════════════════════════════════════════════════╣
-║ (nothing about security)     ║ CAP_NET_ADMIN checks, network namespace isolation, input     ║
-║                              ║ validation for all netlink attributes, FDB entry rate        ║
-║                              ║ limiting, max address enforcement                           ║
+║ (nothing about security)     ║ CAP_NET_ADMIN checks, network namespace isolation, input      ║
+║                              ║ validation for all netlink attributes, FDB entry rate         ║
+║                              ║ limiting, max address enforcement                             ║
 ╚══════════════════════════════╩═══════════════════════════════════════════════════════════════╝
 ```
 
