@@ -7150,3 +7150,3091 @@ kprobe:tls_sw_sendmsg {
 2. **Set up the three-namespace topology** (`ns_client → ns_router → ns_server`), run your Axum server in `ns_server`, capture with `tshark` in `ns_router`, and simultaneously trace `tcp_sendmsg` with `bpftrace`. You will see the exact moment `write()` from your Rust server crosses into the kernel, the sk_buff travel through the router namespace, and the frame arrive at the client — full end-to-end visibility.
 
 3. **Enable `ktls` on your Axum server** — add `rustls` to it, complete the handshake in userspace, extract the session keys using `rustls`'s `dangerous_config()` API, then call `setsockopt(TCP_ULP, "tls")` + `TLS_TX`/`TLS_RX` via the `libc` crate. Verify with `bpftrace` on `tls_sw_sendmsg` that the kernel is doing encryption, and with `tshark` that the wire traffic is TLS-encrypted while your Rust code only calls `write()` with plaintext.
+
+Great meta-question. Here are concrete, self-verifiable ways to know you're on the right path — both for your setup and your learning.
+
+---
+
+## How to Know Your Setup Is Correct
+
+**Kernel config verification — run this inside the VM:**
+
+```bash
+# These should all say "y" or "m", not "is not set"
+for cfg in CONFIG_DEBUG_INFO CONFIG_KGDB CONFIG_FTRACE \
+           CONFIG_BPF_SYSCALL CONFIG_DEBUG_INFO_BTF \
+           CONFIG_DYNAMIC_DEBUG CONFIG_VIRTIO_NET; do
+    val=$(grep "^${cfg}=" /boot/config-$(uname -r) 2>/dev/null || echo "MISSING")
+    printf "%-35s %s\n" "$cfg" "$val"
+done
+```
+
+All should return `=y`. If any is missing or `=n`, your build config was wrong for that flag.
+
+**The single most reliable sanity check — run all three of these simultaneously and see them agree:**
+
+```bash
+# Terminal 1 — bpftrace watching tcp_sendmsg
+sudo bpftrace -e 'kprobe:tcp_sendmsg { printf("tcp_sendmsg: pid=%d bytes=%d\n", pid, arg2); }'
+
+# Terminal 2 — strace watching the same curl
+strace -e trace=sendto curl -s http://example.com > /dev/null
+
+# Terminal 3 — generate traffic
+curl -s http://example.com > /dev/null
+```
+
+If bpftrace fires and the byte count matches `strace`'s `sendto()` size — your kernel, BTF, and bpftrace stack are all correctly wired together. This one test validates: custom kernel booted correctly, BTF present, KALLSYMS working, kprobes working.
+
+**ftrace sanity check:**
+
+```bash
+cd /sys/kernel/debug/tracing
+echo function_graph > current_tracer
+echo tcp_sendmsg > set_graph_function
+echo 1 > tracing_on; curl -s http://example.com > /dev/null; echo 0 > tracing_on
+cat trace | grep "tcp_sendmsg"
+```
+
+If you see the call tree — ftrace is working. If you see nothing — `CONFIG_FTRACE` or `CONFIG_FUNCTION_GRAPH_TRACER` wasn't built in.
+
+**KGDB sanity check** — from host:
+
+```bash
+virsh dumpxml netlab | grep -A3 "serial"   # find your pts device
+```
+
+Inside VM: `echo g | sudo tee /proc/sysrq-trigger` — VM freezes. From host GDB: `target remote /dev/pts/X` → `(gdb) info registers` — if you get register output, KGDB is working end-to-end.
+
+---
+
+## How to Know You're Learning the Right Things
+
+The best signal isn't "did I read this file" — it's **can I predict what will happen before I run the experiment, and does it match?**
+
+Concrete checkpoints by phase:
+
+**sk_buff phase (Weeks 1–2):** Before looking at the output, predict what `len` will be at each layer for a 79-byte HTTP GET. The answer should be `79 → 99 → 119 → 133`. If your bpftrace/dmesg output matches your prediction, you understand the sk_buff lifecycle. If it doesn't match, you misunderstand something — that's the exact right time to re-read `skb_push`.
+
+**TCP phase (Weeks 5–6):** Run `curl` and predict the sequence of TCP state transitions you'll see in `ss -tn`. The correct sequence for a new connection is `SYN_SENT → ESTAB → FIN_WAIT1 → TIME_WAIT`. If `ss` shows you that sequence and you can point to which function in `tcp_input.c` drives each transition — you're on track.
+
+**IP phase (Weeks 7–8):** Change your VM's MTU to a small value (`ip link set eth0 mtu 576`) and curl a large file. Predict that fragmentation will occur. Confirm it with tshark (`tshark -e ip.frag_offset -T fields -i eth0`). Then find `ip_fragment()` in `ip_output.c` and trace it with bpftrace. If you can watch fragmentation happen and explain why in terms of the code — that's mastery of that layer.
+
+---
+
+## Is Your Setup Production-Standard?
+
+The setup in your notes is already close to how kernel developers at major companies actually work. The specific production markers:
+
+**What production kernel dev environments always have:**
+- kernel built from source with debug symbols — ✅ your setup does this
+- `CONFIG_DEBUG_INFO_BTF` enabled — ✅ you have it
+- bpftrace/bcc available in the VM — ✅ installed
+- KGDB accessible over serial — ✅ configured
+- Snapshots before risky changes — you should add this: `virsh snapshot-create-as netlab snap-clean`
+
+**What separates a learning setup from a production-contributing setup:** Production kernel contributors use `b4` for patch management, `checkpatch.pl` for style, and submit to LKML. You're not there yet and don't need to be for learning — but knowing the path exists matters.
+
+**The production readiness test for your kernel build:** Run the kernel's own validation:
+
+```bash
+# Inside the kernel source, on your host
+cd linux-7.0.6
+
+# Check your config for known bad combinations
+make listnewconfig   # lists symbols that have no value set
+
+# Style-check your patches before they become habits
+scripts/checkpatch.pl kernel/patches/001-netlab-debug-probes.patch
+
+# Run the kernel's own network self-tests (inside the VM)
+sudo modprobe netdevsim
+ls /sys/bus/platform/drivers/netdevsim   # should exist
+```
+
+`checkpatch.pl` output matters — even for a learning repo. If it reports `ERROR: trailing whitespace` or `WARNING: line over 80 characters` in your `pr_debug` additions, fix them. The habit of clean patches is worth building early.
+
+---
+
+## The Strongest Ongoing Signal: Cross-Layer Correlation
+
+Each time you run an experiment, you should be able to answer one question from three different tools simultaneously. Example:
+
+> "When curl sends an HTTP request, how many bytes does the TCP layer actually put on the wire for that first segment?"
+
+- `strace` says: `sendto(..., 79, ...)` — 79 bytes application data
+- `bpftrace` at `tcp_transmit_skb` says: `len=99` — 79 + 20 TCP header
+- `tshark` says: `TCP segment len: 79, IP total length: 119` — 79 data, 20 TCP, 20 IP
+
+These three numbers cross-validate each other. When they agree, you're reading real kernel behavior correctly. When they disagree — something in your understanding or setup is wrong. That disagreement is the most valuable learning moment.
+
+If you can do this cross-layer correlation naturally after 3 months — explaining each number in terms of a specific struct field in a specific source file — your learning is solid and your setup is correctly serving its purpose.
+
+The key principle here is this: **don't learn these as separate subjects.** The Linux net subsystem is already all of them simultaneously. Here is the unified map — click any row to go deeper:Each row is clickable — tap any box to drill into that concept. Now here is how to actually learn all of this as one unified system.
+
+---
+
+## The single thread principle
+
+The reason most people struggle to connect DSA, systems thinking, C, Rust, and Go is that they study them in isolation. The Linux net subsystem eliminates that problem — it *is* an applied DSA textbook, written in C, running in production on billions of machines. Every data structure you will ever study has a live implementation in `net/` that you can trace, modify, and observe.
+
+The practice rule: **every time you encounter a DSA concept, find it in the kernel before implementing it anywhere else.** Don't study hash tables from a textbook and then implement one in Go. Study `inet_hashinfo` first, understand why the kernel chose that design under those constraints, then implement the same idea in Go. This gives every concept a concrete anchor and a design rationale — the two things that make DSA actually stick.
+
+---
+
+## DSA through the net stack — concrete mapping
+
+**Hash tables** live in `net/ipv4/inet_hashtables.c`. The kernel's version is a two-level hash table — one for established connections (4-tuple: src IP, src port, dst IP, dst port), one for listening sockets. The implementation uses lock striping to reduce contention — a central `rwlock` protects the bucket array, and each bucket has its own spinlock. This is exactly the pattern you'd implement in a production Go connection pool, and the kernel's version shows you why a single global lock would become the bottleneck.
+
+**Prefix tries** live in `net/ipv4/fib_trie.c`. The kernel uses an LC-trie (level-compressed trie), a space-efficient variant of a radix trie that compresses chains of single-child nodes. This is the data structure behind `ip route lookup`. When you study it, you learn not just tries but *why* the trie is the right structure for longest-prefix match (binary search trees don't work — you need prefix semantics) and what space-time tradeoffs the LC-trie makes over a plain trie.
+
+**Ring buffers** appear in two places you should study together. `sk_rcvbuf` and `sk_sndbuf` on the socket are ring-buffer semantics in C — bounded queues with head/tail pointers. The virtio ring in `drivers/net/virtio_net.c` is a physical shared-memory ring between the guest VM and the host kernel. Study both: one is in software (the socket buffer), one is a hardware protocol. The concept is identical; the implementation constraints are completely different.
+
+**Intrusive linked lists** — the kernel's `list_head` — are the most important data structure to understand for reading kernel code, because they're used everywhere and look nothing like what you learned in a CS course. The key insight: instead of a node that points to data, the data embeds the node. `container_of(ptr, type, member)` is the inverse: given a pointer to the embedded `list_head`, compute the address of the containing struct. This is pointer arithmetic as design philosophy. Once you understand it in `include/linux/list.h`, every linked list in the kernel becomes readable.
+
+**State machines** — TCP's is the most studied FSM in applied CS. Find it in `net/ipv4/tcp_input.c`. Every `case TCP_SYN_SENT:` block is a state in the automaton, and every condition inside it is a transition guard. RFC 793 Section 3 defines it formally; the kernel implements it. Reading both together is the practical way to learn automata theory — not from Sipser but from code that actually runs.
+
+---
+
+## Systems thinking — what it actually means in practice
+
+Systems thinking is not a concept you learn from a book. It is a habit of asking three questions every time you observe something:
+
+**"What is the end-to-end path of this event?"** For a packet: from `write()` in your process through the kernel stack through the virtio ring through the host through the wire to the server. Know every hop. Never accept "the network" as a black box.
+
+**"Where is the bottleneck?"** For your lab: is latency dominated by the TCP handshake? By qdisc? By the virtio ring notification overhead? The way to answer this is to measure each segment individually. `bpftrace` timestamps at each function boundary give you per-segment latency. The largest number is the bottleneck. This is Little's Law applied: `throughput = concurrency / latency`. Improve the right segment.
+
+**"What breaks this invariant?"** Every system has invariants — conditions that must always hold. For TCP: `snd_una ≤ snd_nxt ≤ write_seq`. For the socket buffer: `sk_wmem_queued ≤ sk_sndbuf`. For the virtio ring: the producer never overwrites unconsumed entries. Find the invariants in the code (they're often in comments or `WARN_ON` checks), then ask: what sequence of events would violate them? This is how you understand failure modes before they happen.
+
+A concrete exercise: take one `curl http://example.com` in your VM and answer all three questions with data. End-to-end path you already know from your setup. Bottleneck: use `bpftrace` to timestamp at `tcp_sendmsg`, `ip_queue_xmit`, `dev_queue_xmit`, and `start_xmit` — the gap between the largest two is your bottleneck. Invariant: check that `skb->len` increases by exactly 20 bytes at each IP and TCP layer crossing, never more, never less.
+
+---
+
+## C in kernel space — the right way to learn it
+
+Do not learn C from a textbook and then apply it to the kernel. Learn C *from* the kernel source. The kernel uses C in ways no textbook teaches, and those patterns are the things that matter:
+
+**`container_of` and struct embedding** — already covered above. This is the foundational pattern. Master it first.
+
+**RCU (Read-Copy-Update)** — the kernel's solution to the readers-writer problem in high-concurrency paths. Instead of a lock, readers see a consistent snapshot; writers copy the object, modify it, then atomically swap the pointer. Readers need no lock at all — they just call `rcu_read_lock()` (which is often a no-op on x86) and `rcu_dereference()`. In the net stack, socket lookup is RCU-protected. Find `rcu_read_lock()` in `__inet_lookup_skb()` and trace what it protects.
+
+**Memory barriers** — `smp_rmb()`, `smp_wmb()`, `smp_mb()`. The compiler and CPU can reorder memory operations for performance. The kernel inserts explicit barriers to enforce ordering where it matters — particularly in the virtio ring protocol where both guest and host read and write shared memory. This is where you learn what "memory model" actually means in practice, not in theory.
+
+**`unlikely()` and `likely()`** — compiler branch prediction hints. Finding these tells you which code paths the kernel developers consider hot vs cold. In the net TX path, the error path is `unlikely()`, the success path is `likely()`. This is also a reading aid: when you see `if (unlikely(err))`, you know this is not the interesting case.
+
+The learning discipline: when you read a kernel function, write down every pattern you don't recognize. Then find its definition in `include/linux/`. Read the comment above it. This builds a vocabulary of kernel C idioms that no book teaches sequentially because they're not sequential — they're a system.
+
+---
+
+## Rust — kernel space and userspace
+
+**In kernel space**, Rust in Linux is real and active as of 2024. The `rust/` directory in the kernel tree contains the infrastructure. The relevant starting point for net is writing a simple kernel module in Rust that hooks into the packet receive path — same as the C `net_probe.c` module from your notes, but in Rust. This teaches you: how Rust's ownership model maps to kernel resource lifetimes, where `unsafe` is unavoidable (raw pointers into `sk_buff`), and where Rust's type system gives you safety the C code doesn't have.
+
+**In userspace**, Rust is where you implement the protocol pieces you're studying in the kernel. The discipline is: read the kernel C, then reimplement the same logic in safe Rust, then compare. When you implement a TCP header builder in Rust and fill in `th.seq = htonl(seq)`, you understand exactly what `tcp_transmit_skb()` is doing. When you implement IP checksum by hand — `ip_fast_csum()` is a tight asm loop, but the algorithm is just one's complement addition — you understand why the kernel has that loop and what it's computing.
+
+The Rust crates that connect directly to your kernel study: `pnet` for packet building and parsing at every layer, `tun-tap` for userspace access to a TUN/TAP device (letting you run your own network stack in userspace), `socket2` for low-level socket control (setting `SO_SNDBUF`, `TCP_NODELAY`, `IP_TOS` — the same fields you see in kernel structs), `nix` for raw syscall access.
+
+A concrete Rust project for Month 2: build a userspace TCP stack using a TUN device. Your Rust program reads raw IP packets from the TUN interface, parses the IP and TCP headers with `pnet`, implements the TCP state machine as a Rust enum (each state is a variant, each transition is a method), and manages a receive buffer. This is exactly what the kernel's TCP stack does — same algorithm, same data structures, safe Rust instead of C.
+
+---
+
+## Go in cloud — the production layer
+
+Go's role in this stack is at the top: production tooling, cloud-native networking, and the bridge between kernel mechanisms and distributed systems.
+
+**eBPF programs loaded via Go** — `cilium/ebpf` is the canonical library. You write the eBPF C program (or Rust via Aya), compile it to BPF bytecode, and load it from Go. This is how production observability tools work: Datadog's agent, Cilium's CNI plugin, Parca's profiler. Learning this connects your kernel bpftrace exploration to the production toolchain.
+
+**CNI plugins** — Kubernetes network plugins are written in Go and implement the CNI spec. A CNI plugin creates a network namespace, sets up a veth pair, configures iptables rules, and sets routes — all the same operations you do manually in your VM, but automated. Writing a simple CNI plugin in Go (even a toy one that just creates a veth) forces you to understand network namespaces at the kernel level, because the Go `netlink` library is just a thin wrapper over the kernel's netlink socket interface.
+
+**The Go net stack itself** — Go's `net` package is a userspace implementation that sits on top of the same Linux syscalls your Axum server uses. Reading `src/net/` in the Go source alongside the kernel source is illuminating: `net.Dial()` eventually calls `connect()`, which enters `tcp_v4_connect()` in the kernel. The Go runtime has its own `netpoller` — a goroutine that calls `epoll_wait()` and unblocks goroutines when their sockets become ready. This is the Go-level view of the same epoll/red-black tree mechanism you studied in the kernel.
+
+**A concrete Go cloud project for Month 4**: write a packet capture and analysis service. It listens on a raw socket (or uses `gopacket`/`afpacket`), receives all packets on an interface, parses each layer, aggregates statistics (bytes per connection, top talkers, TCP retransmit rate), and exposes them as Prometheus metrics. This is the cloud-native version of the `tshark` session in your lab — same packet data, production-grade tooling.
+
+---
+
+## The unified weekly learning rhythm
+
+The mistake people make is studying each subject in separate sessions. Instead, use this structure where every session touches all layers:
+
+**One concept per week, studied at every layer.** If the week's concept is hash tables, then: Monday morning read `inet_hashinfo` in the kernel (C), Monday afternoon trace it with bpftrace and watch the hash function execute for real TCP connections. Tuesday morning re-read RFC 791's address structure that determines what gets hashed. Wednesday implement the same hash table in Rust. Thursday write a Go load test that stresses the socket lookup path and measure the throughput. Friday write in your packet journey doc: what you observed, what surprised you, what the design tradeoffs are.
+
+**The cross-layer question that disciplines your week**: "Can I explain this concept from the syscall boundary down to the driver, and from the Go client up to the kernel entry point?" If there is a layer where you can't answer — that is where you study next session.
+
+**The journal is not optional.** Systems thinking is not something you do once — it builds as you accumulate connections. The journal is the data structure that holds those connections. After 6 months it becomes something you can query: "how does backpressure work?" → grep your journal → find the entry where you traced `sk_sndbuf` hitting its limit and observed `sendmsg` blocking.
+
+The subjects are not a curriculum to complete. They are lenses on the same object. You are studying the Linux net subsystem — C, Rust, Go, DSA, and systems thinking are just different angles on the same machine.
+
+# Complete Guide: Memory Leak Detection and Bug Hunting in the Linux Kernel Net Subsystem
+
+---
+
+## Table of Contents
+
+1. Mental Model: How Kernel Memory Works
+2. The sk_buff Lifecycle — The Root of Most Net Bugs
+3. Memory Leak Detection
+   - 3.1 kmemleak
+   - 3.2 KASAN (Kernel Address Sanitizer)
+   - 3.3 KFENCE
+   - 3.4 SLUB Debug
+   - 3.5 DEBUG_OBJECTS_SKBUFF
+4. Bug Categories in the Net Subsystem
+   - 4.1 sk_buff Leaks
+   - 4.2 Use-After-Free
+   - 4.3 Double Free
+   - 4.4 Reference Count Bugs
+   - 4.5 Socket Memory Accounting Bugs
+   - 4.6 RCU Violations
+   - 4.7 Locking Bugs and Deadlocks
+   - 4.8 Race Conditions (KCSAN)
+   - 4.9 Integer Overflow in Length Calculations
+   - 4.10 NULL Pointer Dereference
+   - 4.11 Buffer Overflows and Out-of-Bounds Access
+   - 4.12 Undefined Behavior (UBSAN)
+5. Tool Deep Dives
+   - 5.1 lockdep
+   - 5.2 ftrace for Bug Hunting
+   - 5.3 bpftrace Patterns for Net Bugs
+   - 5.4 addr2line and decode_stacktrace.sh
+   - 5.5 crash Tool for Post-Mortem Analysis
+   - 5.6 syzkaller — Kernel Fuzzing
+6. Kernel Config: Your Debug Build
+7. C Implementation Patterns for Bug Prevention
+8. Rust in Kernel Net — Compile-Time Safety
+9. Systematic Debugging Workflow
+10. Reading and Decoding Kernel Bug Reports
+
+---
+
+## 1. Mental Model: How Kernel Memory Works
+
+Before you can find bugs, you must understand the allocator landscape. The kernel has several memory allocation systems, and the net subsystem uses all of them. A bug in one looks different from a bug in another.
+
+```
+KERNEL VIRTUAL ADDRESS SPACE
+===============================================================
+                  [ Kernel ]  [ Modules ]  [ vmalloc ]
+                      |            |            |
+         +-----------++-----------++------------+
+         |                                      |
+   SLUB Allocator                         vmalloc()
+   (for objects < page size)              (for large, non-contiguous)
+         |
+   +-----------+--------------------+
+   |           |                    |
+kmalloc()  kmem_cache_alloc()  alloc_skb()
+   |           |                    |
+   |     slab caches (named)    sk_buff slab
+   |     - sock_inode_cache
+   |     - TCP / UDP / UNIX
+   |     - net_device
+   |
+   PAGE ALLOCATOR
+   (alloc_pages, __get_free_pages)
+   |
+   PHYSICAL MEMORY
+===============================================================
+```
+
+The allocator hierarchy you need to understand:
+
+**`alloc_skb()` / `netdev_alloc_skb()`** — allocates `sk_buff` header from a named SLUB cache (`skbuff_head_cache`) and allocates the data buffer separately from the kmalloc-N cache or page allocator depending on size. This is by far the most common allocation in the net path.
+
+**`kmalloc(size, GFP_KERNEL)`** — general-purpose allocation from the SLUB allocator. Returns memory from a size-class cache (kmalloc-8, kmalloc-16, kmalloc-32, up to kmalloc-8192). The `GFP_KERNEL` flag means it can sleep; `GFP_ATOMIC` cannot sleep and is used in interrupt context (very common in net code).
+
+**`kmem_cache_alloc(cache, GFP_KERNEL)`** — allocates from a named, typed cache. `sock` structs, `inet_sock`, `tcp_sock`, `udp_sock` all have their own caches. Typed caches are faster and easier to debug because kmemleak knows the type.
+
+**`vzalloc()` / `vmalloc()`** — for large allocations that don't need physically contiguous memory. Used for large routing tables, BPF maps. Virtually contiguous but may span multiple physical pages.
+
+The key memory properties that cause bugs:
+
+**Reference counting**: `sk_buff` uses `skb->users` (a `refcount_t`). `sock` uses `sk->sk_refcnt`. When a reference count reaches zero, the object is freed. A bug is incrementing the count without decrementing (leak) or decrementing without incrementing (use-after-free / double-free).
+
+**Memory ownership**: In the kernel, ownership is explicit and manual. There is no garbage collector. Every `alloc_skb()` must have a matching `kfree_skb()` or `consume_skb()` exactly once on every code path including all error paths.
+
+**GFP flags and context**: Code running in interrupt context or with a spinlock held MUST use `GFP_ATOMIC`. Using `GFP_KERNEL` in atomic context causes a `BUG()` if `CONFIG_DEBUG_ATOMIC_SLEEP` is enabled. The net RX path runs in softirq context, which is atomic — all allocations there must be `GFP_ATOMIC`.
+
+---
+
+## 2. The sk_buff Lifecycle — The Root of Most Net Bugs
+
+Understanding `sk_buff` ownership is the single most important thing for net bug hunting. Most net memory bugs are `sk_buff` bugs.
+
+```
+ALLOCATION
+==========
+alloc_skb(size, GFP_ATOMIC)
+    |
+    v
+skb->users = 1          <-- born with refcount=1
+skb->data_len = 0
+skb->len = 0
+
+
+REFERENCE COUNTING
+==================
+skb_get(skb)            <-- users++ (someone else holds a reference)
+    |
+    v
+users = 2
+
+kfree_skb(skb)          <-- users-- ; if users==0, free
+    |
+    +--> users = 1  (still alive, other holder keeps it)
+
+kfree_skb(skb)          <-- users-- ; now users==0
+    |
+    +--> skb_release_all(skb)
+             |
+             +--> skb_release_data(skb)   <-- free the data buffer
+             +--> kfree_skbmem(skb)       <-- free the sk_buff header
+
+
+THE CRUCIAL DISTINCTION
+========================
+kfree_skb(skb)    -- dropped due to error/policy. Bumps drop stats.
+consume_skb(skb)  -- consumed normally. No drop stats bumped.
+
+Use consume_skb() when the packet was successfully processed.
+Use kfree_skb()   when the packet is being dropped (no route, error, filter).
+```
+
+The contract for `sk_buff` ownership:
+
+```
+TX path (sending):
+  tcp_sendmsg() allocs skb, fills it, passes to ip_queue_xmit()
+  ip_queue_xmit() passes to dev_queue_xmit()
+  dev_queue_xmit() either:
+    -- enqueues to qdisc (qdisc now owns it, will free on dequeue+send)
+    -- sends immediately: dev_hard_start_xmit() -> driver takes ownership
+  Driver calls dev_consume_skb_irq(skb) or dev_kfree_skb_irq(skb) after DMA completes.
+  The driver is the LAST owner.
+
+RX path (receiving):
+  Driver allocates skb (netdev_alloc_skb / napi_alloc_skb)
+  Driver fills skb, calls napi_gro_receive() or netif_receive_skb()
+  Net core passes up through protocol handlers
+  tcp_rcv_established() -> tcp_data_queue() -> queues skb on socket receive queue
+  tcp_recvmsg() -> copies data to userspace -> kfree_skb() on the queued skb
+  OR: if skb is consumed in an earlier layer (e.g. ACK, RST), kfree_skb() there.
+```
+
+A leak happens when ANY code path returns without calling `kfree_skb()`. An error path is the most common culprit:
+
+```c
+/* BUGGY: leak on error path */
+int my_net_send(struct sock *sk, struct msghdr *msg)
+{
+    struct sk_buff *skb;
+    int err;
+
+    skb = alloc_skb(1500, GFP_KERNEL);
+    if (!skb)
+        return -ENOMEM;
+
+    err = fill_skb(skb, msg);
+    if (err)
+        return err;  /* BUG: skb leaked here */
+
+    err = ip_queue_xmit(sk, skb, &fl);
+    if (err)
+        return err;  /* After ip_queue_xmit() on error, skb may be consumed
+                        already -- depends on the function. Check contract. */
+
+    return 0;
+}
+
+/* CORRECT: free on all error paths */
+int my_net_send(struct sock *sk, struct msghdr *msg)
+{
+    struct sk_buff *skb;
+    int err;
+
+    skb = alloc_skb(1500, GFP_KERNEL);
+    if (!skb)
+        return -ENOMEM;
+
+    err = fill_skb(skb, msg);
+    if (err) {
+        kfree_skb(skb);   /* properly released */
+        return err;
+    }
+
+    /* ip_queue_xmit() consumes skb on success AND error.
+       Do NOT call kfree_skb() after this point. */
+    return ip_queue_xmit(sk, skb, &fl);
+}
+```
+
+The key rule: **read the documentation comment of every function that takes an `skb`.** Functions either "steal" ownership (you must not free afterward) or "borrow" (you still own it). This contract is usually documented with "caller must ensure..." or "@skb is consumed" in the function comment.
+
+---
+
+## 3. Memory Leak Detection
+
+### 3.1 kmemleak
+
+kmemleak is the kernel's built-in memory leak detector. It works by scanning the kernel's memory for references to each allocated object. If an allocated object has no remaining references pointing to it anywhere in memory, it is a leak candidate.
+
+**How it works internally:**
+
+```
+KMEMLEAK ALGORITHM
+==================
+
+1. ALLOCATION TRACKING
+   Each kmalloc/kmem_cache_alloc/alloc_skb call is intercepted.
+   kmemleak creates a metadata entry:
+       struct kmemleak_object {
+           spinlock_t lock;
+           void *pointer;          /* start of allocated object */
+           size_t size;            /* object size */
+           int min_count;          /* minimum reference count */
+           int count;              /* reference count found during scan */
+           unsigned long trace[];  /* allocation stack trace */
+       };
+   Object is marked "gray" (not yet scanned).
+
+2. GRAY-SCALE REFERENCE SCAN
+   kmemleak_scan() walks:
+     - All data/BSS sections
+     - Stack of every task
+     - All registered memory regions
+   For each 4-byte/8-byte aligned word W it finds:
+     If W looks like a pointer to a tracked object -> increment that object's count.
+   
+   Result:
+     count > 0  -> someone holds a pointer -> not a leak (white)
+     count == 0 -> no pointer found anywhere -> LEAK CANDIDATE (red)
+
+3. REPORT
+   /sys/kernel/debug/kmemleak shows all red (unreferenced) objects
+   with their allocation stack trace.
+
+LIMITATION: Conservative scan. It can only find POINTERS.
+If you XOR a pointer to obfuscate it, kmemleak misses it.
+Also produces false positives for objects deliberately not referenced.
+```
+
+**Kernel config required:**
+
+```
+CONFIG_DEBUG_KMEMLEAK=y
+CONFIG_DEBUG_KMEMLEAK_EARLY_LOG_SIZE=400
+CONFIG_DEBUG_KMEMLEAK_DEFAULT_OFF=n   # start scanning immediately
+```
+
+Add to your kernel build config before building:
+
+```bash
+# In your linux-7.0.6 source
+scripts/config --enable CONFIG_DEBUG_KMEMLEAK
+scripts/config --enable CONFIG_DEBUG_KMEMLEAK_EARLY_LOG_SIZE
+make olddefconfig
+make -j$(nproc) bindeb-pkg LOCALVERSION=-netlab-kml
+```
+
+Note: kmemleak has a non-trivial performance overhead (~10-20% slowdown). Build a separate kmemleak-enabled kernel for debugging, not your daily development kernel.
+
+**Using kmemleak in your VM:**
+
+```bash
+# Inside the VM with the kmemleak-enabled kernel
+# Verify kmemleak is active
+cat /sys/kernel/debug/kmemleak  # empty if no leaks yet
+
+# Trigger your custom net code that you suspect leaks
+# e.g. load your net module, generate traffic, unload
+sudo insmod my_net_module.ko
+curl http://example.com  # trigger the code path
+sudo rmmod my_net_module
+
+# Force an immediate scan (scan is also periodic every 10 min)
+echo scan > /sys/kernel/debug/kmemleak
+
+# Read the report
+cat /sys/kernel/debug/kmemleak
+```
+
+**Reading a kmemleak report:**
+
+```
+unreferenced object 0xffff888003a1c000 (size 232):
+  comm "curl", pid 1234, jiffies 4297053464 (age 12.340s)
+  hex dump (first 32 bytes):
+    45 00 00 3c 00 00 40 00 40 06 b8 6d c0 a8 7a 01  E..<..@.@..m..z.
+    c0 a8 7a 02 e0 bb 00 50 00 00 00 01 00 00 00 00  ..z....P........
+  backtrace:
+    [<0000000012345678>] alloc_skb+0x4c/0x90
+    [<000000009abcdef0>] my_net_module_send+0x38/0x120  <-- YOUR CODE
+    [<0000000011223344>] my_module_ioctl+0x94/0x1a0
+    [<0000000055667788>] do_vfs_ioctl+0xa8/0x5c0
+    [<0000000099aabbcc>] ksys_ioctl+0x5c/0x90
+```
+
+This tells you: an `sk_buff` (size 232 bytes) was allocated in `my_net_module_send()` at line 38, called from `my_module_ioctl()`. The object was never freed. The age is 12.340 seconds — it has been sitting unreferenced since `curl` ran.
+
+**Controlling kmemleak scanning:**
+
+```bash
+# Clear all reported leaks (useful after fixing known ones)
+echo clear > /sys/kernel/debug/kmemleak
+
+# Stop scanning (reduce overhead during a specific test)
+echo off > /sys/kernel/debug/kmemleak
+
+# Add a 5-second delay between automatic scans (default 600s)
+echo scan=5 > /sys/kernel/debug/kmemleak
+
+# Manually mark a region as non-leaking
+# (for intentionally unreferenced objects, e.g. early boot data)
+# Use kmemleak_not_leak(ptr) in C code
+```
+
+**Using kmemleak in your C module code:**
+
+```c
+#include <linux/kmemleak.h>
+
+void *ptr = kmalloc(size, GFP_KERNEL);
+
+/* Tell kmemleak this object is intentionally not referenced */
+kmemleak_not_leak(ptr);
+
+/* Tell kmemleak this pointer references another tracked object */
+kmemleak_transient_leak(ptr);
+
+/* Ignore a region entirely from scanning */
+kmemleak_ignore(ptr);
+
+/* Manually report a resource as an allocation for tracking */
+kmemleak_alloc(ptr, size, min_count, gfp);
+kmemleak_free(ptr);
+```
+
+---
+
+### 3.2 KASAN (Kernel Address Sanitizer)
+
+KASAN is the most powerful memory safety tool available for the kernel. It detects use-after-free, out-of-bounds writes/reads, use-of-uninitialized-memory, and more. It works by maintaining a shadow memory region that tracks the validity state of every byte in kernel virtual memory.
+
+**Shadow memory architecture:**
+
+```
+KASAN SHADOW MEMORY LAYOUT
+===========================
+
+Every 8 bytes of kernel virtual address space maps to 1 byte of shadow memory.
+Shadow byte values:
+  0x00  = all 8 bytes accessible (valid memory)
+  0x01  = first 1 byte accessible, rest poisoned
+  0x02  = first 2 bytes accessible, rest poisoned
+  ...
+  0x07  = first 7 bytes accessible, rest poisoned
+  0xFA  = KASAN_KMALLOC_REDZONE  (red zone after kmalloc object)
+  0xFB  = KASAN_KMALLOC_FREE     (freed kmalloc memory)
+  0xFD  = KASAN_GLOBAL_REDZONE   (red zone after global variable)
+  0xFE  = KASAN_STACK_LEFT       (left stack red zone)
+  0xFF  = KASAN_STACK_RIGHT      (right stack red zone)
+  0xF1  = KASAN_STACK_PARTIAL    (partial stack object)
+
+
+HOW A MEMORY ACCESS IS CHECKED
+================================
+
+Original code:
+    *ptr = value;
+
+KASAN-instrumented code (compiler inserts this):
+    shadow_addr = (ptr >> 3) + KASAN_SHADOW_OFFSET;
+    shadow_value = *shadow_addr;
+    if (shadow_value != 0) {
+        // Check if the bytes we access are within the valid range
+        if (shadow_value < 0 || (ptr & 0x7) >= shadow_value) {
+            kasan_report(ptr, size, write=true, return_address);
+            // Process continues but memory corruption is flagged
+        }
+    }
+    *ptr = value;  // original access
+
+
+REDZONE LAYOUT FOR A kmalloc() OBJECT
+=======================================
+
+  MEMORY:   [LEFT REDZONE][     OBJECT     ][RIGHT REDZONE][FREE SPACE]
+  SHADOW:   [0xFA 0xFA...][0x00 0x00...0xXX][0xFA 0xFA...][ 0xFB ... ]
+                           ^ 0xXX if object size not multiple of 8
+
+  Writing 1 byte PAST the object hits the right redzone (0xFA).
+  KASAN catches it and reports: out-of-bounds write at offset N.
+```
+
+**Kernel config required:**
+
+```
+CONFIG_KASAN=y
+CONFIG_KASAN_GENERIC=y           # software KASAN (for most kernels)
+CONFIG_KASAN_INLINE=y            # inline checks (faster, larger binary)
+CONFIG_KASAN_STACK=1             # also check stack objects
+CONFIG_KASAN_VMALLOC=y           # also check vmalloc regions
+CONFIG_CC_HAS_KASAN_GENERIC=y    # compiler support (auto-detected)
+```
+
+Note: KASAN requires 1/8 extra memory for shadow (so your VM needs at least 8GB RAM if kernel uses 1GB, or just keep the VM at 4GB which is typically fine for development). KASAN also makes the kernel roughly 2-3x slower due to instrumentation.
+
+Build a separate KASAN kernel — do not use it for performance testing:
+
+```bash
+scripts/config --enable CONFIG_KASAN
+scripts/config --enable CONFIG_KASAN_GENERIC
+scripts/config --enable CONFIG_KASAN_INLINE
+make olddefconfig
+make -j$(nproc) bindeb-pkg LOCALVERSION=-netlab-kasan
+```
+
+**Reading a KASAN report — complete example:**
+
+A real KASAN report from a use-after-free in the net subsystem:
+
+```
+==================================================================
+BUG: KASAN: use-after-free in my_net_process_skb+0x78/0x1c0
+Write of size 4 at addr ffff888003a1c048 by task softirq/0
+
+CPU: 0 PID: 0 Comm: swapper/0 Not tainted 7.0.6-netlab #1
+Hardware name: QEMU Standard PC (Q35), BIOS 1.16.0
+Call Trace:
+ <IRQ>
+ dump_stack_lvl+0x56/0x70
+ print_report+0x122/0x5f0
+ kasan_report+0xab/0x110
+ my_net_process_skb+0x78/0x1c0          <-- your buggy function
+ netif_receive_skb_core+0x2a4/0x900
+ napi_gro_receive+0x118/0x370
+ virtnet_poll+0x3ac/0xd90
+ net_rx_action+0x15c/0x440
+ __do_softirq+0xf0/0x4a0
+ </IRQ>
+
+Allocated by task 1234:
+ kasan_save_stack+0x23/0x50
+ kasan_set_track+0x21/0x30
+ __kasan_kmalloc+0x7d/0xa0
+ alloc_skb+0x4c/0x90
+ my_net_module_recv+0x34/0x180          <-- allocated here
+ ...
+
+Freed by task 1234:
+ kasan_save_stack+0x23/0x50
+ kasan_set_track+0x21/0x30
+ kasan_save_free_info+0x2d/0x50
+ __kasan_slab_free+0x10a/0x190
+ kfree_skb+0x3c/0xa0
+ my_net_module_recv+0xe4/0x180          <-- freed here (error path)
+ ...
+
+The buggy address belongs to the object at ffff888003a1c000
+ which belongs to the cache skbuff_head_cache of size 232
+The buggy address is located 72 bytes inside the freed object.
+
+Memory state around the buggy address:
+ ffff888003a1c000: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+ ffff888003a1c080: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+>ffff888003a1c040: fb fb[fb]fb fb fb fb fb fb fb fb fb fb fb fb fb
+                         ^
+ ffff888003a1c0c0: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+Legend: fb = KASAN_KMALLOC_FREE (object is freed)
+==================================================================
+```
+
+**How to decode this report:**
+
+Line 1: `use-after-free in my_net_process_skb+0x78/0x1c0` — a write happened to freed memory inside `my_net_process_skb`, at offset 0x78 within the function (total function length 0x1c0).
+
+Line 2: `Write of size 4 at addr ffff888003a1c048` — a 4-byte write (probably an `int` or `u32` assignment) to address `ffff888003a1c048`.
+
+The "Allocated by" section shows where the `sk_buff` was born. The "Freed by" section shows where it was freed — here it was freed in `my_net_module_recv` on the error path. Then `my_net_process_skb` tried to use the already-freed skb.
+
+The memory state: all `fb` bytes mean the entire 232-byte sk_buff header is poisoned (freed). The `[fb]` with caret marks the exact byte written to — offset 0x48 from the object start.
+
+The fix: ensure `my_net_process_skb` is never called after `kfree_skb()`, or that the caller increments the refcount with `skb_get()` before the parallel free path can execute.
+
+**KASAN variants:**
+
+```
+CONFIG_KASAN_GENERIC  -- Software KASAN. Highest coverage. 2-3x slowdown.
+                          Use this during development.
+
+CONFIG_KASAN_SW_TAGS  -- Tagged KASAN. Uses top byte of pointers for tags.
+                          Lower overhead. Catches fewer bugs. ARM64 only.
+
+CONFIG_KASAN_HW_TAGS  -- Hardware-assisted (ARM MTE). Near-zero overhead.
+                          Requires ARMv8.5+ hardware. Not for x86 VMs.
+```
+
+For your x86 KVM VM: always use `CONFIG_KASAN_GENERIC`.
+
+---
+
+### 3.3 KFENCE (Kernel Electric Fence)
+
+KFENCE is a probabilistic memory safety tool that complements KASAN. While KASAN instruments every access (high overhead), KFENCE allocates a small sample of objects in a special "electric fence" pool where each object has an entire page as its guard zone. When any of those sampled objects is accessed out-of-bounds, a page fault fires and KFENCE reports it.
+
+**How KFENCE works:**
+
+```
+KFENCE ALLOCATION MODEL
+========================
+
+KFENCE pool (fixed size, e.g. 2MB):
+  +---------+---------+---------+---------+
+  |  Guard  | Object1 |  Guard  | Object2 |
+  |  Page   | (1 page)| (page)  | (1 page)|
+  | (no map)|         | (no map)|         |
+  +---------+---------+---------+---------+
+
+Guard pages are UNMAPPED. Any access to them -> page fault -> KFENCE report.
+
+1 in N allocations (N = CONFIG_KFENCE_SAMPLE_INTERVAL, default 100ms)
+is redirected from SLUB to the KFENCE pool.
+
+Benefits:
+  - Near-zero overhead in production (probabilistic sampling)
+  - Catches out-of-bounds, use-after-free
+  - No shadow memory overhead
+  - Works in production kernels (unlike KASAN)
+
+Limitation:
+  - Probabilistic — does NOT catch every bug, only sampled allocations
+  - Cannot detect out-of-bounds within the same page (need to be past page boundary)
+```
+
+**Config:**
+
+```
+CONFIG_KFENCE=y
+CONFIG_KFENCE_SAMPLE_INTERVAL=100    # milliseconds between samples
+CONFIG_KFENCE_NUM_OBJECTS=255        # objects in the KFENCE pool
+```
+
+**KFENCE report:**
+
+```
+==================================================================
+BUG: KFENCE: out-of-bounds write in my_net_fill_header+0x44/0x80
+
+Out-of-bounds write at 0xffff88800bc10040:
+ my_net_fill_header+0x44/0x80
+ my_net_send_packet+0x1c4/0x3a0
+ ...
+
+kfence-#42 [0xffff88800bc10000-0xffff88800bc1003f, size=64, cache=kmalloc-64]
+ allocated by task 1234:
+  my_net_alloc_header+0x2c/0x60
+  ...
+
+The buggy address 0xffff88800bc10040 is 1 bytes to the right of the
+  allocated 64-byte region.
+==================================================================
+```
+
+The report tells you: you wrote 1 byte past a 64-byte kmalloc object in `my_net_fill_header`. This is a classic one-byte overflow — usually caused by an off-by-one error in a length calculation like `memcpy(buf, data, len + 1)` when `buf` is `len` bytes.
+
+**Combining KASAN and KFENCE:** KFENCE is designed to complement KASAN, not replace it. Run KASAN during intensive unit testing of new code; run KFENCE in your long-running integration test environment where the overhead of KASAN is too high.
+
+---
+
+### 3.4 SLUB Debug
+
+The SLUB allocator (kernel's primary object allocator) has built-in debugging capabilities that detect corruption of allocated objects, use-after-free, and invalid frees. It works by placing canary values (red zones and poison patterns) around and inside objects.
+
+**Config:**
+
+```
+CONFIG_SLUB=y              # already on by default
+CONFIG_SLUB_DEBUG=y        # enable debug infrastructure
+CONFIG_SLUB_DEBUG_ON=y     # enable debugging for ALL caches by default
+                           # (very high overhead — prefer per-cache)
+```
+
+**Enabling SLUB debug for specific caches at runtime (no rebuild):**
+
+```bash
+# Enable debug for the skbuff_head_cache only
+echo "slub_debug=FZPU,skbuff_head_cache" >> /etc/default/grub
+# Then: update-grub && reboot
+# Or pass as kernel parameter at boot time.
+
+# SLUB debug flags:
+# F = sanity checks (verify object state on alloc/free)
+# Z = red zones (guard bytes around object)
+# P = poisoning (fill freed objects with 0x6b, allocated with 0x5a)
+# U = user tracking (record last alloc/free call stack)
+# T = trace (log all allocations/frees for this cache)
+# A = enable failslab (random allocation failures for testing)
+```
+
+**The poison pattern:**
+
+SLUB fills freed objects with `0x6b` (`k` in ASCII — stands for "kfree"). When an object is allocated, it fills it with `0x5a` (`Z`). If you ever see a `0x6b6b6b6b` value in a pointer or struct field, someone is reading freed memory.
+
+```bash
+# See current debug state of all slabs
+cat /sys/kernel/slab/skbuff_head_cache/slabs
+cat /sys/kernel/slab/skbuff_head_cache/alloc_calls
+cat /sys/kernel/slab/skbuff_head_cache/free_calls
+```
+
+**SLUB corruption report:**
+
+```
+=============================================================================
+BUG skbuff_head_cache (Tainted: G    B): Redzone overwritten
+-----------------------------------------------------------------------------
+
+INFO: 0xffff888003a1c0e4-0xffff888003a1c0e7 @offset=228. First byte 0x41
+instead of 0xbb
+INFO: Slab 0xffffea0000e87000 objects=17 used=12 fp=0x0 flags=0x1fffc0000010200
+INFO: Object 0xffff888003a1c000 @offset=0 fp=0x0000000000000000
+
+Redzone  (____ptrval____): bb bb bb bb                               ....
+Object   (____ptrval____): ...
+Padding  (____ptrval____): 00 00 00 00                               ....
+
+Allocated in my_net_module_send+0x38/0x120 age=12 cpu=0 pid=1234
+Freed in my_net_module_recv+0xe4/0x180 age=4 cpu=0 pid=1234
+
+Call Trace:
+ check_bytes_and_report+0x6c/0xf0
+ check_object+0x1e8/0x2f0
+ free_debug_processing+0x114/0x340
+ __slab_free+0x2c4/0x3c0
+ kfree_skb+0x3c/0xa0
+```
+
+The report says: the red zone after the `sk_buff` object was overwritten. `0x41` was found where `0xbb` was expected (the red zone canary is `0xbb`). This is a one-byte (or more) write past the end of the `sk_buff` header. Since `sk_buff` is 232 bytes and the red zone starts at offset 228... the write went 4+ bytes past the end of the struct. This is a buffer overrun in the `sk_buff` header itself — very unusual — which might indicate someone using a `sk_buff` as a generic buffer and overwriting into the trailing bytes.
+
+---
+
+### 3.5 DEBUG_OBJECTS_SKBUFF
+
+This subsystem tracks the lifecycle state of each `sk_buff` as it moves through the kernel. It catches bugs where an `sk_buff` is used in an invalid state — e.g. calling `skb_get()` on an already-freed `sk_buff`, or queuing an already-queued `sk_buff`.
+
+**Config:**
+
+```
+CONFIG_DEBUG_OBJECTS=y
+CONFIG_DEBUG_OBJECTS_SKBUFF=y
+```
+
+How it works: every `sk_buff` has a `struct skb_ext` or an internal state flag tracked by `DEBUG_OBJECTS`. Every operation that changes the `sk_buff`'s lifecycle state (allocated, queued, dequeued, cloned, freed) is validated against the expected state machine. An invalid transition fires a WARN_ON and a stack trace.
+
+```
+sk_buff state machine (DEBUG_OBJECTS view):
+  CREATED -> LIVE (when alloc_skb() succeeds)
+  LIVE -> CLONED (when skb_clone())
+  LIVE -> QUEUED (when skb_queue_tail())
+  QUEUED -> LIVE (when skb_dequeue())
+  LIVE -> DEAD (when kfree_skb() with users==0)
+  DEAD -> [freed] (cannot access after this)
+
+Violation example: calling skb_get() on DEAD sk_buff:
+  WARN_ON: object (skbuff_head_cache) is in wrong state
+  Expected state: LIVE, got: DEAD
+```
+
+---
+
+## 4. Bug Categories in the Net Subsystem
+
+### 4.1 sk_buff Leaks
+
+The most common net memory bug. An `sk_buff` is allocated and not freed on some code path.
+
+**Detection:** kmemleak will show unreferenced `sk_buff` objects. Also check:
+
+```bash
+# Watch socket memory accounting — if this keeps growing, you have a leak
+watch -n1 "cat /proc/net/sockstat"
+# Look for: sockets: used N, tcp: inuse N, mem N
+# "mem" is sk_buff memory in pages. If it grows without bound: leak.
+
+# Per-socket memory
+ss -m  # shows skmem stats per socket
+# r<N> = bytes in receive queue
+# w<N> = bytes in send queue
+# If these grow without connection activity: leak.
+```
+
+**In your module code, use a wrapper to track allocations during development:**
+
+```c
+/* Development-only skb tracking (add to your module) */
+#ifdef DEBUG_SKB_LEAK
+static atomic_t my_skb_count = ATOMIC_INIT(0);
+
+static inline struct sk_buff *my_alloc_skb(unsigned int size, gfp_t priority)
+{
+    struct sk_buff *skb = alloc_skb(size, priority);
+    if (skb) {
+        atomic_inc(&my_skb_count);
+        pr_debug("[SKB] alloc skb=%p count=%d\n", skb,
+                 atomic_read(&my_skb_count));
+    }
+    return skb;
+}
+
+static inline void my_kfree_skb(struct sk_buff *skb)
+{
+    atomic_dec(&my_skb_count);
+    pr_debug("[SKB] free skb=%p count=%d\n", skb,
+             atomic_read(&my_skb_count));
+    kfree_skb(skb);
+}
+
+/* Check at module exit: should be 0 */
+static void __exit my_module_exit(void)
+{
+    int remaining = atomic_read(&my_skb_count);
+    if (remaining != 0)
+        pr_err("[SKB LEAK] %d sk_buffs not freed at module exit\n", remaining);
+    else
+        pr_info("[SKB] clean exit, no leaks\n");
+}
+#endif
+```
+
+---
+
+### 4.2 Use-After-Free
+
+Accessing memory after it has been freed. The most dangerous bug class — exploitable for privilege escalation in production systems.
+
+**How it happens in net code:**
+
+```
+Thread A (RX softirq):          Thread B (socket close):
+  skb = skb_dequeue(queue)        sock_close(sk)
+  process_skb(skb)    <---BUG       kfree_skb(skb)  /* same skb! */
+  read skb->len                   /* skb->len is now 0x6b6b6b6b */
+```
+
+This happens when two code paths hold the same `sk_buff` without proper reference counting. The fix is always `skb_get()` when taking a second reference, `kfree_skb()` when releasing.
+
+**Detection: KASAN** is the primary tool. Also enable:
+
+```
+CONFIG_DEBUG_PAGEALLOC=y      # poison freed pages, catches use-after-free
+                               # at page granularity
+CONFIG_PAGE_POISONING=y       # fill freed pages with 0xAA pattern
+```
+
+**KFENCE** also catches use-after-free for sampled objects.
+
+**In your C code — the safe pattern for multi-owner skb:**
+
+```c
+/* Safe pattern: two holders of the same skb */
+struct sk_buff *skb = alloc_skb(size, GFP_ATOMIC);
+
+/* Give a reference to the TX path */
+skb_get(skb);               /* users = 2 */
+enqueue_for_tx(skb);        /* tx path will call kfree_skb() -> users = 1 */
+
+/* We still hold the original reference */
+if (need_to_keep_copy) {
+    /* do something with skb */
+}
+
+kfree_skb(skb);             /* users = 0 -> actually freed */
+
+/* After kfree_skb(), NEVER touch skb again. Set it to NULL immediately. */
+skb = NULL;
+```
+
+**Using `skb_clone()` vs `skb_get()`:**
+
+```
+skb_get(skb):
+  Increments users.
+  Both holders point to THE SAME skb and THE SAME data buffer.
+  If one modifies skb->data, both see the change.
+  Use when you need multiple references to the same packet.
+
+skb_clone(skb, gfp):
+  Creates a NEW sk_buff header but shares the DATA buffer.
+  Useful for multicast: send same packet on multiple interfaces.
+  Each clone has its own header (can modify independently) but
+  data is copy-on-write shared.
+  Data buffer has its own refcount (skb_shinfo->dataref).
+
+skb_copy(skb, gfp):
+  Creates a complete independent copy — new header, new data.
+  Expensive. Use only when you need to modify the data.
+```
+
+---
+
+### 4.3 Double Free
+
+Calling `kfree_skb()` twice on the same `sk_buff`. Because `kfree_skb()` decrements `skb->users`, if it starts at 1, the first call frees it. The second call decrements into negative (or zero from a different object), corrupting the allocator's free list.
+
+**What it looks like without KASAN:**
+
+The second `kfree_skb()` corrupts the SLUB free list. The allocator will eventually hand out the same memory to two different allocations. When both try to write to it: silent data corruption, usually manifesting far from the actual bug as a weird crash in unrelated code.
+
+**With KASAN:** The second `kfree_skb()` will check the shadow memory, find `0xfb` (freed), and report a double-free immediately with both the current and original free call stacks.
+
+**In your code — the defensive pattern:**
+
+```c
+/* Always use kfree_skb_reason() with KCOV_COMMON_REASON or a custom reason,
+   and set to NULL after free: */
+void my_module_drop_skb(struct sk_buff **skb_ptr)
+{
+    struct sk_buff *skb = *skb_ptr;
+    if (!skb)
+        return;
+    *skb_ptr = NULL;   /* clear the caller's pointer first */
+    kfree_skb(skb);    /* then free */
+}
+
+/* Usage: */
+my_module_drop_skb(&skb);
+/* skb is now NULL, a second call is safe (no-op) */
+```
+
+---
+
+### 4.4 Reference Count Bugs
+
+The `skb->users` field uses `refcount_t` (since kernel 4.11), which has built-in overflow/underflow detection. But reference count bugs can be subtle.
+
+**Config:**
+
+```
+CONFIG_REFCOUNT_FULL=y     # strict refcount checking
+                           # fires BUG() on underflow/overflow
+```
+
+**Types of refcount bugs:**
+
+```
+1. LEAK: increment without matching decrement
+   skb_get(skb);   /* users++ */
+   return;         /* never kfree_skb: leak */
+
+2. USE-AFTER-FREE: decrement too early
+   kfree_skb(skb);  /* users = 0, freed */
+   skb->len = 0;    /* UAF */
+
+3. DOUBLE-FREE: decrement twice
+   kfree_skb(skb);  /* users-- = 0, freed */
+   kfree_skb(skb);  /* users-- on freed memory */
+
+4. LOST REFERENCE: pointer overwritten before free
+   struct my_state {
+       struct sk_buff *skb;
+   };
+   state->skb = new_skb;   /* BUG: old skb leaked if not freed first */
+   /* Correct: */
+   if (state->skb)
+       kfree_skb(state->skb);
+   state->skb = new_skb;
+```
+
+**For `sock` reference counts (`sk_refcnt`):**
+
+```c
+/* Taking a reference to a socket */
+sock_hold(sk);    /* sk->sk_refcnt++ */
+
+/* Releasing a reference */
+sock_put(sk);     /* sk->sk_refcnt-- ; if 0: sk_destruct() */
+
+/* The socket is destroyed only when sk_refcnt reaches 0.
+   In the net stack, the lookup table holds one reference,
+   the TCP connection itself holds one, each queued skb holds one.
+   Bugs: holding a sock pointer across a lock release without sock_hold(). */
+```
+
+---
+
+### 4.5 Socket Memory Accounting Bugs
+
+Every socket has a memory budget. When code adds data to a socket's queues, it must charge the memory. When data is removed, it must uncharge. Bugs in accounting cause either: (a) sockets accepting more data than allowed (no backpressure), or (b) sockets permanently blocking even when empty (phantom charges).
+
+**The accounting model:**
+
+```
+struct sock {
+    int          sk_sndbuf;        /* max TX buffer bytes (set by SO_SNDBUF) */
+    int          sk_rcvbuf;        /* max RX buffer bytes (set by SO_RCVBUF) */
+    atomic_t     sk_wmem_alloc;    /* bytes in TX DMA flight (skbs given to driver) */
+    int          sk_wmem_queued;   /* bytes queued in TCP write queue */
+    atomic_t     sk_rmem_alloc;    /* bytes in RX socket buffer */
+    int          sk_forward_alloc; /* pre-allocated memory budget */
+    int          sk_backlog.len;   /* bytes in backlog queue */
+};
+
+TX charge/uncharge:
+  skb_set_owner_w(skb, sk)   -- charges sk_wmem_alloc by skb->truesize
+  sock_wfree(skb)             -- uncharges sk_wmem_alloc when skb freed
+
+RX charge/uncharge:
+  skb_set_owner_r(skb, sk)   -- charges sk_rmem_alloc by skb->truesize
+  sock_rfree(skb)             -- uncharges sk_rmem_alloc when skb freed
+
+SK_MEM_SEND / SK_MEM_RECV memory protocol:
+  sk_mem_charge(sk, size)    -- charge sk_forward_alloc; if < 0: call sk_mem_reclaim()
+  sk_mem_uncharge(sk, size)  -- uncharge
+```
+
+**Common bugs:**
+
+```c
+/* BUG 1: Adding skb to socket queue without charging */
+void my_enqueue_to_socket(struct sock *sk, struct sk_buff *skb)
+{
+    skb_queue_tail(&sk->sk_receive_queue, skb);
+    /* MISSING: skb_set_owner_r(skb, sk) */
+    /* sk_rmem_alloc will never count this skb.
+       The socket will appear to have room even when full. */
+}
+
+/* CORRECT: */
+void my_enqueue_to_socket(struct sock *sk, struct sk_buff *skb)
+{
+    skb_set_owner_r(skb, sk);      /* charges sk_rmem_alloc */
+    skb_queue_tail(&sk->sk_receive_queue, skb);
+}
+
+/* BUG 2: Double-charging */
+void my_requeue(struct sock *sk, struct sk_buff *skb)
+{
+    skb_set_owner_r(skb, sk);  /* first charge */
+    /* ... */
+    skb_set_owner_r(skb, sk);  /* second charge: sk_rmem_alloc now double-counted */
+    /* Socket will appear full when it's not. */
+}
+```
+
+**Detecting accounting bugs:**
+
+```bash
+# Watch socket memory in real time
+watch -n0.5 "ss -m | grep -A2 'ESTAB'"
+# Look for skmem: r<N> (RX), w<N> (TX)
+# If r keeps growing without recv() calls: charge without uncharge
+
+# Check global socket memory
+cat /proc/net/sockstat
+# tcp: inuse 4 orphan 0 tw 2 alloc 6 mem 12
+# "mem" is in pages. 12 pages = 12*4096 = 49152 bytes total socket memory.
+# If "mem" keeps growing on idle system: memory accounting bug.
+
+# Check per-socket detailed memory
+cat /proc/net/tcp
+# Shows: sl local_address rem_address st tx_queue rx_queue
+# tx_queue:rx_queue = bytes in TX:RX queues in hex
+# Non-zero on idle socket = accounting not converging to zero
+```
+
+---
+
+### 4.6 RCU Violations
+
+RCU (Read-Copy-Update) is the kernel's primary mechanism for protecting data structures that are read frequently and written rarely. The net subsystem uses RCU extensively — socket lookup tables, routing tables, device lists. Violating RCU rules causes subtle, hard-to-reproduce corruption.
+
+**The RCU contract:**
+
+```
+READ SIDE (fast path, no sleep allowed):
+  rcu_read_lock();
+  ptr = rcu_dereference(rcu_ptr);   /* safe to use ptr here */
+  if (ptr) {
+      /* use ptr */
+  }
+  rcu_read_unlock();
+
+WRITE SIDE (slow path):
+  new_val = kmalloc(size, GFP_KERNEL);
+  /* populate new_val */
+  old_val = rcu_dereference_protected(rcu_ptr, lockdep_is_held(&my_lock));
+  rcu_assign_pointer(rcu_ptr, new_val);  /* atomic pointer swap */
+  synchronize_rcu();                     /* wait for all readers to finish */
+  kfree(old_val);                        /* now safe to free */
+```
+
+**RCU violations in net code:**
+
+```c
+/* VIOLATION 1: Sleeping inside rcu_read_lock() */
+rcu_read_lock();
+sk = inet_lookup_skb(hashinfo, skb, ...);   /* takes RCU read lock */
+msleep(100);                                 /* BUG: sleep with RCU lock held */
+rcu_read_unlock();
+
+/* VIOLATION 2: Accessing without rcu_read_lock */
+sk = rcu_dereference(skb->sk);  /* BUG: no rcu_read_lock held */
+/* If writer does synchronize_rcu() and frees sk, we have UAF */
+
+/* VIOLATION 3: Using freed pointer after synchronize_rcu */
+rcu_read_lock();
+sk = rcu_dereference(table->sk);
+rcu_read_unlock();
+/* DANGER: sk may be freed now. Cannot use sk after rcu_read_unlock */
+process(sk);  /* BUG: sk may be freed */
+
+/* CORRECT: hold reference before releasing RCU lock */
+rcu_read_lock();
+sk = rcu_dereference(table->sk);
+if (sk) sock_hold(sk);          /* take reference before unlock */
+rcu_read_unlock();
+process(sk);                     /* safe: sock_hold keeps sk alive */
+sock_put(sk);                    /* release reference */
+```
+
+**Detection: lockdep-RCU validation:**
+
+```
+CONFIG_PROVE_RCU=y                # enable RCU lockdep checks
+CONFIG_RCU_EXPERT=y               # additional RCU debugging
+CONFIG_DEBUG_LOCK_ALLOC=y         # locks track their nesting depth
+```
+
+With `CONFIG_PROVE_RCU`, the kernel validates every `rcu_dereference()` call to ensure an RCU read lock is held. Violation produces:
+
+```
+WARNING: suspicious RCU usage
+net/ipv4/tcp.c:1234 suspicious rcu_dereference_check() usage!
+
+other info that might help us debug this:
+
+rcu_scheduler_active = 2, debug_locks = 1
+1 lock held by softirq/0:
+ #0: ffff888003a1c000 (&sk->sk_lock.slock){+...}, at: tcp_v4_rcv+0x1a4/0xd00
+
+stack backtrace:
+ my_net_module_access+0x78/0x1c0
+ tcp_v4_rcv+0x2c4/0xd00
+```
+
+**`rcu_dereference_check()`** is the auditing version — it accepts a condition under which the dereference is safe:
+
+```c
+/* Safe dereference: either RCU lock or the protection lock is held */
+sk = rcu_dereference_check(hashinfo->sk,
+                            lockdep_is_held(&hashinfo->lock) ||
+                            sock_owned_by_user(sk));
+```
+
+---
+
+### 4.7 Locking Bugs and Deadlocks
+
+The net subsystem uses multiple types of locks with strict ordering rules. Violating lock ordering causes deadlocks. Forgetting locks causes races. Both are detected by lockdep (covered in depth in Section 5.1).
+
+**Lock types in the net stack:**
+
+```
+spinlock_t sk->sk_lock.slock     -- protects socket TX queue, socket state
+                                    acquired with spin_lock_bh() (disables BH)
+                                    or bh_lock_sock(sk)
+
+struct mutex sk->sk_lock.owned   -- socket-level lock for process context
+                                    (used in tcp_sendmsg, tcp_recvmsg)
+
+rwlock_t hashinfo->lock          -- protects socket hash table
+                                    writers: write_lock(); readers: read_lock()
+
+RCU                              -- protects routing table, device list
+                                    (not a lock, but ordering rule)
+
+spinlock_t qdisc->lock           -- qdisc queue lock
+                                    acquired with spin_lock_bh()
+```
+
+**Lock ordering hierarchy (must ALWAYS be acquired in this order):**
+
+```
+Higher (outer locks, acquired first):
+  sk->sk_lock.owned  (socket user lock, sleepable)
+  hashinfo->lock     (hash table lock)
+  qdisc->lock        (qdisc queue lock)
+  sk->sk_lock.slock  (socket spin lock, non-sleepable)
+Lower (inner locks, acquired last):
+  skb queue lock     (spinlock inside sk_buff_head)
+```
+
+Acquiring in any other order can deadlock if two threads acquire in opposite orders (classic A-B / B-A deadlock).
+
+**Common locking bugs:**
+
+```c
+/* BUG 1: Acquiring sk_lock.slock while sk_lock.owned is NOT held */
+/* This is often a ordering violation */
+spin_lock_bh(&sk->sk_lock.slock);
+/* Some code that tries to acquire sk_lock.owned */
+lock_sock(sk);   /* BUG: tries to sleep while spinning */
+release_sock(sk);
+spin_unlock_bh(&sk->sk_lock.slock);
+
+/* BUG 2: Calling GFP_KERNEL allocation while spinlock held */
+spin_lock(&my_net_lock);
+ptr = kmalloc(size, GFP_KERNEL);  /* BUG: GFP_KERNEL may sleep */
+                                   /* Use GFP_ATOMIC instead */
+spin_unlock(&my_net_lock);
+
+/* BUG 3: Forgetting to re-disable BH after unlock */
+spin_lock_bh(&sk->sk_lock.slock);
+spin_unlock(&sk->sk_lock.slock);   /* BUG: should be spin_unlock_bh */
+/* BH is now re-enabled, but the lock is released.
+   Softirq can now preempt and re-enter the protected code. */
+```
+
+**Detecting with `CONFIG_DEBUG_ATOMIC_SLEEP`:**
+
+```
+CONFIG_DEBUG_ATOMIC_SLEEP=y
+```
+
+This makes the kernel check that no sleeping operation (kmalloc GFP_KERNEL, mutex_lock, msleep) is called while a spinlock is held or in atomic context. Violation:
+
+```
+BUG: sleeping function called from invalid context at mm/slab.c:3523
+in_atomic(): 1, irqs_disabled(): 0, non_block: 0, pid: 1234, name: curl
+Preempt count: 1 (spinlock held)
+Call Trace:
+ kmalloc+0x3c/0x90                  <-- GFP_KERNEL inside spinlock
+ my_net_module_send+0x78/0x1c0
+ ...
+```
+
+---
+
+### 4.8 Race Conditions — KCSAN
+
+KCSAN (Kernel Concurrent Sanitizer) detects data races — concurrent accesses to the same memory location without proper synchronization, where at least one access is a write. Data races are undefined behavior in C and can produce results that no amount of single-threaded reasoning will predict.
+
+**Config:**
+
+```
+CONFIG_KCSAN=y
+CONFIG_KCSAN_REPORT_ONCE_IN_MS=3000   # rate limit reports
+CONFIG_KCSAN_SELFTEST=y               # verify KCSAN itself works
+```
+
+KCSAN is not compatible with KASAN — run them separately. KCSAN uses thread-local watchpoints: when a thread reads or writes a memory location, KCSAN sometimes inserts a watchpoint. If another thread races to access the same location, the watchpoint fires.
+
+**KCSAN report:**
+
+```
+==================================================================
+BUG: KCSAN: data-race in my_net_update_stats+0x44/0x80 /
+            my_net_update_stats+0x44/0x80
+
+write to 0xffff888003a1c0a0 of 8 bytes by task 1234 on cpu 0:
+ my_net_update_stats+0x44/0x80
+ my_net_rx_handler+0x118/0x3a0
+ ...
+
+read to 0xffff888003a1c0a0 of 8 bytes by task 5678 on cpu 1:
+ my_net_read_stats+0x28/0x60
+ my_net_ioctl+0x94/0x1a0
+ ...
+==================================================================
+```
+
+**Common races in net code:**
+
+```c
+/* RACE: updating stats without atomics */
+struct my_net_stats {
+    u64 tx_bytes;    /* updated by TX softirq AND read by ioctl */
+    u64 rx_bytes;
+};
+
+/* RX softirq (CPU 0): */
+stats->rx_bytes += skb->len;    /* non-atomic: load, add, store */
+
+/* ioctl (CPU 1): */
+bytes = stats->rx_bytes;        /* non-atomic read */
+
+/* FIX: use per-cpu stats or atomic64_t */
+struct my_net_stats {
+    u64 __percpu *rx_bytes;   /* per-cpu, no locking needed */
+};
+
+/* RX: */
+this_cpu_add(*stats->rx_bytes, skb->len);
+
+/* Read: sum all CPUs */
+u64 total = 0;
+for_each_possible_cpu(cpu)
+    total += per_cpu(*stats->rx_bytes, cpu);
+```
+
+**The KCSAN-safe annotation for intentional races:**
+
+```c
+/* Some reads are intentionally racy (e.g. approximate stats).
+   Annotate with READ_ONCE/WRITE_ONCE to suppress KCSAN. */
+
+/* Writer: */
+WRITE_ONCE(sk->sk_err, err);   /* atomic single-value store */
+
+/* Reader (approximate, may miss concurrent writes): */
+if (READ_ONCE(sk->sk_err))     /* atomic single-value load */
+    handle_error();
+```
+
+`READ_ONCE` and `WRITE_ONCE` are not locks — they prevent compiler optimizations that would split a load/store into multiple instructions, making the race predictable. They are the correct tool for stats counters and flag fields that are intentionally read without a lock.
+
+---
+
+### 4.9 Integer Overflow in Length Calculations
+
+Length calculations in the net stack are a prime target for integer overflow bugs, which lead to under-allocated buffers and subsequent out-of-bounds writes (classic heap overflow exploits).
+
+**Common patterns:**
+
+```c
+/* BUG: User-controlled length causes overflow */
+int my_net_alloc_packet(u32 user_len)
+{
+    u32 total = user_len + sizeof(struct my_header);  /* may overflow if user_len near U32_MAX */
+    void *buf = kmalloc(total, GFP_KERNEL);
+    /* total wraps to small value -> buf is too small -> OOB write */
+}
+
+/* FIX: check overflow before arithmetic */
+#include <linux/overflow.h>
+
+int my_net_alloc_packet(u32 user_len)
+{
+    u32 total;
+    if (check_add_overflow(user_len, (u32)sizeof(struct my_header), &total))
+        return -EINVAL;   /* overflow detected */
+    void *buf = kmalloc(total, GFP_KERNEL);
+    /* ... */
+}
+
+/* The kernel overflow.h provides:
+   check_add_overflow(a, b, &result)  -- true if a+b overflows
+   check_mul_overflow(a, b, &result)  -- true if a*b overflows
+   check_sub_overflow(a, b, &result)  -- true if a-b underflows
+   
+   And safer allocation helpers:
+   kmalloc_array(n, size, gfp)        -- safe n*size, checks overflow
+   kcalloc(n, size, gfp)              -- same, also zeroes
+   size_add(a, b)                     -- saturates at SIZE_MAX rather than wrapping
+*/
+```
+
+**With UBSAN (Undefined Behavior Sanitizer):**
+
+```
+CONFIG_UBSAN=y
+CONFIG_UBSAN_SANITIZE_ALL=y
+CONFIG_UBSAN_TRAP=n         # report but don't trap (keep running for more bugs)
+CONFIG_UBSAN_BOUNDS=y       # array index out of bounds
+CONFIG_UBSAN_OVERFLOW=y     # signed integer overflow
+```
+
+UBSAN catches signed integer overflow (which is undefined behavior in C) and array out-of-bounds:
+
+```
+UBSAN: signed-integer-overflow in net/ipv4/tcp_output.c:1234:16
+-2147483648 - 1 cannot be represented in type 'int'
+Call Trace:
+ ubsan_epilogue+0x9/0x40
+ handle_overflow+0x8a/0x9c
+ tcp_write_xmit+0x234/0x890
+```
+
+---
+
+### 4.10 NULL Pointer Dereference
+
+The most visible kernel crash. When code dereferences a NULL or invalid pointer, the CPU faults at virtual address 0x0 (or a small offset from 0), triggering a kernel oops.
+
+**In the net stack, common causes:**
+
+```c
+/* BUG 1: Not checking return value of inet_lookup */
+struct sock *sk = inet_lookup_skb(hashinfo, skb, th->source, th->dest);
+tcp_rcv_established(sk, skb);   /* sk might be NULL if lookup failed */
+
+/* FIX: */
+if (!sk) {
+    kfree_skb(skb);
+    return;
+}
+
+/* BUG 2: Accessing sk_buff fields after passing to function that may consume it */
+int err = ip_queue_xmit(sk, skb, &fl);
+if (err)
+    pr_err("failed: len=%u\n", skb->len);  /* BUG: ip_queue_xmit may have
+                                               freed skb on error */
+
+/* BUG 3: net_device removed while using it */
+struct net_device *dev = skb->dev;
+/* ... some code ... */
+/* dev may have been removed (netdev_unregister) between the assignment and use */
+dev_put(dev);   /* BUG: may have already been put, or dev may be NULL now */
+```
+
+**Detection:** A kernel oops with address 0x0000000000000000 (or 0x10, 0x20, etc.) is always a NULL dereference. The offset tells you which field of the NULL struct was accessed.
+
+```
+BUG: kernel NULL pointer dereference, address: 0000000000000018
+PGD 0 P4D 0
+Oops: 0002 [#1] SMP KASAN
+CPU: 0 PID: 1234 Comm: curl Not tainted 7.0.6-netlab
+RIP: 0010:my_net_module_send+0x7c/0x1c0
+
+...the offset 0x18 tells you the access was at struct_pointer + 24 bytes.
+Look at your struct definition to find which field is at offset 24.
+```
+
+**Finding the field from the offset:**
+
+```bash
+# In the kernel source
+pahole -C my_net_header drivers/net/my_net_module.ko
+# or
+gdb vmlinux
+(gdb) ptype struct my_net_header
+(gdb) p &((struct my_net_header*)0)->field_name  # shows field offset
+```
+
+---
+
+### 4.11 Buffer Overflows and Out-of-Bounds Access
+
+**In `sk_buff` data operations:**
+
+```c
+/* BUG: writing past the end of skb->data allocation */
+void my_add_header(struct sk_buff *skb)
+{
+    struct my_header *hdr;
+    
+    /* skb_push requires that headroom was reserved at alloc time */
+    hdr = (struct my_header *)skb_push(skb, sizeof(struct my_header));
+    
+    /* If sizeof(struct my_header) > skb_headroom(skb), skb_push()
+       in debug builds triggers: */
+    /* skb_over_panic: text: ... len: X put: Y head:... data:... tail:... end:... */
+    
+    /* BUG: copying more than the allocated size */
+    memcpy(hdr->data, user_buf, user_len);
+    /* If user_len > sizeof(hdr->data): OOB write into adjacent memory */
+}
+
+/* CORRECT: always check headroom and copy bounds */
+void my_add_header(struct sk_buff *skb, void *user_buf, size_t user_len)
+{
+    struct my_header *hdr;
+    
+    /* Verify headroom exists */
+    if (skb_headroom(skb) < sizeof(struct my_header)) {
+        /* Need to expand: pskb_expand_head() reallocates with more room */
+        if (pskb_expand_head(skb, sizeof(struct my_header), 0, GFP_ATOMIC))
+            goto drop;
+    }
+    
+    hdr = (struct my_header *)skb_push(skb, sizeof(struct my_header));
+    
+    /* Bounds-checked copy */
+    if (user_len > sizeof(hdr->data))
+        user_len = sizeof(hdr->data);  /* truncate */
+    memcpy(hdr->data, user_buf, user_len);
+    return;
+drop:
+    kfree_skb(skb);
+}
+```
+
+**Detecting with KASAN:** Out-of-bounds writes hit the KASAN red zone and are reported immediately. Out-of-bounds reads also detected if they reach the red zone.
+
+**Config for extra stack protection:**
+
+```
+CONFIG_STACKPROTECTOR=y
+CONFIG_STACKPROTECTOR_STRONG=y  # more functions protected
+```
+
+Stack protector adds a canary value before local arrays. On function return, if the canary is corrupted: kernel panic rather than silent exploitation.
+
+---
+
+### 4.12 Undefined Behavior — UBSAN
+
+Beyond integer overflow (covered in 4.9), UBSAN catches:
+
+```
+CONFIG_UBSAN_SHIFT=y        # invalid shift amounts (e.g. shift by >= width)
+CONFIG_UBSAN_DIV_ZERO=y     # division by zero (signed integers)
+CONFIG_UBSAN_UNREACHABLE=y  # reaching __builtin_unreachable()
+CONFIG_UBSAN_BOOL=y         # invalid bool values (not 0 or 1)
+CONFIG_UBSAN_ENUM=y         # enum value out of range
+CONFIG_UBSAN_ALIGNMENT=y    # unaligned memory access (on strict architectures)
+```
+
+**Common UB in net code:**
+
+```c
+/* BUG: shift amount from untrusted data */
+u32 my_mask(u8 prefix_len)
+{
+    return ~((1u << (32 - prefix_len)) - 1);
+    /* If prefix_len == 32: 32-32=0, 1u<<0=1. Fine.
+       If prefix_len == 0: 32-0=32, 1u<<32: UNDEFINED BEHAVIOR on 32-bit.
+       On x86-64 this often gives 0 (wrong) or compiler may optimize away. */
+}
+
+/* FIX: */
+u32 my_mask(u8 prefix_len)
+{
+    if (prefix_len == 0)
+        return 0;
+    if (prefix_len >= 32)
+        return 0xFFFFFFFF;
+    return ~((1u << (32 - prefix_len)) - 1);
+}
+```
+
+---
+
+## 5. Tool Deep Dives
+
+### 5.1 lockdep
+
+lockdep is the kernel's runtime lock dependency validator. It tracks the order in which locks are acquired and builds a dependency graph. If any cycle is detected in the graph (A→B and B→A), a deadlock is possible and lockdep reports it before it actually happens.
+
+**Config:**
+
+```
+CONFIG_PROVE_LOCKING=y        # enables lockdep
+CONFIG_LOCKDEP=y              # core lockdep infrastructure
+CONFIG_LOCK_STAT=y            # lock statistics (contention, hold time)
+CONFIG_DEBUG_LOCKDEP=y        # extra lockdep self-checking
+CONFIG_DEBUG_LOCK_ALLOC=y     # track lock allocations
+CONFIG_LOCKDEP_CIRCULAR_QUEUE_BITS=12
+```
+
+**How lockdep works:**
+
+```
+LOCKDEP DEPENDENCY GRAPH
+=========================
+
+For every lock acquisition, lockdep records:
+  "Lock A was acquired while Lock B was held"
+  -> This means: A depends on B (A must be acquired after B)
+  -> Represented as edge: B -> A in the dependency graph
+
+If lockdep ever sees:
+  "Lock B acquired while Lock A is held"
+  -> This creates edge: A -> B
+
+Now we have: B -> A and A -> B: CYCLE DETECTED.
+Report: possible deadlock:
+  Thread 1: holds A, wants B
+  Thread 2: holds B, wants A  <- they are deadlocked
+
+lockdep catches this when Thread 2 acquires B and tries to acquire A,
+even if Thread 1 hasn't executed yet. It's PROACTIVE.
+```
+
+**Reading a lockdep report:**
+
+```
+======================================================
+WARNING: possible circular locking dependency detected
+7.0.6-netlab #1 Not tainted
+------------------------------------------------------
+curl/1234 is trying to acquire lock:
+ffff888003a1c000 (&sk->sk_lock.slock){+.-.}-{2:2}, at: tcp_v4_rcv+0x234
+
+but task is already holding lock:
+ffff888003b2d000 (&hashinfo->lock){+.--}-{2:2}, at: my_net_lookup+0x44
+
+which lock already depends on the new lock.
+
+the existing dependency chain (in reverse order) is:
+-> #1 (&hashinfo->lock){+.--}-{2:2}:
+       __lock_acquire+0x78a/0x1390
+       lock_acquire+0x11c/0x350
+       _raw_spin_lock+0x32/0x40
+       my_net_send+0x1c4/0x3a0   <- Thread 2 acquired hashinfo->lock while holding sk->sk_lock.slock
+
+-> #0 (&sk->sk_lock.slock){+.-.}-{2:2}:
+       __lock_acquire+0x78a/0x1390
+       lock_acquire+0x11c/0x350
+       tcp_v4_rcv+0x234/0xd00    <- Thread 1 trying to acquire sk->sk_lock.slock while holding hashinfo->lock
+
+other info that might help us debug this:
+Chain exists of: &sk->sk_lock.slock --> ... --> &hashinfo->lock
+Possible unsafe locking scenario:
+  CPU0                    CPU1
+  ----                    ----
+  lock(hashinfo->lock);
+                          lock(sk->sk_lock.slock);
+                          lock(hashinfo->lock);   <- DEADLOCK POINT
+  lock(sk->sk_lock.slock); <- DEADLOCK POINT
+```
+
+**Reading the chain:** The report shows the problematic chain in reverse order. `#1` is the lock that was acquired in the past, `#0` is the one being acquired now, creating the cycle. The fix is to always acquire locks in a consistent order: either always `sk_lock` then `hashinfo->lock`, or always `hashinfo->lock` then `sk_lock`, throughout all code paths.
+
+**Lock statistics:**
+
+```bash
+# Show contention stats for all locks
+cat /proc/lock_stat
+
+# Format:
+# class name      con-bounces contentions waittime-min waittime-max
+# sk_lock.slock:       1234        5678        0.01us      124.45us
+```
+
+High contention on `sk_lock.slock` means your code holds it too long. Consider finer-grained locking or per-CPU structures.
+
+---
+
+### 5.2 ftrace for Bug Hunting
+
+Beyond function call tracing (covered in your setup notes), ftrace has event tracing, function filtering, and trigger mechanisms specifically useful for hunting bugs.
+
+**Tracing net events with the built-in tracepoints:**
+
+```bash
+cd /sys/kernel/debug/tracing
+
+# List all net-related tracepoints
+ls events/net/
+ls events/tcp/
+ls events/skb/
+
+# Enable the skb:kfree_skb tracepoint to see every dropped packet
+echo 1 > events/skb/kfree_skb/enable
+cat trace_pipe  # live output
+
+# Output format:
+# curl-1234  [000] .... tcp_v4_rcv: skbaddr=0xffff888003a1c000 protocol=2048 location=0xffffffff81a23456
+```
+
+**ftrace triggers — fire on specific conditions:**
+
+```bash
+# Trigger a stacktrace dump whenever kfree_skb is called from a specific function
+echo 'stacktrace:5' > events/skb/kfree_skb/trigger
+
+# Filter to only show kfree_skb calls where protocol is IPv4 (2048 = 0x0800)
+echo 'protocol == 2048' > events/skb/kfree_skb/filter
+
+# Snapshot: capture trace buffer when a specific function is hit
+echo 'snapshot' > events/net/net_dev_xmit/trigger
+
+# Record the trace when a function hits, then read snapshot
+cat snapshot
+```
+
+**Function graph with specific max depth to reduce noise:**
+
+```bash
+echo function_graph > current_tracer
+echo 3 > max_graph_depth   # only show 3 levels deep
+echo tcp_sendmsg > set_graph_function
+echo 1 > tracing_on
+curl http://example.com
+echo 0 > tracing_on
+cat trace | head -50
+```
+
+**hist triggers — automatic histograms at tracepoints:**
+
+```bash
+# Count how many times each drop location causes kfree_skb
+# (location = return address of the kfree_skb caller)
+echo 'hist:key=location.sym' > events/skb/kfree_skb/trigger
+
+# Generate some traffic
+curl http://example.com
+
+# Read the histogram (sym = resolve to symbol name)
+cat events/skb/kfree_skb/hist
+
+# Output:
+# { location: [<0>] tcp_v4_do_rcv+0x234 } hitcount: 42
+# { location: [<0>] ip_rcv+0x1c4         } hitcount:  3
+# { location: [<0>] my_net_module+0x78   } hitcount: 15  <- your drops
+```
+
+This histogram shows exactly which code paths are dropping packets. If `my_net_module+0x78` is dropping 15 packets, investigate that location with GDB or addr2line.
+
+---
+
+### 5.3 bpftrace Patterns for Net Bug Hunting
+
+**Track every sk_buff allocation and free, find leaks:**
+
+```bash
+sudo bpftrace -e '
+kprobe:alloc_skb {
+    @allocs[retval] = nsecs;
+    @stacks[retval] = kstack;
+}
+
+kprobe:kfree_skb {
+    $skb = (uint64)arg0;
+    delete(@allocs[$skb]);
+    delete(@stacks[$skb]);
+}
+
+interval:s:30 {
+    /* After 30 seconds, print any unfreed sk_buffs */
+    printf("=== POTENTIAL LEAKS ===\n");
+    print(@stacks);
+    clear(@stacks);
+    clear(@allocs);
+}
+'
+```
+
+This shows the allocation stack trace of any `sk_buff` that was allocated but not freed within 30 seconds.
+
+**Detect double-free:**
+
+```bash
+sudo bpftrace -e '
+kprobe:kfree_skb {
+    $skb = (uint64)arg0;
+    if (@freed[$skb]) {
+        printf("DOUBLE FREE: skb=%p\n", $skb);
+        printf("First free:\n%s\n", @free_stack[$skb]);
+        printf("Second free:\n%s\n", kstack);
+    }
+    @freed[$skb] = 1;
+    @free_stack[$skb] = kstack;
+}
+
+kprobe:alloc_skb / retval != 0 / {
+    delete(@freed[retval]);
+    delete(@free_stack[retval]);
+}
+'
+```
+
+**Track socket memory accounting and detect unbounded growth:**
+
+```bash
+sudo bpftrace -e '
+kprobe:skb_set_owner_r {
+    $sk = (struct sock *)arg1;
+    $skb = (struct sk_buff *)arg0;
+    printf("RX charge: sk=%p rmem_alloc=%d skb_truesize=%d\n",
+           $sk, $sk->sk_rmem_alloc.counter,
+           ((struct sk_buff *)$skb)->truesize);
+}
+
+kprobe:sock_rfree {
+    $skb = (struct sk_buff *)arg0;
+    $sk = $skb->sk;
+    printf("RX uncharge: sk=%p rmem_alloc=%d\n",
+           $sk, $sk->sk_rmem_alloc.counter);
+}
+'
+```
+
+**Detect RCU lock held too long:**
+
+```bash
+sudo bpftrace -e '
+kprobe:rcu_read_lock {
+    @rcu_start[tid] = nsecs;
+}
+
+kprobe:rcu_read_unlock {
+    $duration = nsecs - @rcu_start[tid];
+    if ($duration > 100000) {  /* > 100 microseconds: suspicious */
+        printf("LONG RCU LOCK: %lu us by %s\n",
+               $duration / 1000, comm);
+        printf("%s\n", kstack);
+    }
+    delete(@rcu_start[tid]);
+}
+'
+```
+
+**Profile lock contention in your net module:**
+
+```bash
+sudo bpftrace -e '
+kprobe:_raw_spin_lock {
+    @lock_start[arg0, tid] = nsecs;
+}
+
+kprobe:_raw_spin_unlock {
+    $start = @lock_start[arg0, tid];
+    if ($start > 0) {
+        $held = nsecs - $start;
+        @lock_hold_hist = hist($held);
+        if ($held > 1000000) {  /* > 1ms: too long */
+            printf("LONG SPIN LOCK: lock=%p held=%lu us\n",
+                   arg0, $held/1000);
+            printf("%s\n", kstack);
+        }
+        delete(@lock_start[arg0, tid]);
+    }
+}
+
+END { print(@lock_hold_hist); }
+'
+```
+
+---
+
+### 5.4 addr2line and decode_stacktrace.sh
+
+When a kernel bug report prints a stack trace with hex offsets like `my_net_module+0x78/0x1c0`, you need to convert this to a file name and line number.
+
+**Using decode_stacktrace.sh (in the kernel source):**
+
+```bash
+# This script is in the kernel source tree
+cd ~/Documents/clion/opensource_sushink70/linux_kernel_net_playground/linux-7.0.6
+
+# Feed a raw dmesg/kasan/lockdep report through the script
+# It resolves all addresses to file:line
+dmesg | ./scripts/decode_stacktrace.sh vmlinux . /path/to/modules
+
+# For a module:
+dmesg | ./scripts/decode_stacktrace.sh \
+    vmlinux \
+    . \
+    /lib/modules/7.0.6-netlab/extra/my_net_module.ko
+```
+
+The script reads the `vmlinux` debug symbols and all loaded module .ko files and resolves every `function+0xOFFSET` line to `source_file.c:line_number`. This transforms an unreadable crash log into a precise pointer to the buggy line.
+
+**Manual addr2line for a module:**
+
+```bash
+# First find the base address of the module
+cat /proc/modules | grep my_net_module
+# my_net_module 16384 0 - Live 0xffffffffc0200000
+
+# The report shows: my_net_module+0x78
+# Actual address: 0xffffffffc0200000 + 0x78 = 0xffffffffc0200078
+
+# Resolve with addr2line
+addr2line -e my_net_module.ko -i -f 0x78
+# Output:
+# my_net_send
+# /home/user/my_net_module/my_net.c:142
+
+# -i = show inlined function frames
+# -f = show function names
+# -a = also show the address
+
+# Or use gdb:
+gdb my_net_module.ko
+(gdb) list *(my_net_send+0x78)
+```
+
+**Using gdb for offline analysis:**
+
+```bash
+gdb vmlinux
+# Load the crash dump if you have one
+(gdb) target core /proc/vmcore   # needs kdump-tools configured
+
+# Or just inspect symbols
+(gdb) info line *0xffffffff81a23456
+# Line 342 of "net/ipv4/tcp_output.c" starts at address 0xffffffff81a23456
+
+(gdb) disassemble my_net_send
+# Shows assembly with annotations for each offset
+```
+
+---
+
+### 5.5 crash Tool for Post-Mortem Analysis
+
+When your kernel panics completely (not just a BUG or WARN), it can write a crash dump via kdump. The `crash` tool reads this dump and lets you inspect the full kernel state at the time of the crash.
+
+**Setting up kdump in your VM:**
+
+```bash
+# Inside the VM
+sudo apt install kdump-tools makedumpfile
+
+# Configure grub to reserve memory for the crash kernel
+# In /etc/default/grub:
+# GRUB_CMDLINE_LINUX_DEFAULT="... crashkernel=256M"
+sudo update-grub
+sudo reboot
+
+# After reboot, verify kdump is ready
+sudo kdump-config show
+# Status: ready to kdump
+```
+
+**Triggering a test crash:**
+
+```bash
+# Inside the VM (for testing)
+echo c | sudo tee /proc/sysrq-trigger
+# VM will panic, dump to /var/crash/, then reboot
+```
+
+**Analyzing with crash:**
+
+```bash
+sudo crash /usr/lib/debug/boot/vmlinux-7.0.6-netlab \
+           /var/crash/202401010000/dump.202401010000
+
+# crash shell commands:
+crash> bt              # backtrace of the panicking task
+crash> bt -a           # backtrace of ALL tasks
+crash> log             # kernel message buffer (dmesg at crash time)
+crash> ps             # all processes at crash time
+crash> files 1234     # files opened by pid 1234
+crash> net            # network device state
+crash> foreach net    # net state for all tasks
+
+# Inspect a specific sk_buff by address (from the crash log)
+crash> struct sk_buff ffff888003a1c000
+# Shows all fields of the sk_buff at that address
+
+# Inspect a socket
+crash> struct sock ffff888003b2d000
+
+# Trace a socket's send queue
+crash> struct sk_buff_head ffff888003b2d000+0x28
+crash> list sk_buff.next ffff888003a1c000  # walk the skb list
+```
+
+---
+
+### 5.6 syzkaller — Kernel Fuzzing
+
+syzkaller is Google's kernel fuzzer. It generates pseudo-random syscall sequences, targeting the kernel's system call interface, and monitors for crashes, lockups, and memory safety violations. Many CVE-level bugs in the Linux net stack were found by syzkaller.
+
+**How syzkaller works:**
+
+```
+SYZKALLER ARCHITECTURE
+======================
+
+                 [syzkaller manager]
+                        |
+              +---------+---------+
+              |                   |
+         [VM instance 1]    [VM instance 2]    ...
+              |
+         [syz-fuzzer]
+              |
+         [syz-executor]
+              |
+          SYSCALLS  -> kernel -> monitor crashes/hangs/KASAN/lockdep
+              |
+         [coverage feedback]
+              |
+         [syz-fuzzer] mutates inputs to maximize new code coverage
+```
+
+syzkaller uses kernel coverage (KCOV) to guide its fuzzing toward unexplored code paths. Every time a syscall sequence reaches new kernel code, syzkaller records it as valuable and mutates from it.
+
+**Setting up syzkaller for your net module (advanced):**
+
+```bash
+# On your host, install Go
+sudo apt install golang-go
+
+# Clone syzkaller
+git clone https://github.com/google/syzkaller
+cd syzkaller
+
+# Build
+make
+
+# Write a syzkaller config targeting your VM
+cat > my_net_config.cfg << 'EOF'
+{
+    "target": "linux/amd64",
+    "http": "0.0.0.0:56741",
+    "workdir": "/home/user/syzkaller-work",
+    "kernel_obj": "/path/to/linux-7.0.6",
+    "image": "/home/user/vms/netlab.qcow2",
+    "sshkey": "/home/user/.ssh/syzkaller_id_rsa",
+    "syzkaller": "/home/user/syzkaller",
+    "procs": 8,
+    "type": "qemu",
+    "vm": {
+        "count": 4,
+        "kernel": "/path/to/bzImage",
+        "cpu": 2,
+        "mem": 2048
+    },
+    "enable_syscalls": [
+        "socket$inet_tcp",
+        "setsockopt$inet_tcp",
+        "getsockopt$inet_tcp",
+        "sendmsg$inet",
+        "recvmsg$inet",
+        "bind$inet",
+        "connect$inet"
+    ]
+}
+EOF
+
+bin/syz-manager -config my_net_config.cfg
+# Open http://localhost:56741 to see crash dashboard
+```
+
+For the KCOV coverage feedback to work, your debug kernel needs:
+
+```
+CONFIG_KCOV=y
+CONFIG_KCOV_INSTRUMENT_ALL=y
+CONFIG_DEBUG_FS=y
+CONFIG_NET_SCH_INGRESS=y    # for complete net path coverage
+```
+
+---
+
+## 6. Kernel Config: Your Debug Build
+
+This is the complete recommended debug config for your custom net module development. Apply all of these before building the kernel you test with.
+
+```bash
+cd linux-7.0.6
+
+# --- Memory Safety ---
+scripts/config --enable CONFIG_KASAN
+scripts/config --enable CONFIG_KASAN_GENERIC
+scripts/config --enable CONFIG_KASAN_INLINE
+scripts/config --enable CONFIG_KASAN_STACK
+scripts/config --enable CONFIG_KASAN_VMALLOC
+scripts/config --enable CONFIG_KFENCE
+scripts/config --set-val CONFIG_KFENCE_SAMPLE_INTERVAL 100
+scripts/config --set-val CONFIG_KFENCE_NUM_OBJECTS 255
+
+# --- Memory Leak Detection ---
+scripts/config --enable CONFIG_DEBUG_KMEMLEAK
+scripts/config --set-val CONFIG_DEBUG_KMEMLEAK_EARLY_LOG_SIZE 400
+
+# --- SLUB Debugging ---
+scripts/config --enable CONFIG_SLUB
+scripts/config --enable CONFIG_SLUB_DEBUG
+# Do NOT enable SLUB_DEBUG_ON unless debugging a specific allocator bug.
+# Use "slub_debug=FZU,skbuff_head_cache" kernel parameter instead.
+
+# --- Object Lifecycle Tracking ---
+scripts/config --enable CONFIG_DEBUG_OBJECTS
+scripts/config --enable CONFIG_DEBUG_OBJECTS_SKBUFF
+scripts/config --enable CONFIG_DEBUG_OBJECTS_TIMERS
+scripts/config --enable CONFIG_DEBUG_OBJECTS_WORK
+
+# --- Locking ---
+scripts/config --enable CONFIG_PROVE_LOCKING
+scripts/config --enable CONFIG_LOCKDEP
+scripts/config --enable CONFIG_LOCK_STAT
+scripts/config --enable CONFIG_DEBUG_LOCK_ALLOC
+scripts/config --enable CONFIG_PROVE_RCU
+scripts/config --enable CONFIG_RCU_EXPERT
+scripts/config --enable CONFIG_DEBUG_ATOMIC_SLEEP
+
+# --- Reference Counting ---
+scripts/config --enable CONFIG_REFCOUNT_FULL
+
+# --- Undefined Behavior ---
+scripts/config --enable CONFIG_UBSAN
+scripts/config --enable CONFIG_UBSAN_BOUNDS
+scripts/config --enable CONFIG_UBSAN_OVERFLOW
+scripts/config --enable CONFIG_UBSAN_SHIFT
+scripts/config --enable CONFIG_UBSAN_DIV_ZERO
+
+# --- Stack Protection ---
+scripts/config --enable CONFIG_STACKPROTECTOR
+scripts/config --enable CONFIG_STACKPROTECTOR_STRONG
+scripts/config --enable CONFIG_DEBUG_STACK_USAGE
+
+# --- Kernel Debugging Infrastructure ---
+scripts/config --enable CONFIG_DEBUG_KERNEL
+scripts/config --enable CONFIG_DEBUG_INFO
+scripts/config --enable CONFIG_DEBUG_INFO_DWARF4
+scripts/config --enable CONFIG_DEBUG_INFO_BTF    # needed for bpftrace
+scripts/config --enable CONFIG_KALLSYMS
+scripts/config --enable CONFIG_KALLSYMS_ALL
+scripts/config --enable CONFIG_FRAME_POINTER     # complete backtraces
+scripts/config --enable CONFIG_DYNAMIC_DEBUG
+
+# --- Tracing and Coverage ---
+scripts/config --enable CONFIG_FTRACE
+scripts/config --enable CONFIG_FUNCTION_TRACER
+scripts/config --enable CONFIG_FUNCTION_GRAPH_TRACER
+scripts/config --enable CONFIG_DYNAMIC_FTRACE
+scripts/config --enable CONFIG_KPROBES
+scripts/config --enable CONFIG_UPROBE_EVENTS
+scripts/config --enable CONFIG_BPF_SYSCALL
+scripts/config --enable CONFIG_BPF_JIT
+scripts/config --enable CONFIG_KCOV
+scripts/config --enable CONFIG_KCOV_INSTRUMENT_ALL
+
+# --- Race Detection ---
+# NOTE: KCSAN is NOT compatible with KASAN. Use separate builds.
+# scripts/config --enable CONFIG_KCSAN   # uncomment for race-finding build
+
+# --- Net Specific ---
+scripts/config --enable CONFIG_NET_SCH_INGRESS
+scripts/config --enable CONFIG_SKB_EXTENSIONS
+scripts/config --enable CONFIG_NET_SKB_CHECK_MIN_LEN  # validate skb lengths
+
+# --- Page Debugging ---
+scripts/config --enable CONFIG_PAGE_POISONING     # fill freed pages with 0xAA
+scripts/config --enable CONFIG_DEBUG_PAGEALLOC    # protect freed pages
+
+# --- Panic on Bug ---
+# For initial development: let the kernel warn but keep running
+scripts/config --disable CONFIG_PANIC_ON_OOPS
+scripts/config --enable CONFIG_BUG_ON_DATA_CORRUPTION
+
+# --- Crash Dump ---
+scripts/config --enable CONFIG_KEXEC
+scripts/config --enable CONFIG_CRASH_DUMP
+scripts/config --enable CONFIG_PROC_VMCORE
+
+# --- KGDB ---
+scripts/config --enable CONFIG_KGDB
+scripts/config --enable CONFIG_KGDB_SERIAL_CONSOLE
+scripts/config --enable CONFIG_GDB_SCRIPTS
+
+# Disable KASLR for stable addresses
+scripts/config --disable CONFIG_RANDOMIZE_BASE
+
+make olddefconfig
+```
+
+**Build separate kernels for different bug classes:**
+
+```
+kernel-kasan.deb   -- KASAN + KFENCE + lockdep + UBSAN + kmemleak
+                      Use for: new code development, feature testing
+                      Slowdown: 3-5x
+
+kernel-kcsan.deb   -- KCSAN + lockdep (KASAN disabled)
+                      Use for: race condition hunting, multi-CPU testing
+                      Slowdown: 5-10x
+
+kernel-fuzzing.deb -- KCOV + sanitizers (minimal for fuzzing speed)
+                      Use for: syzkaller fuzzing sessions
+                      Slowdown: 1.5x
+
+kernel-perf.deb    -- No sanitizers, ftrace only
+                      Use for: performance measurement, normal dev
+                      Slowdown: ~1x (slight overhead from debug info)
+```
+
+---
+
+## 7. C Implementation Patterns for Bug Prevention
+
+These are the defensive coding patterns used by experienced Linux net stack developers. Using them from the start prevents entire classes of bugs.
+
+### Pattern 1: Goto-based Error Unwinding
+
+Every error path must free all resources allocated before the error:
+
+```c
+int my_net_create_connection(struct my_net_state *state,
+                             struct my_config *cfg)
+{
+    struct sk_buff *skb = NULL;
+    struct sock *sk = NULL;
+    struct my_header *hdr = NULL;
+    int err;
+
+    /* Step 1: create socket */
+    err = sock_create_kern(&init_net, AF_INET, SOCK_STREAM,
+                           IPPROTO_TCP, &state->sock);
+    if (err)
+        goto err_out;   /* nothing to clean up yet */
+    sk = state->sock->sk;
+
+    /* Step 2: allocate work buffer */
+    hdr = kmalloc(sizeof(*hdr), GFP_KERNEL);
+    if (!hdr) {
+        err = -ENOMEM;
+        goto err_free_sock;
+    }
+
+    /* Step 3: allocate initial skb */
+    skb = alloc_skb(cfg->mtu, GFP_KERNEL);
+    if (!skb) {
+        err = -ENOMEM;
+        goto err_free_hdr;
+    }
+
+    /* Step 4: connect (may fail) */
+    err = kernel_connect(state->sock, (struct sockaddr *)&cfg->addr,
+                         sizeof(cfg->addr), 0);
+    if (err)
+        goto err_free_skb;
+
+    /* Success: store everything in state */
+    state->hdr = hdr;
+    state->skb = skb;
+    return 0;
+
+    /* Cleanup labels in REVERSE order of allocation */
+err_free_skb:
+    kfree_skb(skb);
+err_free_hdr:
+    kfree(hdr);
+err_free_sock:
+    sock_release(state->sock);
+    state->sock = NULL;
+err_out:
+    return err;
+}
+```
+
+The goto pattern guarantees: on any error, exactly the resources allocated before the error are freed — no more, no less. No double-free, no leak.
+
+### Pattern 2: Cleanup Functions for Complex State
+
+When state has many fields with individual lifecycles, use a cleanup function:
+
+```c
+struct my_net_state {
+    struct socket    *sock;
+    struct sk_buff   *pending_skb;
+    struct my_header *hdr;
+    struct work_struct tx_work;
+    bool             work_queued;
+    spinlock_t       lock;
+};
+
+void my_net_state_init(struct my_net_state *state)
+{
+    memset(state, 0, sizeof(*state));   /* zero everything first */
+    spin_lock_init(&state->lock);
+    INIT_WORK(&state->tx_work, my_net_tx_worker);
+}
+
+/* Single cleanup function handles all resource release */
+void my_net_state_cleanup(struct my_net_state *state)
+{
+    /* Cancel pending work before freeing resources it uses */
+    if (state->work_queued) {
+        cancel_work_sync(&state->tx_work);
+        state->work_queued = false;
+    }
+
+    /* Free sk_buff with the NULL guard */
+    if (state->pending_skb) {
+        kfree_skb(state->pending_skb);
+        state->pending_skb = NULL;
+    }
+
+    /* Release socket */
+    if (state->sock) {
+        sock_release(state->sock);
+        state->sock = NULL;
+    }
+
+    /* Free header */
+    kfree(state->hdr);    /* kfree(NULL) is safe: no need for NULL check */
+    state->hdr = NULL;
+}
+```
+
+### Pattern 3: Lock-Protected State Machine
+
+Use an explicit state enum and verify state before operations:
+
+```c
+enum my_net_state_enum {
+    MY_NET_STATE_INIT,
+    MY_NET_STATE_CONNECTED,
+    MY_NET_STATE_CLOSING,
+    MY_NET_STATE_CLOSED,
+};
+
+struct my_net_ctx {
+    spinlock_t           lock;
+    enum my_net_state_enum state;
+    struct sk_buff_head  rx_queue;
+    /* ... */
+};
+
+int my_net_send(struct my_net_ctx *ctx, struct sk_buff *skb)
+{
+    int err;
+
+    spin_lock_bh(&ctx->lock);
+
+    /* Always verify state before operating */
+    if (ctx->state != MY_NET_STATE_CONNECTED) {
+        spin_unlock_bh(&ctx->lock);
+        kfree_skb(skb);
+        return -ENOTCONN;
+    }
+
+    /* State-protected operation */
+    err = my_net_do_send_locked(ctx, skb);
+    /* my_net_do_send_locked takes ownership of skb on success */
+
+    spin_unlock_bh(&ctx->lock);
+    return err;
+}
+
+void my_net_close(struct my_net_ctx *ctx)
+{
+    spin_lock_bh(&ctx->lock);
+    if (ctx->state == MY_NET_STATE_CLOSED) {
+        spin_unlock_bh(&ctx->lock);
+        return;   /* idempotent close */
+    }
+    ctx->state = MY_NET_STATE_CLOSING;
+    spin_unlock_bh(&ctx->lock);
+
+    /* Do cleanup outside lock (may sleep) */
+    my_net_flush_queues(ctx);
+
+    spin_lock_bh(&ctx->lock);
+    ctx->state = MY_NET_STATE_CLOSED;
+    spin_unlock_bh(&ctx->lock);
+}
+```
+
+### Pattern 4: Safe skb Headroom Reservation
+
+Always reserve headroom at allocation time, never expand under hot path:
+
+```c
+/* Calculate the maximum headroom any layer will ever need.
+   Do this ONCE at allocation. */
+#define MY_NET_HEADROOM  (sizeof(struct my_header) +  \
+                          sizeof(struct iphdr)      +  \
+                          sizeof(struct ethhdr)     +  \
+                          NET_IP_ALIGN)              /* alignment padding */
+
+struct sk_buff *my_net_alloc_skb(struct net_device *dev, unsigned int payload_len)
+{
+    struct sk_buff *skb;
+
+    /* Allocate with full headroom plus payload */
+    skb = dev_alloc_skb(MY_NET_HEADROOM + payload_len);
+    if (!skb)
+        return NULL;
+
+    /* Reserve the headroom so skb->data starts in the payload area */
+    skb_reserve(skb, MY_NET_HEADROOM);
+
+    /* Now: skb_headroom(skb) == MY_NET_HEADROOM */
+    /*      skb->data points to where payload will go */
+
+    return skb;
+}
+
+/* Then in your TX path, pushing headers is always safe: */
+void my_net_add_my_header(struct sk_buff *skb)
+{
+    struct my_header *hdr = skb_push(skb, sizeof(struct my_header));
+    /* skb_push cannot overflow because headroom was reserved */
+    hdr->magic = MY_HEADER_MAGIC;
+    hdr->len = skb->len - sizeof(struct my_header);
+}
+```
+
+### Pattern 5: WARN_ON for Internal Invariants
+
+Use `WARN_ON()` to document and verify invariants. In debug builds this fires a warning with a stack trace. In production builds it can be compiled out with `CONFIG_BUG_ON_DATA_CORRUPTION=n`.
+
+```c
+int my_net_process_rx(struct my_net_ctx *ctx, struct sk_buff *skb)
+{
+    /* Document and verify invariants */
+    WARN_ON(!skb);                          /* should never be NULL here */
+    WARN_ON(skb->len < sizeof(struct my_header));  /* too short to parse */
+    WARN_ON(!ctx->sock);                    /* socket should be open */
+    WARN_ON(ctx->state != MY_NET_STATE_CONNECTED);
+
+    /* Use BUG_ON() ONLY for truly unrecoverable invariants */
+    /* BUG_ON() panics the kernel. Use sparingly. */
+    BUG_ON(skb_shinfo(skb)->nr_frags > MAX_SKB_FRAGS);
+
+    /* ... */
+}
+```
+
+---
+
+## 8. Rust in Kernel Net — Compile-Time Safety
+
+Rust's ownership and type system eliminates entire bug classes at compile time. As of Linux 7.x, Rust support in the kernel is active and growing. For net subsystem work, you can write loadable kernel modules in Rust.
+
+### Why Rust Prevents These Bugs
+
+```
+Bug Category          C Risk          Rust Prevention
+==============================================================================
+Use-after-free        High            Ownership: cannot access after move/drop
+Double-free           Medium          Drop: automatic, runs exactly once
+Memory leak           High            Drop: runs on scope exit (no manual free)
+NULL dereference      High            Option<T>: must explicitly handle None
+Buffer overflow       High            Bounds checking by default (panics, no UB)
+Data race             High            Send/Sync: compiler enforces thread safety
+Integer overflow      Medium          Debug: panics on overflow; Release: wraps
+                                      (use saturating_add / checked_add for net)
+```
+
+### Setting Up Rust in Your Kernel Build
+
+```bash
+# In linux-7.0.6 source
+rustup override set $(scripts/min-tool-version.sh rustc)
+rustup component add rust-src
+
+# Verify Rust support is available
+make LLVM=1 rustavailable
+
+# Enable Rust in config
+scripts/config --enable CONFIG_RUST
+
+# Build
+make LLVM=1 -j$(nproc)
+```
+
+### A Complete Rust Kernel Net Module
+
+This example implements a packet probe module that hooks into the receive path — the same as the C `net_probe.c` module but in Rust, with compile-time memory safety.
+
+```rust
+// my_net_probe/src/lib.rs
+// Build against your linux-7.0.6 kernel Rust bindings.
+// Place this in samples/rust/rust_net_probe.rs or a separate module dir.
+
+// SPDX-License-Identifier: GPL-2.0
+
+//! Rust kernel net packet probe module.
+//! Hooks into the packet receive path and logs sk_buff metadata.
+
+use kernel::prelude::*;
+use kernel::net::{Namespace, PacketType, SkBuff};
+use kernel::sync::SpinLock;
+use core::sync::atomic::{AtomicU64, Ordering};
+
+module! {
+    type: RustNetProbe,
+    name: "rust_net_probe",
+    author: "Your Name",
+    description: "Rust net packet probe — safe sk_buff inspection",
+    license: "GPL",
+}
+
+// Atomic counters: safe to access from any CPU without locking.
+// Unlike C, Rust REQUIRES you to use atomic types for shared mutable state.
+// The compiler refuses to compile data races.
+static RX_PACKET_COUNT: AtomicU64 = AtomicU64::new(0);
+static RX_BYTE_COUNT: AtomicU64   = AtomicU64::new(0);
+static DROP_COUNT: AtomicU64      = AtomicU64::new(0);
+
+struct RustNetProbe {
+    packet_type: PacketType,
+}
+
+impl kernel::Module for RustNetProbe {
+    fn init(_module: &'static ThisModule) -> Result<Self> {
+        pr_info!("rust_net_probe: loading\n");
+
+        // PacketType::register is the Rust equivalent of dev_add_pack().
+        // The Rust bindings ensure the packet_type lifetime is correct.
+        // In C: you must manually ensure the struct lives as long as it's registered.
+        // In Rust: the type system enforces this via ownership.
+        let packet_type = PacketType::register(
+            kernel::net::EthP::ALL,   // ETH_P_ALL: receive all protocols
+            probe_rx,
+        )?;
+
+        pr_info!("rust_net_probe: registered, watching all packets\n");
+        Ok(RustNetProbe { packet_type })
+    }
+}
+
+impl Drop for RustNetProbe {
+    fn drop(&mut self) {
+        // PacketType::drop() calls dev_remove_pack() automatically.
+        // In C: you must remember to call dev_remove_pack() in your exit function.
+        // In Rust: Drop is called automatically when the module is unloaded.
+        // CANNOT FORGET. This eliminates the "forgot to unregister" bug class.
+        pr_info!("rust_net_probe: unregistered, stats: rx={} bytes={} drops={}\n",
+            RX_PACKET_COUNT.load(Ordering::Relaxed),
+            RX_BYTE_COUNT.load(Ordering::Relaxed),
+            DROP_COUNT.load(Ordering::Relaxed),
+        );
+    }
+}
+
+/// Called for every received packet (all protocols).
+/// 
+/// Safety contract (enforced by the Rust bindings):
+///   - `skb` is a valid, non-null pointer to a live sk_buff
+///   - We do NOT take ownership: we borrow it for inspection
+///   - We MUST NOT call kfree_skb(skb) or consume_skb(skb)
+///   - We MUST return 0 to let the packet continue through the stack
+///     (returning non-zero would consume the packet)
+fn probe_rx(skb: &SkBuff, _dev: &kernel::net::Device,
+            _pt: &PacketType, _orig_dev: &kernel::net::Device) -> i32
+{
+    // In C: you might accidentally dereference a NULL skb.
+    // In Rust: skb is &SkBuff (reference), guaranteed non-null by the type system.
+    // No null check needed — the borrow checker ensures liveness.
+
+    let len      = skb.len();
+    let protocol = skb.protocol();
+
+    // saturating_add: safe against counter overflow.
+    // In C: u64 counter++ can overflow. In debug Rust: panics. In release: use saturating.
+    RX_PACKET_COUNT.fetch_add(1,   Ordering::Relaxed);
+    RX_BYTE_COUNT.fetch_add(len as u64, Ordering::Relaxed);
+
+    // Log every 1000 packets to avoid flooding dmesg
+    let count = RX_PACKET_COUNT.load(Ordering::Relaxed);
+    if count % 1000 == 0 {
+        pr_info!("rust_net_probe: {} packets, {} bytes, proto=0x{:04x}\n",
+                 count, RX_BYTE_COUNT.load(Ordering::Relaxed), protocol);
+    }
+
+    0   // 0 = don't consume packet; let normal stack process it
+}
+```
+
+**Kconfig for the Rust module:**
+
+```kconfig
+# In your module directory, add a Kconfig:
+config RUST_NET_PROBE
+    tristate "Rust net packet probe (example)"
+    depends on RUST
+    help
+      A simple network packet probe written in Rust.
+      Demonstrates safe sk_buff access from Rust.
+```
+
+**Makefile:**
+
+```makefile
+# Makefile
+obj-$(CONFIG_RUST_NET_PROBE) += rust_net_probe.o
+rust_net_probe-objs := src/lib.o
+```
+
+### Rust Pattern: Ownership-Based skb Management
+
+When writing Rust code that allocates sk_buffs (future kernel Rust bindings):
+
+```rust
+use kernel::net::SkBuff;
+
+/// OwnedSkb wraps a sk_buff and automatically frees it on drop.
+/// This is the Rust equivalent of the C pattern:
+///   "every alloc_skb() must have exactly one kfree_skb()"
+struct OwnedSkb(*mut bindings::sk_buff);
+
+impl OwnedSkb {
+    fn alloc(size: u32, gfp: bindings::gfp_t) -> Option<Self> {
+        // SAFETY: alloc_skb is safe to call with valid size and gfp flags.
+        let skb = unsafe { bindings::alloc_skb(size, gfp) };
+        if skb.is_null() {
+            None   // allocation failed; no skb to leak
+        } else {
+            Some(OwnedSkb(skb))
+        }
+    }
+
+    /// Consume the skb: transfer ownership to the network stack.
+    /// After this call, the OwnedSkb is consumed (moved) — cannot be used again.
+    /// The compiler enforces this: calling .consume() moves self, making it
+    /// inaccessible. No use-after-free possible.
+    fn consume(self) -> i32 {
+        let skb = self.0;
+        // Tell Rust: we are handling the drop manually.
+        // ManuallyDrop prevents the Drop impl from running.
+        let skb = core::mem::ManuallyDrop::new(self);
+        // SAFETY: we are passing ownership to ip_queue_xmit.
+        // ip_queue_xmit will call kfree_skb on error or consume_skb on success.
+        unsafe { bindings::ip_queue_xmit(/* ... */, skb.0, /* ... */) }
+    }
+}
+
+impl Drop for OwnedSkb {
+    fn drop(&mut self) {
+        // If this OwnedSkb was not .consume()d, free it here.
+        // This covers ALL error paths automatically — no goto cleanup needed.
+        if !self.0.is_null() {
+            // SAFETY: self.0 is a valid skb we own, not yet freed.
+            unsafe { bindings::kfree_skb(self.0) };
+        }
+    }
+}
+
+/// Usage:
+fn my_rust_net_send(sk: *mut bindings::sock, msg: *mut bindings::msghdr) -> i32 {
+    // Allocation: if None, we return immediately. No skb to leak.
+    let skb = match OwnedSkb::alloc(1500, bindings::GFP_ATOMIC) {
+        Some(s) => s,
+        None => return -bindings::ENOMEM,
+    };
+
+    // Any early return here: Drop runs, kfree_skb called. No leak.
+    if unsafe { fill_skb(skb.0, msg) } < 0 {
+        return -bindings::EINVAL;
+        // ^^^ OwnedSkb::drop() runs here: kfree_skb(skb.0) called.
+    }
+
+    // .consume() moves skb: cannot use it again after this line.
+    // ip_queue_xmit takes ownership. If it errors: ip_queue_xmit frees it.
+    skb.consume()
+    // OwnedSkb::drop() does NOT run because self was moved into consume().
+}
+```
+
+This pattern makes sk_buff leaks impossible within a function, by construction. The compiler enforces the ownership rules.
+
+### Rust: Safe Stats Counters (vs C Data Races)
+
+In C, per-socket statistics are often a source of data races (requiring either atomic operations or per-CPU counters). In Rust, the type system makes the race visible at compile time:
+
+```rust
+use core::sync::atomic::{AtomicU64, Ordering};
+
+struct MyNetStats {
+    tx_packets: AtomicU64,
+    tx_bytes:   AtomicU64,
+    rx_packets: AtomicU64,
+    rx_bytes:   AtomicU64,
+    tx_errors:  AtomicU64,
+}
+
+impl MyNetStats {
+    const fn new() -> Self {
+        MyNetStats {
+            tx_packets: AtomicU64::new(0),
+            tx_bytes:   AtomicU64::new(0),
+            rx_packets: AtomicU64::new(0),
+            rx_bytes:   AtomicU64::new(0),
+            tx_errors:  AtomicU64::new(0),
+        }
+    }
+
+    fn record_tx(&self, byte_count: u32) {
+        self.tx_packets.fetch_add(1, Ordering::Relaxed);
+        self.tx_bytes.fetch_add(byte_count as u64, Ordering::Relaxed);
+    }
+
+    fn record_tx_error(&self) {
+        self.tx_errors.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> (u64, u64, u64, u64, u64) {
+        (
+            self.tx_packets.load(Ordering::Relaxed),
+            self.tx_bytes.load(Ordering::Relaxed),
+            self.rx_packets.load(Ordering::Relaxed),
+            self.rx_bytes.load(Ordering::Relaxed),
+            self.tx_errors.load(Ordering::Relaxed),
+        )
+    }
+}
+
+// Attempt to use non-atomic u64 from multiple threads:
+struct BadStats {
+    count: u64,   // plain u64, NOT atomic
+}
+// If BadStats does not implement Send + Sync, Rust refuses to share it
+// across threads. The compiler gives: "u64 cannot be shared between threads
+// safely". No runtime race — compile-time refusal.
+```
+
+---
+
+## 9. Systematic Debugging Workflow
+
+When you suspect a bug in your net module, follow this workflow in order. Each step narrows the search space.
+
+### Step 1: Reproduce Reliably
+
+A bug you cannot reproduce consistently cannot be fixed reliably. Build a minimal reproducer:
+
+```bash
+# A reproducer script that triggers the bug deterministically
+#!/bin/bash
+# reproduce.sh — triggers the memory leak in my_net_module
+
+# Load the module
+sudo insmod my_net_module.ko debug_level=3
+
+# Trigger the specific code path
+for i in $(seq 1 100); do
+    curl -s --max-time 1 http://192.168.122.100:3000/ > /dev/null
+done
+
+# Unload to trigger cleanup
+sudo rmmod my_net_module
+
+# Check for leaks
+echo scan > /sys/kernel/debug/kmemleak
+sleep 2
+cat /sys/kernel/debug/kmemleak
+```
+
+If the bug is intermittent, add stress to increase frequency:
+
+```bash
+# Run many parallel connections to trigger races
+seq 1 50 | xargs -P 50 -I{} curl -s http://192.168.122.100:3000/ > /dev/null
+```
+
+### Step 2: Identify the Tool
+
+Based on what you observe:
+
+```
+Symptom                          Tool
+=======================================================================
+Memory growing without bound     kmemleak, sockstat, ss -m
+Kernel crash with "BUG: KASAN"  Read KASAN report: UAF or OOB
+Kernel crash with NULL ptr deref addr2line on the oops offset
+Deadlock / hang                  lockdep (check dmesg before hang)
+Kernel crash dump                crash tool + bt + struct inspection
+Random data corruption           KASAN / KFENCE / SLUB debug
+Race-related flakiness           KCSAN
+Wrong packet behavior            tshark + ftrace events + bpftrace
+Stats wrong / accounting off     ss -m + /proc/net/sockstat + bpftrace
+```
+
+### Step 3: Narrow with ftrace
+
+Once you know the approximate bug category, use ftrace to narrow to a function:
+
+```bash
+# Enable tracing for just your module's functions
+echo my_net_module_send > set_ftrace_filter
+echo my_net_module_recv >> set_ftrace_filter
+echo function > current_tracer
+echo 1 > tracing_on
+
+# Run the reproducer
+./reproduce.sh
+
+echo 0 > tracing_on
+cat trace   # see exactly which functions ran and in what order
+```
+
+### Step 4: Inspect with bpftrace
+
+Once you know the function, inspect its arguments and return values:
+
+```bash
+sudo bpftrace -e '
+kprobe:my_net_module_send {
+    printf("ENTER: skb=%p len=%d\n",
+           arg0, ((struct sk_buff *)arg0)->len);
+    @start[tid] = nsecs;
+}
+kretprobe:my_net_module_send {
+    printf("RETURN: retval=%d elapsed=%lu us\n",
+           retval, (nsecs - @start[tid]) / 1000);
+    delete(@start[tid]);
+}
+'
+```
+
+### Step 5: Step Through with KGDB
+
+For complex bugs where bpftrace cannot give you enough context, use KGDB to step through the exact execution:
+
+```bash
+# Inside VM: trigger KGDB
+echo g | sudo tee /proc/sysrq-trigger
+
+# On host: connect and set breakpoints
+gdb linux-7.0.6/vmlinux
+(gdb) target remote /dev/pts/2
+
+# Set breakpoint in your function
+(gdb) break my_net_module_send
+(gdb) continue
+
+# From another VM terminal, run the reproducer
+# GDB stops at your function
+
+# Inspect state
+(gdb) p skb->len
+(gdb) p skb->users
+(gdb) p *skb
+(gdb) bt   # full call stack
+(gdb) x/20xb skb->data   # raw packet bytes
+```
+
+### Step 6: Fix and Verify
+
+After fixing, verify with every applicable tool:
+
+```bash
+# 1. Build and install the fixed kernel
+make -j$(nproc) bindeb-pkg LOCALVERSION=-netlab-kasan
+scp ../linux-image-*-netlab-kasan*.deb netlab@192.168.122.100:~
+ssh netlab@192.168.122.100 "sudo dpkg -i ~/linux-image-*-netlab-kasan*.deb && sudo reboot"
+
+# 2. Run the reproducer with KASAN enabled
+./reproduce.sh 2>&1 | tee test_output.txt
+dmesg | grep -E "KASAN|BUG|WARNING|kmemleak" >> test_output.txt
+
+# 3. Check kmemleak
+echo scan > /sys/kernel/debug/kmemleak
+sleep 5
+cat /sys/kernel/debug/kmemleak >> test_output.txt
+
+# 4. Check sockstat didn't grow
+watch -n1 "cat /proc/net/sockstat" &
+./reproduce.sh
+kill %1
+
+# 5. Run extended stress test
+for i in $(seq 1 1000); do ./reproduce.sh; done
+echo "Completed 1000 iterations, checking for leaks..."
+echo scan > /sys/kernel/debug/kmemleak
+sleep 5
+cat /sys/kernel/debug/kmemleak
+```
+
+---
+
+## 10. Reading and Decoding Kernel Bug Reports
+
+A kernel bug report has a standard structure. Here is a complete annotated example combining multiple bug indicators:
+
+```
+[  142.123456] ============================================================
+[  142.123457] BUG: KASAN: use-after-free in my_net_process+0x78/0x1c0
+[  142.123458] Write of size 4 at addr ffff888003a1c048 by task softirq/0
+[  142.123459]
+[  142.123460] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 7.0.6-netlab-kasan #1
+[  142.123461] Hardware name: QEMU Standard PC (Q35 + ICH9, 2009)
+[  142.123462] Call Trace:
+[  142.123463]  <IRQ>
+[  142.123464]  dump_stack_lvl+0x56/0x70         <- kernel infrastructure
+[  142.123465]  print_report+0x122/0x5f0          <- KASAN report printer
+[  142.123466]  kasan_report+0xab/0x110           <- KASAN entry point
+[  142.123467]  my_net_process+0x78/0x1c0         <- YOUR BUGGY CODE (offset 0x78)
+[  142.123468]  netif_receive_skb+0x2a4/0x900     <- called from here
+[  142.123469]  napi_gro_receive+0x118/0x370
+[  142.123470]  virtnet_poll+0x3ac/0xd90          <- driver called napi_gro_receive
+[  142.123471]  net_rx_action+0x15c/0x440         <- softirq dispatcher
+[  142.123472]  __do_softirq+0xf0/0x4a0
+[  142.123473]  </IRQ>
+[  142.123474]
+[  142.123475] Allocated by task 1234:              <- WHO CREATED THE skb
+[  142.123476]  alloc_skb+0x4c/0x90
+[  142.123477]  my_net_recv+0x34/0x180             <- allocation call site
+[  142.123478]  my_net_module_rx+0x94/0x200
+[  142.123479]
+[  142.123480] Freed by task 1234:                  <- WHO FREED THE skb
+[  142.123481]  kfree_skb+0x3c/0xa0
+[  142.123482]  my_net_recv+0xe4/0x180             <- free call site (error path)
+[  142.123483]  my_net_module_rx+0x94/0x200
+[  142.123484]
+[  142.123485] The buggy address belongs to the object at ffff888003a1c000
+[  142.123486]  which belongs to the cache skbuff_head_cache of size 232
+[  142.123487] The buggy address is located 72 bytes inside the freed object.
+[  142.123488]
+[  142.123489] Memory state around the buggy address:
+[  142.123490]  ffff888003a1c000: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+[  142.123491]  ffff888003a1c040: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+[  142.123492] >ffff888003a1c040: fb fb[fb]fb fb fb fb fb fb fb fb fb fb fb fb fb
+[  142.123493]                         ^
+[  142.123494]  ffff888003a1c080: fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb fb
+```
+
+**Decoding steps:**
+
+1. Line 1: `use-after-free in my_net_process+0x78/0x1c0` — bug type (UAF), function, offset within function (0x78 out of 0x1c0 total bytes).
+
+2. Line 2: `Write of size 4` — a 4-byte write (likely `u32`, `int`, or pointer assignment on 32-bit). At address `ffff888003a1c048`.
+
+3. Lines 7-13: **Current call stack** — where the bug was triggered. Read bottom-up for execution order: `__do_softirq` → `net_rx_action` → `virtnet_poll` → `napi_gro_receive` → `netif_receive_skb` → `my_net_process`. The softirq `</IRQ>` marker tells you this is in interrupt context — must use GFP_ATOMIC.
+
+4. Lines 15-18: **Allocation stack** — where the freed object was born. `my_net_recv` at offset 0x34 called `alloc_skb`.
+
+5. Lines 20-23: **Free stack** — where it was freed. `my_net_recv` at offset 0xe4 — this is the error path. Same function allocated AND freed it, then `my_net_process` tried to use it.
+
+6. Lines 25-27: `72 bytes inside the freed object` — the accessed address is `ffff888003a1c048 - ffff888003a1c000 = 0x48 = 72`. Use this offset to find which struct field was accessed: `pahole -C sk_buff vmlinux | grep -A1 "offset 72"`.
+
+7. Lines 29-34: Memory state — `fb` = freed, all bytes. The `[fb]` marks the exact accessed byte (offset 72). The `>` line is the one containing the bug.
+
+**Running decode_stacktrace.sh on this report:**
+
+```bash
+dmesg | grep -A50 "BUG: KASAN" | \
+    scripts/decode_stacktrace.sh vmlinux . /lib/modules/7.0.6-netlab-kasan/extra/
+
+# Transforms every "my_net_process+0x78/0x1c0" line to:
+# my_net_process (net/my_module/my_net.c:234)
+# With the exact line number. Go to that line in your editor.
+```
+
+**The fix for this specific report:**
+
+The allocation and free both happen in `my_net_recv` (offsets 0x34 and 0xe4). The access happens in `my_net_process` (offset 0x78). The sequence is:
+
+```
+my_net_recv allocs skb
+my_net_recv passes skb to my_net_process (or some queue)
+my_net_recv hits error at 0xe4, frees skb
+my_net_process accesses the now-freed skb at 0x78
+```
+
+Fix: either (a) ensure `my_net_recv` does not free `skb` after passing it to `my_net_process` — let `my_net_process` own it; or (b) if both must run concurrently, use `skb_get(skb)` before passing to `my_net_process` so it holds a reference, and have `my_net_process` call `kfree_skb(skb)` when done with its reference.
+
+---
+
+## Summary: The Complete Debug Toolchain at a Glance
+
+```
+WHAT TO DETECT               TOOL(S)                CONFIG REQUIRED
+=============================================================================
+Memory leaks (general)       kmemleak               CONFIG_DEBUG_KMEMLEAK
+sk_buff leaks                kmemleak + DEBUG_OBJECTS CONFIG_DEBUG_OBJECTS_SKBUFF
+Use-after-free               KASAN                  CONFIG_KASAN
+Out-of-bounds (sampling)     KFENCE                 CONFIG_KFENCE
+SLUB object corruption       slub_debug             CONFIG_SLUB_DEBUG
+Double-free                  KASAN                  CONFIG_KASAN
+Reference count bugs         refcount_t              CONFIG_REFCOUNT_FULL
+Socket memory accounting     ss -m + sockstat        (runtime tools)
+RCU violations               PROVE_RCU + lockdep    CONFIG_PROVE_RCU
+Deadlocks                    lockdep                CONFIG_PROVE_LOCKING
+Lock ordering violations     lockdep                CONFIG_PROVE_LOCKING
+Data races                   KCSAN                  CONFIG_KCSAN (separate build)
+Integer overflow (signed)    UBSAN                  CONFIG_UBSAN_OVERFLOW
+Buffer overflows             KASAN + stackprotector  CONFIG_KASAN + CONFIG_STACKPROTECTOR
+NULL pointer                 oops + addr2line        (runtime tools)
+Undefined behavior           UBSAN                  CONFIG_UBSAN
+Post-mortem crash analysis   crash tool + kdump     CONFIG_CRASH_DUMP
+Fuzzing for unknown bugs     syzkaller              CONFIG_KCOV
+Function-level tracing       ftrace                 CONFIG_FTRACE
+Packet drop locations        ftrace hist triggers   CONFIG_FTRACE
+Argument inspection (live)   bpftrace               CONFIG_BPF_SYSCALL + BTF
+Line-level debugging         KGDB + gdb             CONFIG_KGDB
+=============================================================================
+```
+
+The mental model that unifies all of this: **every allocation has an owner, every owner has a lifetime, every lifetime must be respected by every code path including all error paths.** KASAN, kmemleak, SLUB debug, and DEBUG_OBJECTS are all different lenses on the same truth: the kernel's memory is manually managed, and every tool in this guide is a way of catching the moment the manual management goes wrong.
