@@ -3459,3 +3459,3694 @@ Ethernet CRC     NIC hardware       drivers/net/virtio_net.c
 ```
 
 None of these touch a different sk_buff. They all operate on the same buffer, at their designated point in the call chain, reading and writing specific byte ranges within it.
+
+Good — I have the full document. It cuts off mid-`tcp_receive_window()`. I have enough context to answer both questions deeply.
+
+---
+
+## Summary (4–8 lines)
+
+The Linux kernel net stack never uses C++ exceptions — it uses **return-code propagation + goto-based cleanup chains** as the primary error model, combined with `sk_buff` lifetime management via `kfree_skb()` reference counting to prevent leaks on any path. Each layer validates its PDU before forwarding up/down; invalid sk_buffs are dropped at the earliest possible point. For attack mitigation, defenses are layered: input validation at the driver boundary, protocol-specific hardening (SYN cookies, seq-number randomization, rate limiting via `nf_conntrack`, BPF filters), kernel hardening (KASLR, stack canaries, CFI, SMEP/SMAP), and per-protocol countermeasures baked directly into the state machines in `tcp_input.c`, `ip_input.c`, and the Netfilter hook chain.
+
+---
+
+## Part 1 — Error Handling Without Crashes
+
+### 1.1 The Kernel's Error Model: Return Codes + goto Cleanup
+
+The kernel has no exceptions. The pattern is:
+
+```c
+// net/ipv4/tcp_output.c — tcp_transmit_skb() (simplified)
+static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
+                             int clone_it, gfp_t gfp_mask)
+{
+    struct inet_sock *inet = inet_sk(sk);
+    struct tcp_sock  *tp   = tcp_sk(sk);
+    struct tcphdr    *th;
+    int err;
+
+    /* Step 1: clone skb if needed for retransmit queue */
+    if (clone_it) {
+        skb = skb_clone(skb, gfp_mask);
+        if (unlikely(!skb))         // allocation failed
+            return -ENOBUFS;        // return error, caller handles it
+    }
+
+    /* Step 2: push TCP header */
+    skb_push(skb, tcp_header_size);
+    skb_reset_transport_header(skb);
+    th = tcp_hdr(skb);
+
+    /* Step 3: fill header fields */
+    th->source = inet->inet_sport;
+    th->dest   = inet->inet_dport;
+    th->seq    = htonl(TCP_SKB_CB(skb)->seq);
+    th->check  = 0;
+
+    /* Step 4: compute checksum — may fail if hw offload unavailable */
+    err = tcp_v4_send_check(sk, skb);    // fills th->check
+    if (err)
+        goto err_out;                    // goto cleanup, not crash
+
+    /* Step 5: hand to IP */
+    err = ip_queue_xmit(sk, skb, &inet->cork.fl);
+    if (err)
+        goto out;                        // err propagates upward
+
+out:
+    return err;
+
+err_out:
+    kfree_skb(skb);                      // sk_buff freed on error
+    return err;
+}
+```
+
+**Key rules every net function follows:**
+
+| Rule | Implementation |
+|---|---|
+| Every allocation failure is checked | `if (unlikely(!skb))` |
+| Errors return negative errno codes | `-ENOMEM`, `-EINVAL`, `-ENOBUFS` |
+| `goto` unwinds resources in reverse order | goto label hierarchy |
+| The skb is freed on any error path | `kfree_skb()` or `consume_skb()` |
+| Caller decides to retry, drop, or propagate | never crash |
+
+### 1.2 sk_buff Lifetime Management — How Leaks Are Prevented
+
+```
+sk_buff allocated
+    │  skb_get() increments refcount
+    │
+    ├── normal path: each layer passes ownership down
+    │   driver calls dev_kfree_skb_any() after DMA completes
+    │
+    └── error path: kfree_skb() called immediately
+        kfree_skb_reason(skb, SKB_DROP_REASON_*)
+        → decrements refcount
+        → if refcount == 0: frees skb + attached data pages
+```
+
+```c
+// Two different free functions — used deliberately:
+kfree_skb(skb);      // drop: packet was dropped (error, filter, etc.)
+                     // increments DROP statistics counters
+
+consume_skb(skb);    // consume: packet processed successfully
+                     // no drop counter increment
+```
+
+The distinction matters for `/proc/net/dev` drop counters — you can tell if drops are errors vs normal consumption.
+
+### 1.3 Per-Layer Input Validation — Drop Before Crash
+
+Each layer validates before processing. If invalid → drop the skb, return error, never dereference bad data.
+
+**L2 — Ethernet (net/core/dev.c)**
+
+```c
+// __netif_receive_skb_core()
+static int __netif_receive_skb_core(struct sk_buff **pskb, ...)
+{
+    struct sk_buff *skb = *pskb;
+
+    /* Sanity: minimum frame length */
+    if (unlikely(!skb_mac_header_was_set(skb))) {
+        kfree_skb(skb);
+        return NET_RX_DROP;
+    }
+
+    /* Validate ethertype is known */
+    type = skb->protocol;
+    // if no handler registered for this ethertype → dropped
+}
+```
+
+**L3 — IP (net/ipv4/ip_input.c)**
+
+```c
+// ip_rcv() — runs Netfilter PREROUTING hook then ip_rcv_finish()
+int ip_rcv(struct sk_buff *skb, struct net_device *dev,
+           struct packet_type *pt, struct net_device *orig_dev)
+{
+    struct iphdr *iph;
+    u32 len;
+
+    /* 1. Must have at least a full IP header */
+    if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+        goto inhdr_error;        // too short → drop
+
+    iph = ip_hdr(skb);
+
+    /* 2. Version must be 4 */
+    if (iph->ihl < 5 || iph->version != 4)
+        goto inhdr_error;
+
+    /* 3. Full header must be present */
+    if (!pskb_may_pull(skb, iph->ihl * 4))
+        goto inhdr_error;
+
+    /* 4. Header checksum must be valid */
+    if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+        goto csum_error;
+
+    /* 5. Declared length must not exceed actual packet */
+    len = ntohs(iph->tot_len);
+    if (skb->len < len) {
+        __IP_INC_STATS(net, IPSTATS_MIB_INTRUNCATEDPKTS);
+        goto drop;
+    }
+    if (len < (iph->ihl * 4))
+        goto inhdr_error;
+
+    /* All checks passed — proceed */
+    return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING,
+                   net, NULL, skb, dev, NULL, ip_rcv_finish);
+
+csum_error:
+    __IP_INC_STATS(net, IPSTATS_MIB_CSUMERRORS);
+inhdr_error:
+    __IP_INC_STATS(net, IPSTATS_MIB_INHDRERRORS);
+drop:
+    kfree_skb(skb);
+    return NET_RX_DROP;
+}
+```
+
+Every error increments a specific MIB counter → visible in `/proc/net/snmp`. You can diagnose exactly which check failed.
+
+**L4 — TCP (net/ipv4/tcp_ipv4.c)**
+
+```c
+// tcp_v4_rcv()
+int tcp_v4_rcv(struct sk_buff *skb)
+{
+    const struct iphdr  *iph;
+    const struct tcphdr *th;
+    struct sock *sk;
+    int ret;
+
+    /* 1. Minimum TCP header size */
+    if (skb->pkt_type != PACKET_HOST)
+        goto discard_it;
+
+    if (!pskb_may_pull(skb, sizeof(struct tcphdr)))
+        goto discard_it;
+
+    th = (const struct tcphdr *)skb->data;
+
+    /* 2. TCP header length field must be valid */
+    if (unlikely(th->doff < sizeof(struct tcphdr) / 4))
+        goto bad_packet;
+
+    if (!pskb_may_pull(skb, th->doff * 4))
+        goto discard_it;
+
+    /* 3. TCP checksum — computed over pseudo-header + segment */
+    if (skb_checksum_init(skb, IPPROTO_TCP, inet_compute_pseudo))
+        goto csum_error;
+
+    /* 4. Look up socket — must exist */
+    sk = __inet_lookup_skb(&tcp_hashinfo, skb, __tcp_hdrlen(th),
+                           th->source, th->dest, ...);
+    if (!sk)
+        goto no_tcp_socket;  // RST will be sent back
+
+    /* 5. Socket state machine — reject if not valid for this state */
+    ret = tcp_v4_do_rcv(sk, skb);
+    ...
+
+no_tcp_socket:
+    // Send RST — legitimate response, not a crash
+    tcp_v4_send_reset(NULL, skb);
+discard_it:
+    kfree_skb(skb);
+    return 0;
+bad_packet:
+    __TCP_INC_STATS(net, TCP_MIB_INERRS);
+    goto discard_it;
+csum_error:
+    __TCP_INC_STATS(net, TCP_MIB_CSUMERRORS);
+    goto discard_it;
+}
+```
+
+### 1.4 Error Propagation Architecture
+
+```
+Application: write() returns -EPIPE, -ECONNRESET, -ETIMEDOUT
+    ↑ propagated via sock->sk_err
+    │
+tcp_input.c: tcp_reset() sets sk->sk_err = ECONNRESET
+             wake_up_interruptible(sk_sleep(sk))
+    ↑
+tcp_output.c: -ENOBUFS → caller retries or backs off
+    ↑
+ip_output.c:  -EHOSTUNREACH (no route), -EMSGSIZE (frag needed, DF set)
+    ↑
+driver:       -NETDEV_TX_BUSY → qdisc requeues, retries later
+```
+
+No layer panics. Each returns an errno. The socket layer translates kernel errnos to POSIX errnos that reach your Rust `.await?` or Go `if err != nil`.
+
+### 1.5 The `unlikely()` / `likely()` Macros
+
+Throughout the stack you see:
+
+```c
+if (unlikely(!skb))       // tells compiler: branch prediction — this RARELY happens
+if (likely(sk != NULL))   // tells compiler: this USUALLY is true
+```
+
+These are `__builtin_expect()` wrappers. They hint the CPU's branch predictor so the fast path (valid packets) runs without misprediction penalties. The slow path (errors) pays extra cost — acceptable since errors are rare.
+
+---
+
+## Part 2 — Cyber Attack Mitigation Per Protocol
+
+### Architecture View
+
+```
+ATTACK SURFACE → DEFENSE LAYERS
+─────────────────────────────────────────────────────────────
+NIC/Driver │ checksum offload validation, DMA bounds checks
+           │
+L2 Ethernet│ MAC filter, VLAN separation, ARP rate limiting
+           │ bridge firewall (ebtables)
+           │
+L3 IP      │ RPF (Reverse Path Filter), bogon filter,
+           │ IP option stripping, fragment reassembly limits
+           │ Netfilter PREROUTING hook
+           │
+L4 TCP     │ SYN cookies, seq# randomization, RST validation,
+           │ TIME_WAIT assassination protection
+           │ ip_conntrack state enforcement
+           │
+L4 UDP     │ rate limiting, source validation
+           │
+L7 App     │ seccomp, namespaces, cgroups, LSM (SELinux/AppArmor)
+           │
+Kernel     │ KASLR, SMEP/SMAP, CFI, stack canaries,
+           │ W^X, PIE, hardened usercopy
+```
+
+---
+
+### 2.1 TCP — SYN Flood (DoS)
+
+**Attack:** Attacker sends millions of SYN packets with spoofed source IPs. Server allocates `struct sock` for each half-open connection, exhausting memory before the 3-way handshake completes.
+
+**Kernel defense: SYN Cookies**
+
+```c
+// net/ipv4/tcp_input.c — tcp_conn_request()
+// Called when a SYN arrives
+int tcp_conn_request(struct request_sock_ops *rsk_ops,
+                     const struct tcp_request_sock_ops *af_ops,
+                     struct sock *sk, struct sk_buff *skb)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+
+    /* Is the SYN backlog full? */
+    if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
+        /* YES → activate SYN cookies instead of allocating state */
+        want_cookie = tcp_syn_flood_action(sk, rsk_ops->slab_name);
+        
+        if (!want_cookie)
+            goto drop;  // no cookies AND backlog full → drop SYN
+    }
+
+    if (want_cookie) {
+        /* SYN cookie: encode connection state INTO the ISN
+         * No server-side state allocated at all.
+         * The ISN encodes: src/dst IP, src/dst port, timestamp, MSS
+         * When ACK arrives, we decode and verify — state recreated */
+        isn = cookie_v4_init_sequence(skb, &req->mss);
+        req->cookie_ts = 1;
+    }
+    
+    // Send SYN-ACK with the cookie as ISN
+    af_ops->send_synack(sk, dst, &fl, req, &foc,
+                        !want_cookie ? TCP_SYNACK_NORMAL : TCP_SYNACK_COOKIE,
+                        skb);
+    
+    if (want_cookie) {
+        reqsk_free(req);  // free the request socket immediately
+        return 0;         // zero state allocated on server
+    }
+}
+```
+
+```c
+// When ACK arrives — net/ipv4/tcp_ipv4.c
+// tcp_v4_cookie_check() verifies the cookie
+static struct sock *tcp_v4_cookie_check(struct sock *sk,
+                                        struct sk_buff *skb)
+{
+    const struct tcphdr *th = tcp_hdr(skb);
+    
+    if (!th->syn)
+        // Not a SYN — might be the ACK completing a cookie handshake
+        sk = cookie_v4_check(sk, skb);   // decode and verify cookie
+    return sk;
+}
+```
+
+**Enable/tune:**
+
+```bash
+# Check if SYN cookies are active
+cat /proc/sys/net/ipv4/tcp_syncookies
+# 0=off, 1=on when backlog full, 2=always on
+
+# Enable
+sysctl -w net.ipv4.tcp_syncookies=1
+
+# Increase backlog to delay cookie activation
+sysctl -w net.ipv4.tcp_max_syn_backlog=8192
+
+# Watch SYN cookie activity
+watch -n1 'netstat -s | grep -i cookie'
+# "SYN cookies sent" — how many times cookies were used
+```
+
+**Observe in kernel:**
+
+```bash
+sudo bpftrace -e '
+kprobe:cookie_v4_init_sequence {
+    printf("SYN COOKIE issued: %s -> cookie ISN generated\n", comm);
+    @syn_cookies = count();
+}'
+```
+
+---
+
+### 2.2 TCP — Sequence Number Prediction / Session Hijacking
+
+**Attack (historical):** Predict the ISN (Initial Sequence Number), inject data into an existing TCP session without completing the handshake.
+
+**Kernel defense: Cryptographically Random ISN**
+
+```c
+// net/ipv4/tcp.c — secure_tcp_seq()
+// Called when a new connection is established
+u32 secure_tcp_seq(u32 saddr, u32 daddr, __be16 sport, __be16 dport)
+{
+    u32 hash[MD5_DIGEST_WORDS];
+    
+    // Hash the 4-tuple + a secret key that rotates every 10 minutes
+    // Result is unpredictable without knowing the secret
+    net_secret_init();
+    hash[0] = saddr;
+    hash[1] = daddr;
+    hash[2] = ((__force u16)sport << 16) + (__force u16)dport;
+    hash[3] = net_secret[15];
+    
+    md5_transform(hash, net_secret);
+    
+    // Add a time component so ISN increases monotonically globally
+    return seq_scale(hash[0]);
+}
+```
+
+The `net_secret[]` array is initialized from `get_random_bytes()` (the kernel's CSPRNG, fed by hardware entropy). An attacker who does not know this secret cannot predict ISNs.
+
+**Also: RST validation**
+
+```c
+// net/ipv4/tcp_input.c — tcp_validate_incoming()
+// Reject RST packets whose seq# is outside the acceptable window
+static bool tcp_validate_incoming(struct sock *sk, struct sk_buff *skb,
+                                  const struct tcphdr *th, int syn_inerr)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+
+    /* RFC 5961: RST must have exact next expected seq,
+     * not just anywhere in the window */
+    if (th->rst) {
+        if (TCP_SKB_CB(skb)->seq == tp->rcv_nxt) {
+            // Exact match → legitimate RST
+            tcp_reset(sk, skb);
+        } else if (tcp_in_window(TCP_SKB_CB(skb)->seq, ..., tp->rcv_nxt, ...)) {
+            // In window but not exact → send challenge ACK (RFC 5961)
+            // Blind RST injection fails this check
+            tcp_send_challenge_ack(sk);
+        }
+        goto discard;
+    }
+}
+```
+
+---
+
+### 2.3 TCP — TIME_WAIT Assassination
+
+**Attack:** Inject RST or data into a connection that is in TIME_WAIT state, killing it early so the port can be reused maliciously.
+
+**Kernel defense:**
+
+```c
+// net/ipv4/tcp_minisocks.c — tcp_timewait_state_process()
+// Packets arriving for a TIME_WAIT socket
+enum tcp_tw_status tcp_timewait_state_process(struct inet_timewait_sock *tw,
+                                              struct sk_buff *skb,
+                                              const struct tcphdr *th)
+{
+    // RST in TIME_WAIT: only accept if seq# matches exactly
+    // Blind RSTs are ignored — TIME_WAIT persists
+    if (th->rst) {
+        // RFC 5961: must be within window AND pass challenge ACK
+        inet_twsk_deschedule_put(tw);
+        return TCP_TW_RST;
+    }
+
+    // SYN in TIME_WAIT: only accept if seq# > last seen
+    // Prevents port reuse attacks
+    if (th->syn && !th->rst && !th->ack &&
+        !after(TCP_SKB_CB(skb)->seq, tcptw->tw_rcv_nxt)) {
+        // seq not advanced → reject as potential attack
+        return TCP_TW_ACK;  // send ACK, ignore SYN
+    }
+}
+```
+
+---
+
+### 2.4 IP — Source Address Spoofing / Amplification
+
+**Attack:** Spoof source IP to redirect responses to victim (amplification DDoS). Or bypass IP-based ACLs.
+
+**Kernel defense: Reverse Path Filter (rp_filter)**
+
+```bash
+# Enable strict RPF on all interfaces
+sysctl -w net.ipv4.conf.all.rp_filter=1
+sysctl -w net.ipv4.conf.default.rp_filter=1
+# 0=off, 1=strict (return path must match receive interface), 2=loose
+```
+
+In kernel code (`net/ipv4/fib_frontend.c`):
+
+```c
+// fib_validate_source() — called in ip_rcv_finish() for every incoming packet
+int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst, ...)
+{
+    // Look up routing table: if a packet FROM src arrived on iif (in-interface),
+    // would our routing table send it BACK via the same interface?
+    // If not → src is spoofed → drop
+    
+    err = fib_lookup(net, &fl4, &res, FIB_LOOKUP_IGNORE_LINKSTATE);
+    if (err)
+        goto e_err;
+    
+    if (res.type == RTN_LOCAL)
+        goto martian_source;   // spoofed as our own IP
+    
+    if (rpf && !fib_info_nh_uses_dev(res.fi, dev))
+        goto e_rpf;  // return path uses different interface → spoofed
+        
+    return 0;
+
+martian_source:
+e_rpf:
+    __NET_INC_STATS(net, LINUX_MIB_IPSOURCEROUTE);
+    return -EINVAL;  // drop
+}
+```
+
+**Defense: Bogon filtering via Netfilter**
+
+```bash
+# Drop packets with private/bogon source IPs coming from public interface
+nft add rule inet filter input \
+    iif eth0 ip saddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, \
+                         127.0.0.0/8, 0.0.0.0/8, 224.0.0.0/4 } \
+    counter drop
+```
+
+---
+
+### 2.5 IP — Fragmentation Attacks
+
+**Attack types:**
+- **Teardrop:** Overlapping fragments that confuse reassembly, causing OOB writes
+- **Fragment flood:** Send millions of fragments, exhaust reassembly memory
+- **Tiny fragment:** Put TCP flags in second fragment to evade firewall inspection
+
+**Kernel defense: ip_frag — reassembly with strict limits**
+
+```c
+// net/ipv4/ip_fragment.c
+// Every fragment queue has limits enforced
+
+// Global limit on memory used for fragment reassembly
+// /proc/sys/net/ipv4/ipfrag_high_thresh (default: 4MB)
+// When exceeded → oldest queues purged
+
+// Per-queue timeout
+// /proc/sys/net/ipv4/ipfrag_time (default: 30s)
+// Incomplete reassembly after this → fragments discarded
+
+// Overlap detection — Teardrop fix
+static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+{
+    struct sk_buff *next, *prev;
+    int flags, offset;
+    
+    offset = ntohs(iph->frag_off);
+    flags  = offset & ~IP_OFFSET;
+    offset &= IP_OFFSET;
+    offset <<= 3;   // convert to bytes
+    
+    /* Check for overlap with existing fragments */
+    /* If any fragment overlaps with already-received data → drop entire queue */
+    prev = qp->q.fragments_tail;
+    while (prev) {
+        int prev_end = prev->ip_defrag_offset + skb_tail_pointer(prev) - ...;
+        if (offset < prev_end) {
+            /* OVERLAP DETECTED — potential Teardrop attack */
+            /* Drop this fragment — do not corrupt reassembly */
+            goto err;
+        }
+    }
+}
+```
+
+**Tune:**
+
+```bash
+# Reduce reassembly memory limit on a server under attack
+sysctl -w net.ipv4.ipfrag_high_thresh=2097152   # 2MB
+sysctl -w net.ipv4.ipfrag_time=10               # 10s timeout
+
+# Drop fragments entirely at Netfilter if you don't need them
+nft add rule inet filter input ip fhdr flags \& 0x3fff != 0 drop
+```
+
+---
+
+### 2.6 ICMP — Flood / Smurf / Redirect Attacks
+
+**Kernel defenses:**
+
+```bash
+# Rate limit ICMP responses — prevents ICMP flood amplification
+sysctl -w net.ipv4.icmp_ratelimit=100        # max 100 per second
+sysctl -w net.ipv4.icmp_ratemask=6168        # which ICMP types to rate-limit
+
+# Disable ICMP redirects — prevents routing table poisoning
+sysctl -w net.ipv4.conf.all.accept_redirects=0
+sysctl -w net.ipv4.conf.all.send_redirects=0
+
+# Disable broadcast ICMP — prevents Smurf amplification
+sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1
+
+# Ignore bogus ICMP errors — prevents blind RST injection via ICMP
+sysctl -w net.ipv4.icmp_ignore_bogus_error_responses=1
+```
+
+In kernel (`net/ipv4/icmp.c`):
+
+```c
+// icmp_rcv() — validates and rate-checks before processing
+int icmp_rcv(struct sk_buff *skb)
+{
+    struct icmphdr *icmph;
+    
+    /* Drop ICMP to broadcast if echo_ignore_broadcasts set */
+    if (skb->pkt_type != PACKET_HOST) {
+        if (net->ipv4.sysctl_icmp_echo_ignore_broadcasts)
+            goto error;
+    }
+    
+    /* Checksum must be valid */
+    if (skb_checksum_simple_validate(skb))
+        goto csum_error;
+    
+    /* Rate limit ICMP errors */
+    if (!icmpv4_global_allow(net, type))
+        goto drop;
+}
+```
+
+---
+
+### 2.7 UDP — Amplification DDoS (DNS/NTP)
+
+**Attack:** Spoof victim's IP as source, send small UDP request to open DNS/NTP server. Server sends large response to victim (amplification factor: 50–500×).
+
+**Kernel-level countermeasures:**
+
+```c
+// No connection state in UDP by default
+// But nf_conntrack tracks UDP "connections" by 5-tuple
+
+// net/netfilter/nf_conntrack_proto_udp.c
+// UDP conntrack: first packet creates UNREPLIED entry
+// Response creates ASSURED entry
+// Limit connections per source IP via nftables:
+```
+
+```bash
+# Rate-limit new UDP connections per source IP
+nft add table inet filter
+nft add chain inet filter input '{ type filter hook input priority 0; }'
+
+# DNS: limit to 10 req/s per source
+nft add rule inet filter input \
+    udp dport 53 \
+    limit rate over 10/second \
+    counter drop
+
+# NTP: limit and require conntrack state
+nft add rule inet filter input \
+    udp dport 123 \
+    ct state new \
+    limit rate over 5/second \
+    counter drop
+
+# BPF-based rate limiting (fastest, before conntrack)
+# XDP program drops at driver level before sk_buff allocated:
+```
+
+```c
+// XDP program (runs at driver, before any kernel processing)
+// drivers/net/virtio_net.c calls xdp_do_redirect() for XDP programs
+SEC("xdp")
+int udp_ratelimit(struct xdp_md *ctx) {
+    void *data     = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+    
+    struct ethhdr *eth = data;
+    if ((void *)(eth + 1) > data_end) return XDP_DROP;
+    
+    if (eth->h_proto != bpf_htons(ETH_P_IP)) return XDP_PASS;
+    
+    struct iphdr *iph = (void *)(eth + 1);
+    if ((void *)(iph + 1) > data_end) return XDP_DROP;
+    if (iph->protocol != IPPROTO_UDP) return XDP_PASS;
+    
+    struct udphdr *udph = (void *)iph + (iph->ihl * 4);
+    if ((void *)(udph + 1) > data_end) return XDP_DROP;
+    
+    if (udph->dest == bpf_htons(53)) {
+        // Per-source rate limit using BPF map
+        __u32 src = iph->saddr;
+        __u64 *counter = bpf_map_lookup_elem(&rate_map, &src);
+        if (counter && *counter > RATE_LIMIT)
+            return XDP_DROP;  // drop before sk_buff ever allocated
+        // fastest possible drop — NIC driver level
+    }
+    return XDP_PASS;
+}
+```
+
+XDP runs at the driver level — before `netif_receive_skb()`, before any `sk_buff` allocation. Packets dropped here cost almost nothing.
+
+---
+
+### 2.8 Netfilter — The Unified Defense Plane
+
+All protocol defenses funnel through Netfilter hooks:
+
+```
+NIC RX
+  │
+  ▼
+[XDP]                      ← pre-stack BPF, fastest drop
+  │
+  ▼
+ip_rcv()
+  │
+  ├── NF_INET_PRE_ROUTING   ← conntrack, DNAT, raw table
+  │       nf_conntrack_in()
+  │           - validates state transitions
+  │           - rate limits new connections
+  │           - INVALID state → drop
+  │
+  ▼ (routing decision)
+  │
+  ├── NF_INET_LOCAL_IN      ← INPUT chain — filter table
+  │       - iptables/nftables rules
+  │       - SYN flood limits
+  │       - geo/IP block
+  │
+  ▼
+TCP/UDP socket
+  │
+  ├── NF_INET_LOCAL_OUT     ← OUTPUT chain
+  │
+  ▼
+NF_INET_POST_ROUTING        ← SNAT, conntrack confirm
+  │
+  ▼
+NIC TX
+```
+
+```c
+// net/netfilter/nf_conntrack_core.c — state machine
+// Every packet for every connection goes through this
+unsigned int nf_conntrack_in(struct sk_buff *skb, const struct nf_hook_state *state)
+{
+    // Look up or create connection tracking entry
+    ct = nf_ct_get(skb, &ctinfo);
+    
+    // Validate state transition
+    // e.g.: RST is only valid for ESTABLISHED connections
+    // SYN is only valid for NEW connections
+    // If invalid → SET_MARK as INVALID → drop in INPUT chain
+    
+    if (ctinfo == IP_CT_INVALID) {
+        NF_CT_STAT_INC_ATOMIC(nf_ct_net(ct), invalid);
+        return NF_DROP;
+    }
+}
+```
+
+---
+
+### 2.9 Kernel Self-Protection (Applies to All Protocols)
+
+These defenses prevent exploitation even when a vulnerability exists:
+
+| Defense | Mechanism | Protects Against |
+|---|---|---|
+| KASLR | `CONFIG_RANDOMIZE_BASE` | ROP/JOP chains using kernel addresses |
+| SMEP | CPU bit (Supervisor Mode Execution Prevention) | Kernel executing userspace shellcode |
+| SMAP | CPU bit (Supervisor Mode Access Prevention) | Kernel reading attacker-controlled userspace |
+| Stack canaries | `CONFIG_STACKPROTECTOR_STRONG` | Stack buffer overflows in net code |
+| `hardened_usercopy` | `CONFIG_HARDENED_USERCOPY` | OOB reads/writes via copy_to/from_user |
+| CFI | `CONFIG_CFI_CLANG` | Function pointer hijacking in net hooks |
+| W^X | Non-executable data pages | Code injection via skb data |
+
+```bash
+# Verify your kernel has these protections
+grep -E "STACKPROTECTOR|RANDOMIZE_BASE|HARDENED_USERCOPY" /boot/config-$(uname -r)
+
+# Check SMEP/SMAP at runtime
+grep -E "smep|smap" /proc/cpuinfo
+```
+
+---
+
+## Threat Model Summary
+
+```
+Attack               │ Layer │ Mitigation                        │ Config/Code Location
+─────────────────────┼───────┼───────────────────────────────────┼───────────────────────
+SYN flood            │ L4    │ SYN cookies                       │ tcp_syncookies=1
+Seq prediction       │ L4    │ CSPRNG ISN, net_secret            │ secure_tcp_seq()
+Blind RST injection  │ L4    │ Challenge ACK (RFC 5961)          │ tcp_validate_incoming()
+IP spoofing          │ L3    │ RPF, bogon filter                 │ rp_filter=1
+Fragmentation        │ L3    │ Overlap detection, memory limits  │ ip_frag_queue()
+ICMP flood/redirect  │ L3    │ Rate limit, redirect=0            │ sysctl icmp_*
+UDP amplification    │ L4    │ XDP rate limit, conntrack         │ XDP + nf_conntrack
+Port scan            │ L4    │ conntrack INVALID drop            │ nftables ct state invalid
+OOB in net driver    │ L1/L2 │ pskb_may_pull(), bounds checks    │ every rcv function
+Kernel exploitation  │ ALL   │ KASLR, SMEP, SMAP, canaries, CFI │ kernel config
+```
+
+---
+
+## Next 3 Steps
+
+1. **Instrument the drop paths** — add bpftrace probes on `kfree_skb` with `SKB_DROP_REASON_*` to see which check drops packets in your lab:
+   ```bash
+   sudo bpftrace -e 'kprobe:kfree_skb_reason { @drops[arg1] = count(); }'
+   ```
+
+2. **Simulate and observe SYN flood** — inside the VM, use `hping3` to flood your Axum server while watching SYN cookie counters: `hping3 -S --flood -p 3000 127.0.0.1` + `watch netstat -s | grep cookie`
+
+3. **Read `net/netfilter/nf_conntrack_proto_tcp.c`** in full — specifically `tcp_conntracks[]` state table — cross-reference with `tcp_validate_incoming()` in `tcp_input.c`. These two together define exactly which packets the kernel accepts vs drops for every TCP state.
+
+Given your preference — no SVG/JS. Pure technical depth, structured as you expect.
+
+---
+
+## Summary
+
+Before touching `net/ipv4/tcp.c`, you need solid ground in five domains: **deep C** (not application C — kernel C with GCC extensions, pointer arithmetic, alignment, no libc), **computer architecture** (cache hierarchy, NUMA, memory ordering, DMA, interrupts), **kernel internals** (locking primitives, memory allocators, data structures, RCU, softirqs/NAPI), **networking theory** (full TCP state machine, sk_buff lifecycle, socket abstraction, Netfilter architecture), and **concurrency** (race conditions, lock-free programming, memory barriers). Missing any one of these means you will write code that compiles, passes review, then silently corrupts memory or deadlocks under load. This document maps each domain to specific kernel files, books, kernel configs, and verification commands.
+
+---
+
+## Domain 1 — Kernel C (Not Application C)
+
+This is the hardest shift. The kernel is a freestanding C environment. No libc, no exceptions, no runtime, no stack unwinding, no dynamic linking.
+
+### What you must know cold
+
+**Pointer arithmetic and type punning:**
+```c
+// Kernel does this constantly — you must understand it
+struct sk_buff *skb = ...;
+struct iphdr *iph = (struct iphdr *)(skb->head + skb->network_header);
+
+// Container_of — the single most important macro in the kernel
+// Given a pointer to a member, get the pointer to the containing struct
+#define container_of(ptr, type, member) ({          \
+    void *__mptr = (void *)(ptr);                   \
+    ((type *)(__mptr - offsetof(type, member))); })
+
+// Used everywhere: list_entry, hlist_entry, netdev_priv, tcp_sk, inet_sk
+struct tcp_sock *tp = tcp_sk(sk);
+// expands to: (struct tcp_sock *)((u8 *)sk - offsetof(struct tcp_sock, inet_conn))
+```
+
+**GCC extensions the kernel relies on:**
+```c
+__attribute__((packed))         // no padding — used in protocol headers
+__attribute__((aligned(64)))    // cache-line alignment
+__attribute__((noinline))       // prevent inlining — for ftrace
+__attribute__((noreturn))       // for BUG(), panic()
+__attribute__((format(printf))) // for pr_fmt()
+
+likely(x)    // __builtin_expect((x), 1) — fast path hint
+unlikely(x)  // __builtin_expect((x), 0) — error path hint
+
+// These matter for branch prediction in hot paths like tcp_rcv()
+if (unlikely(th->doff < sizeof(struct tcphdr) / 4))
+    goto bad_packet;
+```
+
+**Bitwise operations — protocol headers are all bitfields:**
+```c
+// Network byte order conversions — used in every protocol header
+__be16 port = htons(80);          // host-to-network short
+__be32 addr = htonl(0xC0A80001); // host-to-network long
+u16 port_h  = ntohs(th->source);  // network-to-host short
+
+// Bit manipulation in flags
+#define TCP_FLAG_SYN  0x002
+#define TCP_FLAG_ACK  0x010
+if (tcp_flags & (TCP_FLAG_SYN | TCP_FLAG_ACK) == TCP_FLAG_SYN)  // SYN only
+
+// Struct with bitfields — ip header
+struct iphdr {
+    __u8  ihl:4,     // internet header length — 4 bits
+          version:4; // version — 4 bits
+    __u8  tos;
+    __be16 tot_len;
+    // ...
+};
+```
+
+**Memory layout, alignment, struct padding:**
+```c
+// Wrong — compiler adds padding, struct won't match wire format
+struct bad_header {
+    u8  type;
+    u32 length;  // 3 bytes padding inserted before this!
+    u16 checksum;
+};
+
+// Correct — __packed or explicit ordering by size
+struct good_header {
+    u32 length;
+    u16 checksum;
+    u8  type;
+    u8  flags;
+} __attribute__((packed));
+```
+
+**Volatile and memory barriers — critical for concurrent access:**
+```c
+// READ_ONCE/WRITE_ONCE — prevent compiler from caching or reordering
+u32 seq = READ_ONCE(tp->snd_nxt);
+WRITE_ONCE(sk->sk_state, TCP_ESTABLISHED);
+
+// Memory barriers — prevent CPU reordering
+smp_wmb();   // write memory barrier — writes before this are visible before writes after
+smp_rmb();   // read memory barrier
+smp_mb();    // full memory barrier — both reads and writes
+
+// In net stack: used when passing sk_buff between CPUs
+```
+
+**What to practice:**
+
+```bash
+# Read these specific kernel files for C patterns — not to understand net yet,
+# just to understand kernel C idioms
+less include/linux/kernel.h          # core macros: min/max/ARRAY_SIZE/container_of
+less include/linux/types.h           # __u8 __u16 __be32 etc.
+less include/linux/bitops.h          # set_bit/test_bit/find_first_bit
+less include/linux/string.h          # memcpy/memset — kernel versions
+less arch/x86/include/asm/barrier.h  # memory barrier implementations
+
+# Verify you understand by answering these without looking:
+# 1. What does container_of return when given &skb->protocol?
+# 2. Why does htons() exist at all — couldn't you just swap bytes manually?
+# 3. What is the size of this struct on x86-64: struct { u8 a; u32 b; u8 c; }?
+# 4. What happens if you access a __be32 field as a u32 without ntohs()?
+```
+
+---
+
+## Domain 2 — Computer Architecture
+
+The kernel net stack is performance-critical. Without architecture knowledge, you write correct but slow code — or worse, code with subtle races.
+
+### CPU Cache Hierarchy — affects every data structure decision
+
+```
+CPU Core 0        CPU Core 1
+  L1d (32KB)        L1d (32KB)   ← per-core, ~4 cycle latency
+  L1i (32KB)        L1i (32KB)
+  L2 (256KB)        L2 (256KB)   ← per-core, ~12 cycle latency
+        L3 (shared, 8-32MB)      ← shared, ~40 cycle latency
+        Main Memory (DRAM)       ← ~200 cycle latency
+```
+
+**Why it matters for net code:**
+
+```c
+// sk_buff is 256 bytes — fits in 4 cache lines (64B each)
+// The first fields are accessed most often — placed first deliberately
+struct sk_buff {
+    struct sk_buff *next;    // ← cache line 0 — list traversal
+    struct sk_buff *prev;
+    union { ... };
+    ktime_t tstamp;
+
+    // --- cache line 1 ---
+    struct rb_node rbnode;   // for TCP ooo queue
+    struct list_head list;
+    struct sock *sk;         // owner socket
+    struct net_device *dev;  // output device
+    
+    // --- cache line 2 ---
+    unsigned int len;        // packet length — accessed in every function
+    unsigned int data_len;
+    __u16 mac_len;
+    __u16 hdr_len;
+    // ...
+};
+
+// Per-CPU variables — eliminate false sharing between cores
+DEFINE_PER_CPU(struct softnet_data, softnet_data);
+// Each CPU has its own copy — no cache line bouncing
+```
+
+**False sharing — the hidden killer:**
+```c
+// BAD: two fields modified by different CPUs on same cache line
+struct bad {
+    atomic_t cpu0_counter;   // CPU 0 writes this
+    atomic_t cpu1_counter;   // CPU 1 writes this
+};
+// When CPU 0 writes, it invalidates the cache line on CPU 1 and vice versa
+// Even though they're writing different fields — same 64-byte cache line
+
+// GOOD: align each to its own cache line
+struct good {
+    atomic_t cpu0_counter ____cacheline_aligned_in_smp;
+    atomic_t cpu1_counter ____cacheline_aligned_in_smp;
+};
+```
+
+### Interrupts — the entry point for all received packets
+
+```
+NIC receives frame → raises IRQ → CPU stops current task
+    → saves registers → jumps to interrupt handler
+
+IRQ handler (hardirq context — must be fast, non-blocking):
+    - Acknowledge the interrupt
+    - Schedule NAPI poll (do NOT process the packet here)
+    - Return (re-enable interrupts)
+
+Softirq (NET_RX_SOFTIRQ — kernel thread, preemptible):
+    - NAPI poll: process up to budget packets from ring buffer
+    - Call netif_receive_skb() for each
+    - This is where your ip_rcv() runs
+
+Key rules in interrupt/softirq context:
+    - Cannot sleep (no mutex_lock, no kmalloc(GFP_KERNEL))
+    - Cannot access userspace memory
+    - Spinlocks only (not mutex)
+    - Cannot call schedule()
+```
+
+```bash
+# See interrupt distribution across CPUs
+cat /proc/interrupts | head -5
+
+# See softirq counts per CPU
+cat /proc/softirqs
+
+# See NAPI stats
+cat /proc/net/softnet_stat
+# columns: total processed, dropped, time-squeeze (ran out of budget)
+```
+
+### DMA — how packets move from NIC to kernel memory
+
+```
+NIC receives frame:
+    NIC DMA-writes frame into pre-allocated kernel buffer (rx ring)
+    No CPU involvement during the DMA transfer
+    NIC raises IRQ when buffer is full
+
+Kernel pre-allocates DMA-coherent memory:
+    dma_alloc_coherent() — allocates memory accessible by both CPU and DMA
+    Maps it into the rx ring
+    NIC writes directly into this memory
+
+After DMA:
+    CPU receives IRQ
+    Calls NAPI poll
+    Builds sk_buff pointing into the DMA buffer
+    (or copies the DMA buffer into a new sk_buff for small packets)
+```
+
+**What to read:**
+```bash
+# DMA fundamentals
+less Documentation/core-api/dma-api.rst
+
+# Interrupt handling
+less Documentation/core-api/genericirq.rst
+
+# NUMA (multi-socket machines — packets should stay on their socket's memory)
+numactl --hardware   # show your NUMA topology
+cat /proc/sys/kernel/numa_balancing
+```
+
+### Memory Ordering — where bugs hide
+
+```c
+// CPU instruction reordering is real — the CPU executes out of order
+// The compiler also reorders — entirely legal in C11 without barriers
+
+// Example of a race in net code without barriers:
+// Thread A (producer):
+skb->data = payload;          // store 1
+skb->len  = len;              // store 2
+list_add(&skb->list, &queue); // store 3
+
+// Thread B (consumer) without barrier:
+// Could see: list entry visible, but skb->data not yet written!
+// CPU reordered store 3 before store 1
+
+// Correct — with write barrier:
+skb->data = payload;
+skb->len  = len;
+smp_wmb();                     // ensure stores above are visible before
+list_add(&skb->list, &queue);  // this store
+```
+
+---
+
+## Domain 3 — Linux Kernel Internals (Generic)
+
+These are not net-specific. You need them before reading any net subsystem code.
+
+### 3.1 Kernel Data Structures
+
+**`list_head` — the universal doubly-linked list:**
+```c
+// include/linux/list.h — read this file completely
+struct list_head {
+    struct list_head *next, *prev;
+};
+
+// Used in: sk_buff queues, socket lists, device lists, timer lists
+// The list node is EMBEDDED in the struct — not a pointer to it
+struct my_packet {
+    int data;
+    struct list_head list;  // embedded node
+};
+
+// Initialize
+LIST_HEAD(my_queue);  // empty list head
+
+// Add to tail
+list_add_tail(&pkt->list, &my_queue);
+
+// Iterate — list_for_each_entry gives you the container struct
+struct my_packet *p;
+list_for_each_entry(p, &my_queue, list) {
+    process(p->data);
+}
+
+// In net stack: sk_buff queues
+struct sk_buff_head {
+    struct sk_buff *next;
+    struct sk_buff *prev;
+    __u32 qlen;       // queue length
+    spinlock_t lock;
+};
+```
+
+**`hlist` — hash table entries (single pointer prev for memory efficiency):**
+```c
+// Used for TCP socket hash table — millions of sockets
+// hlist saves 8 bytes per node vs list_head — significant at scale
+struct inet_hashinfo {
+    struct inet_ehash_bucket *ehash;  // established connections
+    // Each bucket is an hlist_head
+};
+```
+
+**`rbtree` — ordered intervals, used for TCP OOO queue:**
+```c
+// include/linux/rbtree.h
+// TCP out-of-order packets stored in rb-tree ordered by sequence number
+// O(log n) insert/search — critical for reordering handling
+struct tcp_sock {
+    struct rb_root out_of_order_queue;  // OOO segments
+};
+```
+
+**`radix_tree` / `xarray` — sparse arrays, used for routing:**
+```c
+// Routing table: IP address → route — sparse, huge keyspace
+// radix tree gives O(k) lookup where k = key length in bits
+```
+
+**What to do:**
+```bash
+# Build and run these exercises before reading net code:
+cat > /tmp/list_test.c << 'EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+
+// Implement container_of from scratch
+#define my_container_of(ptr, type, member) \
+    ((type *)((char *)(ptr) - offsetof(type, member)))
+
+struct node { int val; struct { struct node *next, *prev; } list; };
+
+int main(void) {
+    struct node n = { .val = 42 };
+    struct node *recovered = my_container_of(&n.list, struct node, list);
+    printf("val = %d\n", recovered->val);  // must print 42
+    return 0;
+}
+EOF
+gcc -o /tmp/list_test /tmp/list_test.c && /tmp/list_test
+```
+
+### 3.2 Locking Primitives — the hardest part
+
+```
+Spinlock:
+    - Busy-waits (spins) until lock is available
+    - Disables preemption while held
+    - Use in: IRQ handlers, softirq, any code that cannot sleep
+    - Max hold time: microseconds — never do I/O while holding
+    - spin_lock() / spin_unlock()
+    - spin_lock_irqsave() / spin_unlock_irqrestore()  ← also disables IRQs
+
+Mutex:
+    - Sleeps if unavailable — puts thread to sleep, wakes when available
+    - Use in: process context only — anywhere you can sleep
+    - Never in IRQ/softirq context
+    - mutex_lock() / mutex_unlock()
+
+RCU (Read-Copy-Update) — critical for net stack:
+    - Multiple concurrent readers, single writer
+    - Readers: zero overhead — no lock at all on read path
+    - Writer: makes a copy, modifies, atomically swaps pointer, waits for
+              existing readers to finish (grace period), then frees old
+    - Used for: routing table, socket lookup, neighbor table
+    - rcu_read_lock() / rcu_read_unlock()  ← reader — just disables preemption
+    - rcu_dereference()                    ← safe pointer dereference under RCU
+    - synchronize_rcu() / call_rcu()       ← writer — wait for grace period
+
+Seqlock:
+    - Reader can read without lock but must retry if writer modified
+    - Writer always gets exclusive access
+    - Use for: frequently-read, rarely-written data (timestamps, sequence numbers)
+    - Used in: skb timestamp, jiffies_64
+```
+
+```c
+// RCU in practice — socket lookup (net/ipv4/tcp_ipv4.c)
+// Finding the socket for an incoming packet — hot path, must be zero-cost
+
+rcu_read_lock();  // no actual lock — just disables preemption
+sk = __inet_lookup_established(net, &tcp_hashinfo, ...);
+// sk_buff found: sk is valid for duration of rcu_read_lock section
+if (sk) {
+    // sk is guaranteed not freed while rcu_read_lock() is held
+    // because freeing sk calls call_rcu() which waits for all readers
+    process(sk, skb);
+}
+rcu_read_unlock();  // preemption re-enabled, grace period can proceed
+```
+
+```bash
+# Read these completely — not skim, READ:
+less Documentation/RCU/whatisRCU.rst       # 30 min read, mandatory
+less Documentation/locking/spinlocks.rst
+less Documentation/locking/mutex-design.rst
+less Documentation/locking/lockdep-design.rst  # deadlock detector
+```
+
+### 3.3 Memory Allocation
+
+```c
+// kmalloc — small allocations, physically contiguous
+// GFP flags tell the allocator what context you're in:
+
+void *buf = kmalloc(size, GFP_KERNEL);   // can sleep — process context only
+void *buf = kmalloc(size, GFP_ATOMIC);   // cannot sleep — IRQ/softirq context
+void *buf = kmalloc(size, GFP_NOWAIT);   // cannot sleep, may fail — softirq
+
+// The sk_buff allocator — tuned for net stack
+// Slub slab allocator: pre-allocates pools of common sizes
+struct sk_buff *skb = alloc_skb(size, GFP_ATOMIC);   // in softirq
+struct sk_buff *skb = alloc_skb(size, GFP_KERNEL);   // in process context
+
+// headroom — space before data for prepending headers
+struct sk_buff *skb = alloc_skb(payload_len + MAX_HEADER, GFP_KERNEL);
+skb_reserve(skb, MAX_HEADER);  // reserve headroom
+
+// After this: skb->data points past headroom, ready for payload
+// Prepending TCP header: skb_push(skb, sizeof(struct tcphdr)) — moves data left
+// Prepending IP header:  skb_push(skb, sizeof(struct iphdr))  — moves data left further
+```
+
+```bash
+# See slab allocator state — look for skbuff entries
+cat /proc/slabinfo | grep skb
+
+# See memory pressure counters
+cat /proc/meminfo | grep -E "Slab|KReclaimable"
+```
+
+### 3.4 Softirqs and NAPI — the RX fast path
+
+```
+Hardware IRQ fires (NIC):
+    → hardirq handler: ring bell, schedule NAPI
+    → raise_softirq(NET_RX_SOFTIRQ)
+    → return from interrupt
+
+Softirq kernel thread (ksoftirqd/N or return-from-IRQ path):
+    → net_rx_action() runs
+    → iterates napi_list
+    → calls driver->poll() for each NAPI instance
+    → driver->poll() calls napi_gro_receive() per packet
+    → napi_gro_receive() → netif_receive_skb() → ip_rcv() → ...
+
+Budget: default 300 packets per poll call
+    → prevents any one NIC from monopolizing CPU
+    → if budget exhausted: reschedule, give other softirqs a turn
+```
+
+```c
+// Registering NAPI — what every virtio/real NIC driver does
+netif_napi_add(dev, &vi->napi[i], virtnet_poll, NAPI_POLL_WEIGHT);
+// virtnet_poll() is called by the softirq engine
+// It calls napi_complete_done() when done, or returns budget if not
+
+// Your budget tracking in a NAPI poll function:
+static int virtnet_poll(struct napi_struct *napi, int budget)
+{
+    struct virtnet_info *vi = container_of(napi, struct virtnet_info, ...);
+    int received = 0;
+
+    while (received < budget) {
+        skb = receive_one_packet(vi);
+        if (!skb) break;
+        napi_gro_receive(napi, skb);
+        received++;
+    }
+
+    if (received < budget)
+        napi_complete_done(napi, received);  // done — disable polling
+
+    return received;
+}
+```
+
+```bash
+# Verify NAPI is running
+cat /proc/net/softnet_stat
+# Column 3: time_squeeze — times NAPI ran out of budget (increase budget if high)
+
+# See NAPI poll stats per device  
+ethtool -S eth0 | grep -E "rx_packets|drops|napi"
+```
+
+### 3.5 Per-CPU Variables and NUMA
+
+```c
+// Per-CPU variables — no locking needed, each CPU has its own copy
+DEFINE_PER_CPU(struct softnet_data, softnet_data);
+
+// Access:
+struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+sd->total++;  // no lock needed — only THIS cpu touches it
+
+// Why: eliminates cache line bouncing
+// On a 64-core machine, a shared counter would thrash the cache
+// Per-CPU: each core writes its own cache line, combine at read time
+
+// Network stats use this pattern:
+DEFINE_PER_CPU(struct net_device_stats, dev_stats);
+this_cpu_inc(dev_stats.rx_packets);
+```
+
+---
+
+## Domain 4 — Networking Theory (Mandatory Depth)
+
+You need more than "TCP does reliable delivery." You need the state machine, the algorithms, and the exact wire format.
+
+### 4.1 The TCP State Machine — know every transition
+
+```
+                CLOSED
+                  │
+            passive open│ listen()
+                  ▼
+               LISTEN ──────────── SYN received
+                  │                      │
+         SYN+ACK sent                    │
+                  │                      ▼
+                  │               SYN_RECEIVED
+                  │                      │
+       SYN received│              ACK received│
+       SYN+ACK sent│                          │
+                  ▼                           ▼
+           SYN_SENT ──── SYN+ACK received ──► ESTABLISHED
+                                              │        │
+                                    close()   │        │ close()
+                              FIN sent        │        ▼
+                                    ▼         │    CLOSE_WAIT
+                             FIN_WAIT_1       │        │
+                                    │   FIN   │  close()│
+                                    │received │        ▼
+                                    ▼         │    LAST_ACK
+                             FIN_WAIT_2       │        │
+                                    │         │    ACK  │
+                              FIN   │         │ received│
+                            received│         │        ▼
+                                    ▼         │      CLOSED
+                              TIME_WAIT ◄─────┘
+                                    │
+                               2*MSL timeout
+                                    ▼
+                                 CLOSED
+```
+
+```bash
+# Watch state transitions live
+watch -n0.3 'ss -tan | sort | uniq -c | sort -rn'
+
+# Read the kernel implementation of every state:
+less net/ipv4/tcp_input.c
+# Search for: tcp_rcv_state_process() — the main state machine dispatcher
+# Every case: TCP_LISTEN, TCP_SYN_SENT, TCP_SYN_RECV, TCP_ESTABLISHED, ...
+```
+
+### 4.2 TCP Congestion Control — must understand the algorithms
+
+```
+Slow Start:
+    cwnd starts at 1 MSS (or 10 MSS per RFC 6928)
+    For each ACK received: cwnd += 1 MSS
+    Doubles every RTT until ssthresh
+
+Congestion Avoidance (after ssthresh):
+    For each ACK: cwnd += 1/cwnd MSS
+    Grows linearly (additive increase)
+
+On packet loss (timeout):
+    ssthresh = cwnd / 2
+    cwnd = 1 MSS
+    Return to slow start
+
+On 3 duplicate ACKs (fast retransmit):
+    ssthresh = cwnd / 2
+    cwnd = ssthresh (CUBIC/Reno differ here)
+    Retransmit missing segment
+    Skip slow start — go directly to congestion avoidance
+
+CUBIC (default in Linux):
+    Uses cubic function of time since last congestion event
+    Better for high-BDP (bandwidth-delay product) links
+    Kernel: net/ipv4/tcp_cubic.c
+
+BBR (Bottleneck Bandwidth and RTT):
+    Model-based — estimates bottleneck bandwidth and RTT
+    Does NOT react to loss — reacts to delay
+    Better for lossy links (wireless)
+    Kernel: net/ipv4/tcp_bbr.c
+```
+
+```bash
+# Check current congestion control
+cat /proc/sys/net/ipv4/tcp_congestion_control
+
+# Switch to BBR
+sysctl -w net.ipv4.tcp_congestion_control=bbr
+
+# Watch cwnd in real-time with ss
+ss -tin | grep cwnd
+
+# See congestion control modules available
+cat /proc/sys/net/ipv4/tcp_available_congestion_control
+```
+
+### 4.3 Socket Abstraction — the bridge between user and kernel
+
+```
+Three distinct structs, three distinct layers:
+
+struct socket          ← VFS layer — what fd points to
+    sock_ops *ops      ← protocol operations (TCP, UDP, UNIX, ...)
+    struct sock *sk    ← protocol-independent socket state
+
+struct sock            ← network layer protocol-independent state
+    sk_receive_queue   ← sk_buff queue for received data
+    sk_write_queue     ← sk_buff queue for data to send
+    sk_sndbuf          ← send buffer size limit
+    sk_rcvbuf          ← receive buffer size limit
+    sk_state           ← TCP_ESTABLISHED, etc.
+    sk_error_report    ← wake up on error
+    sk_data_ready      ← wake up when data available
+
+struct tcp_sock        ← TCP-specific state (embeds struct sock via inet_conn)
+    snd_nxt            ← next sequence number to send
+    snd_una            ← oldest unACKed sequence number
+    rcv_nxt            ← next expected from peer
+    srtt_us            ← smoothed RTT in microseconds
+    cwnd               ← congestion window
+    ssthresh           ← slow start threshold
+```
+
+```bash
+# Navigate the hierarchy in kernel source
+grep -n "struct tcp_sock" include/linux/tcp.h | head -5
+grep -n "struct inet_sock" include/net/inet_sock.h | head -5
+grep -n "struct sock" include/net/sock.h | head -5
+
+# The cast chain used everywhere in net code:
+# sk  → tcp_sk(sk) → struct tcp_sock*
+# sk  → inet_sk(sk)→ struct inet_sock*
+# skb → tcp_hdr(skb)→ struct tcphdr* (points into skb->data at transport_header)
+
+# Understand why this works — examine the offsetof values:
+cat > /tmp/sock_layout.c << 'EOF'
+#include <stddef.h>
+#include <stdio.h>
+// Simplified version of inet_sock layout
+struct sock      { int sk_state; int sk_sndbuf; };
+struct inet_sock { struct sock sk; int inet_sport; int inet_daddr; };
+struct tcp_sock  { struct inet_sock inet; int snd_nxt; int cwnd; };
+
+int main(void) {
+    struct tcp_sock ts;
+    struct sock *sk = &ts.inet.sk;
+
+    // tcp_sk(sk) = (struct tcp_sock *)sk  ← works because sk is first member
+    struct tcp_sock *tp = (struct tcp_sock *)sk;
+    printf("same pointer? %d\n", (void *)tp == (void *)sk);  // must be 1
+
+    // inet_sk(sk) = (struct inet_sock *)sk ← same reason
+    struct inet_sock *inet = (struct inet_sock *)sk;
+    printf("inet same? %d\n", (void *)inet == (void *)sk);   // must be 1
+
+    return 0;
+}
+EOF
+gcc -o /tmp/sock_layout /tmp/sock_layout.c && /tmp/sock_layout
+```
+
+### 4.4 Netfilter Hook Architecture
+
+```
+Packet arrives at ip_rcv():
+
+NF_INET_PRE_ROUTING    ← conntrack, DNAT
+  ↓ (routing decision)
+NF_INET_LOCAL_IN       ← iptables INPUT chain — filter for local sockets
+  ↓
+Protocol handler (tcp_v4_rcv)
+  ↓
+NF_INET_LOCAL_OUT      ← iptables OUTPUT chain
+  ↓ (routing decision)
+NF_INET_POST_ROUTING   ← SNAT, conntrack confirm
+  ↓
+NIC TX
+
+Hook return values:
+    NF_ACCEPT   — continue processing
+    NF_DROP     — drop the packet, call kfree_skb()
+    NF_STOLEN   — packet taken by hook, don't free
+    NF_QUEUE    — queue for userspace (nfqueue)
+    NF_REPEAT   — call hook again
+```
+
+```bash
+# See registered hooks
+cat /proc/net/ip_tables_names
+nft list tables
+nft list ruleset
+
+# Kernel implementation of NF_HOOK macro:
+less include/linux/netfilter.h
+# NF_HOOK() calls nf_hook() which calls registered hooks in priority order
+```
+
+---
+
+## Domain 5 — Concurrency at Kernel Scale
+
+### The Specific Races in Net Code
+
+```
+Race 1: sk_buff access after free
+    Thread A: processes skb, calls kfree_skb()
+    Thread B: still holds pointer to skb from queue peek
+    Solution: skb_get() increments refcount before sharing
+              kfree_skb() decrements — only frees when count reaches 0
+
+Race 2: Socket state vs packet arrival
+    User thread: calls close() → sets sk_state = TCP_CLOSE
+    Softirq:     receives packet → calls tcp_v4_rcv() → looks up sk
+    Solution: sock_hold() / sock_put() — reference count the socket
+              The packet-processing path calls sock_hold() to prevent
+              close() from freeing it while the packet is being handled
+
+Race 3: Routing table update vs packet forwarding
+    Reader (forwarding): looks up route for packet
+    Writer (route add):  modifies the routing table
+    Solution: RCU — routing table (fib_trie) is read under rcu_read_lock()
+              Updates use rcu_assign_pointer() + synchronize_rcu()
+
+Race 4: Per-CPU queue → global queue handoff
+    NAPI poll (CPU 0): processes packets
+    GRO flush (CPU 0): aggregates, calls netif_receive_skb()
+    Possible backlog: packets handed to sk on another CPU's backlog
+    Solution: backlog NAPI — each CPU has its own input_pkt_queue
+```
+
+```bash
+# Enable lockdep — the kernel's built-in deadlock and locking rule detector
+# Add to your kernel config:
+scripts/config --enable CONFIG_LOCKDEP
+scripts/config --enable CONFIG_PROVE_LOCKING
+scripts/config --enable CONFIG_DEBUG_LOCKDEP
+
+# After rebuild — any locking violation prints a detailed report to dmesg
+# This is how the kernel catches locking bugs at development time
+
+# Enable KASAN — kernel address sanitizer — catches use-after-free
+scripts/config --enable CONFIG_KASAN
+scripts/config --enable CONFIG_KASAN_INLINE
+# Adds ~2x memory overhead but catches memory errors immediately with full trace
+```
+
+---
+
+## Domain 6 — Toolchain and Build System
+
+### Kbuild — not GNU Make, though it uses it
+
+```bash
+# How to add a new .c file to the net subsystem build:
+# Edit net/ipv4/Makefile:
+echo 'obj-y += my_module.o' >> net/ipv4/Makefile
+# obj-y   = always built into kernel
+# obj-m   = built as loadable module
+# obj-$(CONFIG_MY_FEATURE) = conditional on Kconfig
+
+# How to add a Kconfig option:
+# Edit net/ipv4/Kconfig:
+cat >> net/ipv4/Kconfig << 'EOF'
+config NETLAB_PROBES
+    bool "Net stack debug probes"
+    default n
+    help
+      Enables pr_debug probes in TCP/IP stack for learning.
+EOF
+# Then in Makefile: obj-$(CONFIG_NETLAB_PROBES) += netlab_probe.o
+
+# Building only the net subsystem (not full kernel):
+make -j$(nproc) net/   # faster than full build
+
+# Compile one file and see all GCC flags used:
+make net/ipv4/tcp.o V=1 2>&1 | head -20
+# -fno-strict-aliasing: type-pun safety
+# -fno-common: no tentative definitions
+# -fstack-protector-strong: stack canaries
+# -mno-red-zone: no red zone (required for interrupt handlers)
+# -ffreestanding: no libc assumptions
+```
+
+### Cross-referencing the Source
+
+```bash
+# cscope — navigate function calls, definitions, usages
+cd linux-7.0.6
+find . -name "*.c" -o -name "*.h" | grep -v "\.git" > cscope.files
+cscope -b -q -k   # build database — takes ~2 min
+
+# In vim:
+# :cs find d tcp_sendmsg  — functions called BY tcp_sendmsg
+# :cs find c tcp_sendmsg  — all callers OF tcp_sendmsg
+# :cs find s sk_buff      — all references to sk_buff
+# Ctrl+] on a symbol      — jump to definition
+
+# ctags — for IDE integration (CLion uses this)
+ctags -R --languages=C --exclude=.git .
+
+# Online alternative — faster for exploration:
+# https://elixir.bootlin.com/linux/v7.0.6/source
+# Click any symbol → definition + all callers in one page
+```
+
+---
+
+## Domain 7 — The sk_buff Deep Dive (Do This Before Any Net Code)
+
+This is the single mandatory prerequisite specific to the net subsystem.
+
+```bash
+# Read these in order — this is your week 0:
+less include/linux/skbuff.h          # The struct definition — read every field
+less net/core/skbuff.c               # Allocation, cloning, fragmentation
+less Documentation/networking/skbuff.rst  # Conceptual overview
+
+# Answer these questions from reading — do not proceed until you can:
+# 1. What is the difference between skb->len and skb->data_len?
+# 2. When is skb->data_len nonzero? (hint: paged data / scatter-gather)
+# 3. What does skb_clone() share vs what does skb_copy() copy?
+# 4. What does skb_linearize() do and when is it needed?
+# 5. What is the difference between pskb_may_pull() and skb_pull()?
+# 6. How does skb_cow() work and when is it used? (copy-on-write)
+# 7. What is skb_shared()? When must you call skb_unshare()?
+```
+
+```c
+// The critical functions to understand before reading net code:
+
+// Allocation — know all three variants
+alloc_skb(size, gfp)           // allocate skb with linear data area
+netdev_alloc_skb(dev, size)    // allocate for RX from device
+__netdev_alloc_skb(dev, size, gfp)
+
+// Header management
+skb_reserve(skb, len)          // reserve headroom — call BEFORE adding data
+skb_push(skb, len)             // prepend: moves data LEFT, returns new data ptr
+skb_pull(skb, len)             // strip: moves data RIGHT, returns new data ptr
+skb_put(skb, len)              // append: moves tail RIGHT, returns old tail ptr
+
+// Header offset accessors
+skb_reset_mac_header(skb)      // set mac_header = data - head
+skb_reset_network_header(skb)  // set network_header = data - head
+skb_reset_transport_header(skb)
+eth_hdr(skb)    → struct ethhdr*   at head + mac_header
+ip_hdr(skb)     → struct iphdr*    at head + network_header
+tcp_hdr(skb)    → struct tcphdr*   at head + transport_header
+
+// Safety — before dereferencing, ensure data is in linear area
+pskb_may_pull(skb, n)  // ensures n bytes from data are linear (may reallocate)
+
+// Cloning
+skb_clone(skb, gfp)   // new sk_buff header, SHARED data — refcount++
+skb_copy(skb, gfp)    // full copy — new sk_buff header AND new data
+skb_cow(skb, headroom) // if shared: copy. if not: just ensure headroom
+                        // use before modifying headers of a potentially-shared skb
+```
+
+---
+
+## Learning Sequence (Ordered — Do Not Skip Steps)
+
+```
+Week 0-1: C fundamentals — kernel style
+  Files: include/linux/kernel.h, include/linux/types.h,
+         include/linux/compiler.h, include/linux/compiler_attributes.h
+  Exercise: implement container_of, list_head operations from scratch in userspace
+
+Week 2-3: Architecture + Concurrency
+  Files: Documentation/RCU/whatisRCU.rst, Documentation/locking/
+         arch/x86/include/asm/barrier.h, include/linux/atomic.h
+  Exercise: write a userspace RCU reader-writer simulation
+
+Week 4-5: Kernel data structures + allocator
+  Files: include/linux/list.h, include/linux/rbtree.h,
+         include/linux/slab.h, net/core/skbuff.c
+  Exercise: write a kernel module that creates/traverses sk_buff queues
+
+Week 6-7: Interrupt model + NAPI
+  Files: net/core/dev.c (netif_receive_skb, __napi_poll),
+         Documentation/networking/napi.rst
+  Exercise: add pr_debug probes in virtnet_poll(), count budget usage
+
+Week 8-9: TCP state machine
+  Files: net/ipv4/tcp_input.c (tcp_rcv_state_process),
+         net/ipv4/tcp_output.c (tcp_transmit_skb)
+  Exercise: draw the state machine from code — not from documentation
+
+Week 10-12: Full stack + Netfilter
+  Files: net/core/dev.c, net/ipv4/ip_input.c, net/ipv4/ip_output.c,
+         net/netfilter/nf_conntrack_core.c
+  Exercise: write a netfilter hook module that logs packet 5-tuple
+```
+
+---
+
+## Books — Ordered by Priority
+
+| Priority | Book | Why |
+|---|---|---|
+| 1 | *Understanding the Linux Kernel* — Bovet & Cesati | Chapters 1, 2, 7, 8, 9 before anything else |
+| 2 | *Linux Kernel Networking* — Rami Rosen | The only book focused entirely on the net subsystem |
+| 3 | *Linux Device Drivers* — Corbet et al. | For understanding driver↔kernel interface — free at lwn.net |
+| 4 | RFC 793 (TCP), RFC 791 (IP), RFC 826 (ARP) | Primary sources — code implements these exactly |
+| 5 | *TCP/IP Illustrated Vol. 1* — Stevens | Protocol behavior, not implementation — read alongside RFC |
+| 6 | *Is Parallel Programming Hard* — McKenney | RCU internals — free PDF, written by the RCU author |
+
+---
+
+## Verification Checklist — You Are Ready When
+
+```bash
+# Run these — if you can answer them without looking anything up, proceed:
+
+# 1. C/Architecture
+cat > /tmp/check.c << 'EOF'
+#include <stddef.h>
+#include <stdint.h>
+struct A { uint8_t a; uint32_t b; uint8_t c; uint16_t d; };
+struct B { uint32_t b; uint16_t d; uint8_t a; uint8_t c; };
+// What is sizeof(A) vs sizeof(B)? Why?
+// What is offsetof(A, b)?
+// Fix A so sizeof(A) == sizeof(B) without reordering fields.
+EOF
+
+# 2. Locking
+# Question: can you hold a spinlock and call kmalloc(size, GFP_KERNEL)?
+# Answer: NO — GFP_KERNEL may sleep, sleeping with spinlock held = deadlock
+# What should you use? kmalloc(size, GFP_ATOMIC)
+
+# 3. sk_buff
+# Given: skb->head=0x1000, skb->data=0x1040, skb->tail=0x1080, skb->end=0x1100
+# skb_push(skb, 20): what are the new values of head/data/tail/end?
+# skb_put(skb, 10):  what are the new values of head/data/tail/end?
+
+# 4. RCU
+# You have a global pointer:  struct route *g_route;
+# Write the correct reader side and writer side code using RCU.
+
+# 5. Netfilter
+# A packet hits NF_INET_PRE_ROUTING. Your hook returns NF_DROP.
+# Which cleanup function is called? Who calls it?
+```
+
+---
+
+## Next 3 Steps
+
+1. **Spend one full day on `include/linux/skbuff.h`** — print it, annotate every field you do not understand, then read `net/core/skbuff.c` alongside it. Write a single-page note on `skb_push` vs `skb_pull` with actual address examples.
+
+2. **Write and load a minimal netfilter hook module** before touching any existing net code:
+   ```c
+   // hooks into NF_INET_LOCAL_IN, logs src IP and tcp dport, returns NF_ACCEPT
+   // Forces you to understand: module lifecycle, NF_HOOK registration,
+   // ip_hdr()/tcp_hdr() access, RCU, nf_register_net_hook()
+   ```
+
+3. **Read `Documentation/RCU/whatisRCU.rst` in full, then find five RCU usages in `net/ipv4/tcp_ipv4.c`** — specifically `__inet_lookup_established()` — trace exactly where `rcu_read_lock()` is held and where the protected pointer is dereferenced. This pattern appears in hundreds of net functions.
+
+## Summary
+
+Userspace net-layer testing uses four distinct mechanisms: raw sockets (`AF_PACKET`/`SOCK_RAW`) for craft-and-inject at L2/L3, TUN/TAP for full userspace protocol stack simulation, netns+veth pairs for isolated multi-node topology without VMs, and `AF_ALG` + `ktls` for kernel-integrated crypto. Session handling is a state machine layered across three planes — transport (TCP sequence tracking), security (TLS record layer + session tickets), and application (HTTP/2 streams, QUIC connection IDs) — each with independent lifecycle and failure modes. Encryption in the kernel goes through the `crypto` subsystem and optionally `ktls` which moves TLS record encryption into the kernel to avoid double-copy. The application-to-kernel data path has five distinct mechanisms — `write()`/`sendmsg()`, `sendfile()`, `MSG_ZEROCOPY`, `splice()`, and `io_uring` — each with different copy semantics, latency profiles, and security boundaries that matter for your threat model.
+
+---
+
+## Part 1 — Testing Net Layers in Userspace
+
+### 1.1 The Four Testing Planes
+
+```
+L7 Application     AF_INET SOCK_STREAM/DGRAM  — normal socket API
+L4 Transport       AF_INET SOCK_RAW IPPROTO_TCP — raw IP, kernel still does IP
+L3 Network         AF_PACKET SOCK_RAW           — raw Ethernet frames
+L2 Data Link       AF_PACKET SOCK_RAW + TUN/TAP — full control
+L1 Physical        AF_XDP                        — bypass kernel, NIC ring directly
+```
+
+### 1.2 Raw Sockets — Inject at L3/L4
+
+```c
+// craft_tcp_syn.c — build and send a raw TCP SYN packet
+// Tests: IP header construction, TCP header, checksum, routing
+// Root required: CAP_NET_RAW
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+
+// Pseudo-header for TCP checksum computation
+struct pseudo_hdr {
+    uint32_t src;
+    uint32_t dst;
+    uint8_t  zero;
+    uint8_t  proto;
+    uint16_t tcp_len;
+};
+
+uint16_t checksum(void *buf, int len) {
+    uint16_t *data = buf;
+    uint32_t  sum  = 0;
+    while (len > 1) { sum += *data++; len -= 2; }
+    if (len)        { sum += *(uint8_t *)data; }
+    while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
+    return ~sum;
+}
+
+int main(void) {
+    int fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    if (fd < 0) { perror("socket"); return 1; }
+
+    // We tell the kernel: I am building the IP header myself
+    int one = 1;
+    setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
+
+    // Full packet buffer: IP header + TCP header
+    char pkt[sizeof(struct iphdr) + sizeof(struct tcphdr)] = {0};
+    struct iphdr  *iph = (struct iphdr  *)pkt;
+    struct tcphdr *th  = (struct tcphdr *)(pkt + sizeof(struct iphdr));
+
+    // Fill IP header
+    iph->version  = 4;
+    iph->ihl      = 5;
+    iph->ttl      = 64;
+    iph->protocol = IPPROTO_TCP;
+    iph->saddr    = inet_addr("192.168.122.100");  // source
+    iph->daddr    = inet_addr("192.168.122.1");    // destination
+    iph->tot_len  = htons(sizeof(pkt));
+    // iph->check = 0 → kernel fills IP checksum when IP_HDRINCL is set
+
+    // Fill TCP header
+    th->source = htons(54321);
+    th->dest   = htons(80);
+    th->seq    = htonl(0xdeadbeef);
+    th->doff   = 5;          // no options, header = 5*4 = 20 bytes
+    th->syn    = 1;          // SYN flag
+    th->window = htons(65535);
+
+    // Compute TCP checksum over pseudo-header + TCP header
+    // (no payload — SYN has no data)
+    char csum_buf[sizeof(struct pseudo_hdr) + sizeof(struct tcphdr)] = {0};
+    struct pseudo_hdr *ph = (struct pseudo_hdr *)csum_buf;
+    ph->src      = iph->saddr;
+    ph->dst      = iph->daddr;
+    ph->proto    = IPPROTO_TCP;
+    ph->tcp_len  = htons(sizeof(struct tcphdr));
+    memcpy(csum_buf + sizeof(struct pseudo_hdr), th, sizeof(struct tcphdr));
+    th->check = checksum(csum_buf, sizeof(csum_buf));
+
+    struct sockaddr_in dst = {
+        .sin_family = AF_INET,
+        .sin_addr.s_addr = iph->daddr,
+    };
+
+    ssize_t n = sendto(fd, pkt, sizeof(pkt), 0,
+                       (struct sockaddr *)&dst, sizeof(dst));
+    printf("sent %zd bytes\n", n);
+
+    close(fd);
+    return 0;
+}
+```
+
+```bash
+gcc -O2 -o craft_tcp_syn craft_tcp_syn.c
+sudo ./craft_tcp_syn
+
+# Watch the kernel's reaction — does it send RST? SYN-ACK?
+sudo tshark -i eth0 -V -f "host 192.168.122.1 and tcp"
+```
+
+**What this tests:**
+- Your IP header construction (checksum, tot_len, protocol field)
+- TCP flag encoding
+- How the kernel routes the packet (no socket = kernel sees it as outgoing)
+- Whether the destination sends RST (no listener) or SYN-ACK (listener present)
+- Your checksum algorithm — wrong checksum → packet silently dropped
+
+### 1.3 AF_PACKET — Full L2 Frame Injection
+
+```c
+// craft_arp.c — craft a raw ARP request at Ethernet level
+// Tests: Ethernet frame construction, ARP header format
+// Shows: how ARP resolves IP→MAC before TCP can even start
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netpacket/packet.h>
+#include <net/ethernet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+
+struct arphdr_eth {
+    uint16_t hw_type;    // 0x0001 = Ethernet
+    uint16_t proto;      // 0x0800 = IPv4
+    uint8_t  hw_len;     // 6
+    uint8_t  proto_len;  // 4
+    uint16_t op;         // 1=request, 2=reply
+    uint8_t  sha[6];     // sender MAC
+    uint8_t  spa[4];     // sender IP
+    uint8_t  tha[6];     // target MAC (zeros for request)
+    uint8_t  tpa[4];     // target IP
+} __attribute__((packed));
+
+int main(int argc, char *argv[]) {
+    const char *ifname = argc > 1 ? argv[1] : "eth0";
+
+    // AF_PACKET SOCK_RAW: we see and inject complete Ethernet frames
+    // ETH_P_ARP: only ARP frames (htons because protocol is in network order)
+    int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
+    if (fd < 0) { perror("socket"); return 1; }
+
+    // Get interface index and our MAC address
+    struct ifreq ifr = {0};
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);
+    ioctl(fd, SIOCGIFINDEX, &ifr);
+    int ifindex = ifr.ifr_ifindex;
+    ioctl(fd, SIOCGIFHWADDR, &ifr);
+    uint8_t *our_mac = (uint8_t *)ifr.ifr_hwaddr.sa_data;
+
+    // Build Ethernet frame
+    uint8_t frame[sizeof(struct ethhdr) + sizeof(struct arphdr_eth)] = {0};
+    struct ethhdr       *eth = (struct ethhdr *)frame;
+    struct arphdr_eth   *arp = (struct arphdr_eth *)(frame + sizeof(struct ethhdr));
+
+    // Ethernet header: broadcast destination
+    memset(eth->h_dest,  0xff, 6);        // ff:ff:ff:ff:ff:ff broadcast
+    memcpy(eth->h_source, our_mac, 6);
+    eth->h_proto = htons(ETH_P_ARP);
+
+    // ARP header
+    arp->hw_type   = htons(1);            // Ethernet
+    arp->proto     = htons(ETH_P_IP);
+    arp->hw_len    = 6;
+    arp->proto_len = 4;
+    arp->op        = htons(1);            // ARP request
+    memcpy(arp->sha, our_mac, 6);
+
+    // Our IP (get from interface)
+    ioctl(fd, SIOCGIFADDR, &ifr);
+    memcpy(arp->spa, &((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr, 4);
+
+    // Target IP we want to resolve
+    inet_pton(AF_INET, "192.168.122.1", arp->tpa);
+
+    struct sockaddr_ll dst = {
+        .sll_ifindex  = ifindex,
+        .sll_halen    = 6,
+    };
+    memset(dst.sll_addr, 0xff, 6);   // broadcast
+
+    sendto(fd, frame, sizeof(frame), 0, (struct sockaddr *)&dst, sizeof(dst));
+    printf("ARP request sent\n");
+
+    // Read ARP reply
+    uint8_t reply[256];
+    ssize_t n = recv(fd, reply, sizeof(reply), 0);
+    struct arphdr_eth *rep_arp = (struct arphdr_eth *)(reply + sizeof(struct ethhdr));
+    if (ntohs(rep_arp->op) == 2) {
+        printf("ARP reply: %02x:%02x:%02x:%02x:%02x:%02x\n",
+               rep_arp->sha[0], rep_arp->sha[1], rep_arp->sha[2],
+               rep_arp->sha[3], rep_arp->sha[4], rep_arp->sha[5]);
+    }
+    close(fd);
+    return 0;
+}
+```
+
+```bash
+gcc -O2 -o craft_arp craft_arp.c
+sudo ./craft_arp eth0
+
+# Verify ARP cache updated
+arp -n
+ip neigh show
+```
+
+### 1.4 TUN/TAP — Full Userspace Protocol Stack
+
+TUN/TAP is the most powerful testing mechanism. Your program IS the network interface — the kernel routes packets to your fd instead of to a NIC.
+
+```
+TUN device (L3): kernel sends/receives IP packets to/from your program
+TAP device (L2): kernel sends/receives Ethernet frames to/from your program
+
+Use cases:
+- Implement a custom protocol in userspace and test it against real kernel TCP
+- Test your own userspace TCP stack against the kernel's
+- Simulate network conditions (delay, loss, reorder) in userspace
+- VPN tunneling (WireGuard, OpenVPN all use TUN)
+```
+
+```c
+// tun_ip_inspector.c — create TUN, read IP packets, parse every field
+// Build in Rust? Equivalent in C first to understand the kernel interface
+
+#include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <linux/if_tun.h>
+#include <net/if.h>
+#include <arpa/inet.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+
+static int tun_alloc(char *dev) {
+    struct ifreq ifr = {0};
+    int fd = open("/dev/net/tun", O_RDWR);
+    if (fd < 0) { perror("open /dev/net/tun"); return -1; }
+
+    ifr.ifr_flags = IFF_TUN | IFF_NO_PI;  // TUN mode, no packet info header
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+
+    if (ioctl(fd, TUNSETIFF, &ifr) < 0) { perror("TUNSETIFF"); close(fd); return -1; }
+    strncpy(dev, ifr.ifr_name, IFNAMSIZ);
+    return fd;
+}
+
+int main(void) {
+    char dev[IFNAMSIZ] = "tun0";
+    int fd = tun_alloc(dev);
+    if (fd < 0) return 1;
+    printf("Created TUN device: %s\n", dev);
+
+    // Configure the TUN device (normally done with ip commands)
+    // In production code use netlink; here use system() for clarity
+    system("ip addr add 10.99.0.1/24 dev tun0");
+    system("ip link set tun0 up");
+    printf("Interface up. Route packets to 10.99.0.0/24 to see them here.\n");
+    printf("Try: ping 10.99.0.2\n");
+
+    uint8_t buf[4096];
+    while (1) {
+        ssize_t n = read(fd, buf, sizeof(buf));
+        if (n < 0) { perror("read"); break; }
+
+        // IFF_NO_PI: no 4-byte packet info header — buf starts directly at IP header
+        struct iphdr *iph = (struct iphdr *)buf;
+
+        char src[INET_ADDRSTRLEN], dst[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &iph->saddr, src, sizeof(src));
+        inet_ntop(AF_INET, &iph->daddr, dst, sizeof(dst));
+
+        printf("[IP] %s → %s  proto=%u  len=%u  ttl=%u\n",
+               src, dst, iph->protocol, ntohs(iph->tot_len), iph->ttl);
+
+        // Parse L4
+        void *l4 = buf + (iph->ihl * 4);
+        if (iph->protocol == IPPROTO_TCP) {
+            struct tcphdr *th = l4;
+            printf("  [TCP] sport=%u dport=%u seq=%u ack=%u "
+                   "SYN=%d ACK=%d FIN=%d RST=%d win=%u\n",
+                   ntohs(th->source), ntohs(th->dest),
+                   ntohl(th->seq), ntohl(th->ack_seq),
+                   th->syn, th->ack, th->fin, th->rst,
+                   ntohs(th->window));
+        } else if (iph->protocol == IPPROTO_UDP) {
+            struct udphdr *uh = l4;
+            printf("  [UDP] sport=%u dport=%u len=%u\n",
+                   ntohs(uh->source), ntohs(uh->dest), ntohs(uh->len));
+        } else if (iph->protocol == IPPROTO_ICMP) {
+            uint8_t *icmp = l4;
+            printf("  [ICMP] type=%u code=%u\n", icmp[0], icmp[1]);
+
+            // Echo reply — craft a response and write it back to the TUN
+            if (icmp[0] == 8) {  // echo request
+                // Swap src/dst, change type to 0 (reply), recompute checksums
+                // Kernel routes the reply packet out normally
+                uint32_t tmp = iph->saddr;
+                iph->saddr = iph->daddr;
+                iph->daddr = tmp;
+                icmp[0] = 0;  // type: echo reply
+                icmp[2] = icmp[3] = 0;  // clear checksum field
+                // recompute ICMP checksum
+                uint32_t sum = 0;
+                uint16_t *w = l4;
+                int icmp_len = ntohs(iph->tot_len) - iph->ihl * 4;
+                for (int i = 0; i < icmp_len / 2; i++) sum += ntohs(w[i]);
+                while (sum >> 16) sum = (sum & 0xffff) + (sum >> 16);
+                icmp[2] = (~sum) >> 8;
+                icmp[3] = (~sum) & 0xff;
+
+                write(fd, buf, n);  // inject reply back into kernel
+                printf("  → sent ICMP echo reply\n");
+            }
+        }
+    }
+    close(fd);
+    return 0;
+}
+```
+
+```bash
+gcc -O2 -o tun_inspector tun_inspector.c
+sudo ./tun_inspector &
+
+# From another terminal:
+ping 10.99.0.2          # goes into your program → printed + replied
+traceroute 10.99.0.99   # every ICMP TTL-exceeded goes through your program
+curl http://10.99.0.2/  # TCP SYN printed, no reply → curl: Connection refused
+```
+
+### 1.5 Rust Implementation — TUN Device
+
+```rust
+// tun_stack/src/main.rs
+// Cargo.toml deps: tun = "0.6", pnet = "0.34", tokio = { version = "1", features = ["full"] }
+
+use std::io::{Read, Write};
+use pnet::packet::{
+    ip::IpNextHeaderProtocols,
+    ipv4::{Ipv4Packet, MutableIpv4Packet},
+    tcp::TcpPacket,
+    udp::UdpPacket,
+    Packet,
+};
+use tun::Configuration;
+
+fn main() {
+    let mut config = Configuration::default();
+    config
+        .address("10.99.0.1")
+        .netmask("255.255.255.0")
+        .up();
+
+    let mut dev = tun::create(&config).expect("failed to create tun");
+    println!("TUN device ready — routing 10.99.0.0/24 here");
+
+    let mut buf = [0u8; 4096];
+    loop {
+        let n = dev.read(&mut buf).expect("read error");
+        let pkt = &buf[..n];
+
+        if let Some(ip) = Ipv4Packet::new(pkt) {
+            print!("[IP] {:?} → {:?}  proto={:?}  len={}  ttl={}",
+                   ip.get_source(), ip.get_destination(),
+                   ip.get_next_level_protocol(),
+                   ip.get_total_length(), ip.get_ttl());
+
+            match ip.get_next_level_protocol() {
+                IpNextHeaderProtocols::Tcp => {
+                    if let Some(tcp) = TcpPacket::new(ip.payload()) {
+                        println!("  [TCP] {}→{}  seq={}  flags={:08b}  win={}",
+                                 tcp.get_source(), tcp.get_destination(),
+                                 tcp.get_sequence(),
+                                 tcp.get_flags(),
+                                 tcp.get_window());
+                    }
+                }
+                IpNextHeaderProtocols::Udp => {
+                    if let Some(udp) = UdpPacket::new(ip.payload()) {
+                        println!("  [UDP] {}→{}  len={}",
+                                 udp.get_source(), udp.get_destination(),
+                                 udp.get_length());
+                    }
+                }
+                _ => println!(),
+            }
+        }
+    }
+}
+```
+
+```bash
+cargo build --release
+sudo ./target/release/tun_stack
+```
+
+### 1.6 netns + veth — Isolated Multi-Node Topology (No VMs)
+
+```bash
+# Create a complete two-node network topology in the host kernel
+# Each namespace is an isolated network stack — own interfaces, routing, iptables
+
+# Create two namespaces
+ip netns add ns_client
+ip netns add ns_server
+
+# Create a veth pair — virtual Ethernet cable
+ip link add veth0 type veth peer name veth1
+
+# Assign each end to its namespace
+ip link set veth0 netns ns_client
+ip link set veth1 netns ns_server
+
+# Configure IPs inside each namespace
+ip netns exec ns_client ip addr add 10.0.0.1/24 dev veth0
+ip netns exec ns_client ip link set veth0 up
+ip netns exec ns_client ip link set lo up
+
+ip netns exec ns_server ip addr add 10.0.0.2/24 dev veth1
+ip netns exec ns_server ip link set veth1 up
+ip netns exec ns_server ip link set lo up
+
+# Test connectivity
+ip netns exec ns_client ping -c3 10.0.0.2
+
+# Run your Axum server in ns_server
+ip netns exec ns_server ./target/release/netlab-server &
+
+# Connect from ns_client — traffic goes through veth, isolated from host
+ip netns exec ns_client curl http://10.0.0.2:3000/
+
+# Trace everything in this namespace
+ip netns exec ns_server tshark -i veth1 -V &
+
+# Cleanup
+ip netns del ns_client
+ip netns del ns_server
+```
+
+```bash
+# More complex topology: client → router → server
+ip netns add ns_client
+ip netns add ns_router
+ip netns add ns_server
+
+# client ↔ router
+ip link add clt-rtr type veth peer name rtr-clt
+ip link set clt-rtr netns ns_client
+ip link set rtr-clt netns ns_router
+
+# router ↔ server
+ip link add rtr-srv type veth peer name srv-rtr
+ip link set rtr-srv netns ns_router
+ip link set srv-rtr netns ns_server
+
+# Addresses
+ip netns exec ns_client ip addr add 10.1.0.1/24 dev clt-rtr
+ip netns exec ns_router ip addr add 10.1.0.254/24 dev rtr-clt
+ip netns exec ns_router ip addr add 10.2.0.254/24 dev rtr-srv
+ip netns exec ns_server ip addr add 10.2.0.1/24 dev srv-rtr
+
+# Enable IP forwarding in router namespace
+ip netns exec ns_router sysctl -w net.ipv4.ip_forward=1
+
+# Routes
+ip netns exec ns_client ip route add 10.2.0.0/24 via 10.1.0.254
+ip netns exec ns_server ip route add 10.1.0.0/24 via 10.2.0.254
+
+# Bring up all interfaces
+for ns in ns_client ns_router ns_server; do
+    ip netns exec $ns ip link set lo up
+done
+ip netns exec ns_client ip link set clt-rtr up
+ip netns exec ns_router ip link set rtr-clt up
+ip netns exec ns_router ip link set rtr-srv up
+ip netns exec ns_server ip link set srv-rtr up
+
+# Verify routing
+ip netns exec ns_client traceroute 10.2.0.1
+# Should show: 10.1.0.254 (router) → 10.2.0.1 (server)
+```
+
+### 1.7 Go — Protocol Layer Testing Harness
+
+```go
+// nettest/main.go — test each protocol layer independently
+package main
+
+import (
+    "encoding/binary"
+    "fmt"
+    "net"
+    "os"
+    "syscall"
+    "unsafe"
+)
+
+// Layer 4: Test TCP state machine directly using raw Go net package
+func testTCPStateMachine() {
+    ln, _ := net.Listen("tcp", "127.0.0.1:0")
+    defer ln.Close()
+    addr := ln.Addr().String()
+
+    go func() {
+        conn, _ := ln.Accept()
+        buf := make([]byte, 1024)
+        n, _ := conn.Read(buf)
+        fmt.Printf("[SERVER] received %d bytes: %q\n", n, buf[:n])
+        conn.Write([]byte("pong"))
+        conn.Close()
+    }()
+
+    conn, _ := net.Dial("tcp", addr)
+    conn.Write([]byte("ping"))
+    buf := make([]byte, 1024)
+    n, _ := conn.Read(buf)
+    fmt.Printf("[CLIENT] received %d bytes: %q\n", n, buf[:n])
+    conn.Close()
+}
+
+// Layer 3: Build a raw IP packet and inspect what the kernel does with it
+// Tests IP header parsing, routing, and ICMP error generation
+func testRawIPSocket() {
+    // AF_INET SOCK_RAW IPPROTO_ICMP — we get raw ICMP packets
+    // kernel adds/strips IP header for us (unlike AF_PACKET)
+    fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_ICMP)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "socket: %v (need CAP_NET_RAW)\n", err)
+        return
+    }
+    defer syscall.Close(fd)
+
+    // Build ICMP echo request (kernel adds IP header)
+    icmp := make([]byte, 8)
+    icmp[0] = 8  // type: echo request
+    icmp[1] = 0  // code: 0
+    // icmp[2:4] = checksum (fill after)
+    binary.BigEndian.PutUint16(icmp[4:], 1)   // ID
+    binary.BigEndian.PutUint16(icmp[6:], 1)   // sequence
+
+    // Compute ICMP checksum
+    var sum uint32
+    for i := 0; i < len(icmp); i += 2 {
+        sum += uint32(binary.BigEndian.Uint16(icmp[i:]))
+    }
+    for sum>>16 != 0 { sum = (sum & 0xffff) + (sum >> 16) }
+    binary.BigEndian.PutUint16(icmp[2:], ^uint16(sum))
+
+    dst := syscall.SockaddrInet4{}
+    copy(dst.Addr[:], net.ParseIP("127.0.0.1").To4())
+
+    err = syscall.Sendto(fd, icmp, 0, &dst)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "sendto: %v\n", err)
+        return
+    }
+
+    // Read the reply — kernel strips IP header, we get ICMP directly
+    reply := make([]byte, 1500)
+    // With SOCK_RAW IPPROTO_ICMP on loopback, we actually get the IP header too
+    n, from, _ := syscall.Recvfrom(fd, reply, 0)
+    ip := reply[:20]
+    icmpReply := reply[20:n]
+    fmt.Printf("[ICMP] reply from %v: type=%d code=%d id=%d seq=%d\n",
+        from, icmpReply[0], icmpReply[1],
+        binary.BigEndian.Uint16(icmpReply[4:]),
+        binary.BigEndian.Uint16(icmpReply[6:]))
+    _ = ip
+}
+
+// Layer 2 inspection: AF_PACKET — see Ethernet frames
+// Shows what the kernel sees before any L3 processing
+func testPacketSocket() {
+    // ETH_P_ALL = 0x0003 in host byte order → 0x0300 in network byte order
+    fd, err := syscall.Socket(syscall.AF_PACKET, syscall.SOCK_RAW,
+        int(htons(0x0003)))
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "packet socket: %v\n", err)
+        return
+    }
+    defer syscall.Close(fd)
+
+    buf := make([]byte, 4096)
+    for i := 0; i < 5; i++ {
+        n, _, _ := syscall.Recvfrom(fd, buf, 0)
+        if n < 14 { continue }
+        // Ethernet header: dst(6) + src(6) + ethertype(2)
+        fmt.Printf("[ETH] dst=%x src=%x type=0x%04x len=%d\n",
+            buf[0:6], buf[6:12],
+            binary.BigEndian.Uint16(buf[12:14]),
+            n)
+    }
+}
+
+func htons(h uint16) uint16 {
+    b := (*[2]byte)(unsafe.Pointer(&h))
+    return uint16(b[1]) | uint16(b[0])<<8
+}
+
+func main() {
+    fmt.Println("=== L4: TCP state machine ===")
+    testTCPStateMachine()
+
+    fmt.Println("\n=== L3: Raw IP / ICMP ===")
+    testRawIPSocket()
+
+    fmt.Println("\n=== L2: AF_PACKET ===")
+    testPacketSocket()
+}
+```
+
+---
+
+## Part 2 — Session Handling Per Protocol
+
+Session handling operates at three independent layers. They compose but do not overlap.
+
+### 2.1 Architecture View
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Application Session Layer                              │
+│  HTTP/2 stream_id, QUIC connection_id, WebSocket       │
+│  State: stream map, flow control credits, priority tree │
+├─────────────────────────────────────────────────────────┤
+│  TLS Session Layer (Security Layer)                     │
+│  session_ticket, PSK, early_data (0-RTT)               │
+│  State: cipher_suite, master_secret, seq numbers       │
+├─────────────────────────────────────────────────────────┤
+│  Transport Session Layer (TCP)                          │
+│  4-tuple: src_ip:port ↔ dst_ip:port                    │
+│  State: snd_nxt, rcv_nxt, cwnd, state machine          │
+├─────────────────────────────────────────────────────────┤
+│  Kernel: struct sock + struct tcp_sock                  │
+│  sk_receive_queue, sk_write_queue                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 2.2 TCP Session: Kernel State Machine
+
+```
+Connection identified by 4-tuple: {src_ip, src_port, dst_ip, dst_port}
+Stored in: tcp_hashinfo.ehash (established hash table)
+Looked up in: tcp_v4_rcv() → __inet_lookup_established()
+
+Full state machine (with kernel struct tcp_sock fields):
+```
+
+```c
+// What the kernel tracks for one TCP session:
+struct tcp_sock {
+    // Send sequence space
+    u32 snd_una;      // oldest unACKed byte — ACKs below this are ignored
+    u32 snd_nxt;      // next byte to send
+    u32 snd_wnd;      // peer's receive window — cannot send beyond this
+    u32 snd_cwnd;     // congestion window — CUBIC/BBR computed
+    u32 ssthresh;     // slow start threshold
+
+    // Receive sequence space
+    u32 rcv_nxt;      // next expected byte from peer
+    u32 rcv_wnd;      // our receive window — advertised to peer
+    u32 copied_seq;   // last byte copied to userspace (via read())
+
+    // RTT measurement
+    u32 srtt_us;      // smoothed RTT (microseconds * 8) — EWMA
+    u32 rttvar_us;    // RTT variance
+    u32 rto;          // retransmit timeout — derived from srtt + 4*rttvar
+
+    // Retransmit queue: unACKed segments waiting for ACK or timeout
+    struct rb_root tcp_rtx_queue;
+
+    // Out-of-order queue: segments arrived before their predecessors
+    struct rb_root out_of_order_queue;
+
+    // Timestamps (for PAWS — Protection Against Wrapped Sequences)
+    u32 rx_opt.ts_val;    // peer's timestamp
+    u32 rx_opt.ts_ecr;    // our timestamp echoed back by peer
+};
+```
+
+```bash
+# Observe TCP session state live
+ss -tipm sport = :3000
+
+# Output explanation:
+# State:ESTAB   — current state machine state
+# Recv-Q:0      — bytes received but not yet read by app
+# Send-Q:0      — bytes sent but not yet ACKed
+# skmem:(r0,rb131072,t0,tb87380,...)  ← socket memory breakdown
+#   r=recv allocated, rb=recv buffer max, t=tx allocated, tb=tx buffer max
+# retrans:0/0   — retransmissions (fast retransmit / timeout retransmit)
+# rcv_rtt:250   — receive RTT in ms
+# rcv_space:29200  — advertised receive window
+# minrtt:0.100  — minimum observed RTT
+
+# Watch TCP state transitions when closing:
+watch -n0.1 'ss -tan | awk "{print \$1}" | sort | uniq -c'
+# FIN_WAIT1 → FIN_WAIT2 → TIME_WAIT → CLOSED
+```
+
+### 2.3 TCP Session Teardown — Four-Way Handshake
+
+```
+Active close (our side calls close()):          Passive close (peer calls close()):
+
+   Our side         Peer side                      Our side         Peer side
+      │                 │                              │                 │
+   close()              │                              │             close()
+      │────── FIN ─────►│                              │◄──── FIN ────────│
+      │   FIN_WAIT_1    │                      CLOSE_WAIT                 │
+      │◄─── ACK ────────│                              │                  │
+      │   FIN_WAIT_2    │                              │                  │
+      │◄─── FIN ────────│              ← peer's FIN    │──── ACK ────────►│
+      │───── ACK ───────►│                             │──── FIN ────────►│
+      │  TIME_WAIT       │  (2*MSL wait)           LAST_ACK               │
+      │   (2 min)        │                              │◄─── ACK ─────────│
+      │                 │                           CLOSED                │
+   CLOSED               │
+```
+
+```bash
+# Observe TIME_WAIT accumulation under load
+# TIME_WAIT prevents: new connection reusing same 4-tuple within 2*MSL (2 min)
+# Problem at high connection rates: port exhaustion
+ss -tan state time-wait | wc -l
+
+# Fix: TCP reuse (reuse TIME_WAIT sockets for new outgoing connections)
+sysctl -w net.ipv4.tcp_tw_reuse=1    # safe for client side
+
+# Fix: reduce TIME_WAIT duration (careful — violates RFC but common in datacenters)
+sysctl -w net.ipv4.tcp_fin_timeout=15   # FIN_WAIT_2 timeout
+
+# Fix: SO_LINGER with timeout=0 — sends RST instead of FIN → immediate CLOSED
+# No TIME_WAIT but peer sees error
+```
+
+### 2.4 TLS Session Handling — Three Sub-Layers
+
+```
+TLS 1.3 session has three components:
+
+1. Handshake — negotiates keys (one-time per connection)
+2. Record layer — encrypts/decrypts application data
+3. Session resumption — reuses previously negotiated keys
+```
+
+```
+TLS 1.3 Full Handshake:
+
+Client                              Server
+   │                                   │
+   │──── ClientHello ─────────────────►│
+   │     version: TLS 1.3              │
+   │     supported_groups: x25519      │
+   │     key_share: {x25519, pubkey}   │
+   │     supported_ciphers: AESGCM     │
+   │                                   │ ← server: generates ECDH keypair
+   │◄─── ServerHello ──────────────────│
+   │     key_share: {x25519, pubkey}   │
+   │◄─── {EncryptedExtensions} ────────│  ← from here: encrypted with handshake key
+   │◄─── {Certificate} ────────────────│
+   │◄─── {CertificateVerify} ──────────│
+   │◄─── {Finished} ───────────────────│
+   │                                   │
+   │──── {Finished} ──────────────────►│
+   │──── {Application Data} ──────────►│  ← encrypted with application key
+   │◄─── {Application Data} ───────────│
+
+Key schedule (HKDF):
+    early_secret    = HKDF-Extract(0, PSK or 0)
+    handshake_secret= HKDF-Extract(ECDH_shared_secret, derived_from_early_secret)
+    master_secret   = HKDF-Extract(0, derived_from_handshake_secret)
+
+    client_handshake_key = HKDF-Expand-Label(handshake_secret, "c hs traffic", ...)
+    server_handshake_key = HKDF-Expand-Label(handshake_secret, "s hs traffic", ...)
+    client_app_key       = HKDF-Expand-Label(master_secret, "c ap traffic", ...)
+    server_app_key       = HKDF-Expand-Label(master_secret, "s ap traffic", ...)
+```
+
+```
+TLS 1.3 Session Resumption (0-RTT / 1-RTT):
+
+Server sends NewSessionTicket after handshake:
+    ticket = encrypt(session_secret, server_key)  ← opaque to client
+    lifetime = 86400 seconds
+    max_early_data_size = 16384  ← allows 0-RTT if set
+
+Client resumes (1-RTT):
+    ClientHello + pre_shared_key extension
+    Contains: ticket (opaque blob)
+    Server decrypts ticket → recovers session_secret → derives keys
+    No certificate verification needed
+    1 round trip saved
+
+Client resumes (0-RTT — risky):
+    ClientHello + early_data extension + encrypted Application Data
+    Data sent before server responds — no forward secrecy
+    Replay attack risk: attacker captures early_data, replays it
+    Mitigation: server must be idempotent for 0-RTT, or reject it
+    Use for: GET requests only, never for POST/PUT/DELETE
+```
+
+```rust
+// session_test/src/main.rs — test TLS 1.3 session resumption
+// Cargo.toml: rustls = "0.23", tokio = { version="1", features=["full"] }
+// tokio-rustls = "0.26", webpki-roots = "0.26"
+
+use std::sync::Arc;
+use std::time::Instant;
+use rustls::{ClientConfig, RootCertStore, version::TLS13};
+use tokio::net::TcpStream;
+use tokio_rustls::TlsConnector;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut roots = RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+
+    let config = ClientConfig::builder_with_protocol_versions(&[&TLS13])
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+
+    let connector = TlsConnector::from(Arc::new(config));
+    let domain = rustls::pki_types::ServerName::try_from("example.com")?;
+
+    // First connection — full handshake
+    let t0 = Instant::now();
+    let stream = TcpStream::connect("93.184.216.34:443").await?;
+    let tls = connector.connect(domain.clone(), stream).await?;
+    let full_hs_time = t0.elapsed();
+
+    let (_, session) = tls.into_inner();
+    println!("Full handshake: {:?}", full_hs_time);
+    println!("Protocol: {:?}", session.protocol_version());
+    println!("Cipher: {:?}", session.negotiated_cipher_suite());
+
+    Ok(())
+}
+```
+
+```bash
+# Observe TLS handshake in the kernel — without decrypting content
+sudo tshark -i eth0 -f "tcp port 443" -V 2>/dev/null | \
+    grep -E "Type:|Version:|Cipher Suite:|Session ID"
+
+# Measure handshake time with openssl s_client
+time echo | openssl s_client -connect example.com:443 \
+    -tls1_3 -brief 2>&1 | grep -E "Protocol|Cipher"
+
+# Session resumption test
+openssl s_client -connect example.com:443 -tls1_3 \
+    -sess_out /tmp/session.pem < /dev/null 2>&1 | grep -E "Session-ID|TLS session ticket"
+
+openssl s_client -connect example.com:443 -tls1_3 \
+    -sess_in /tmp/session.pem < /dev/null 2>&1 | grep "Reused"
+```
+
+### 2.5 HTTP/2 Session — Multiplexed Streams Over One TCP Connection
+
+```
+One TCP connection → many concurrent HTTP/2 streams
+Each stream = one request/response pair
+Stream lifecycle is independent — one stream can fail without killing others
+
+HTTP/2 frame structure (every message is a frame):
+    +-----------------------------------------------+
+    |                Length (24 bits)               |
+    +---------------+---------------+---------------+
+    |   Type (8)    |   Flags (8)   |
+    +-+-------------+---------------+-------------------------------+
+    |R|                 Stream Identifier (31 bits)                 |
+    +=+=============================================================+
+    |                   Frame Payload (0...2^24-1 octets)          |
+    +---------------------------------------------------------------+
+
+Frame types:
+    0x0 DATA        — application data (chunked)
+    0x1 HEADERS     — request/response headers (HPACK compressed)
+    0x3 RST_STREAM  — cancel a specific stream (not the connection)
+    0x4 SETTINGS    — negotiate parameters (window sizes, max streams)
+    0x6 PING        — keepalive
+    0x7 GOAWAY      — graceful shutdown of the connection
+    0x8 WINDOW_UPDATE — flow control credit for a stream or connection
+    0x9 CONTINUATION— continuation of HEADERS
+
+Stream states:
+    idle → open → half-closed(local) → closed
+              → half-closed(remote) → closed
+              → reserved(local/remote) (for PUSH_PROMISE)
+
+Flow control (two levels):
+    Connection-level: total bytes across all streams ≤ connection_window
+    Stream-level:     bytes for this stream ≤ stream_window
+    Default window: 65535 bytes
+    Server sends WINDOW_UPDATE to increase it
+```
+
+```go
+// h2_inspector.go — inspect HTTP/2 frames using golang.org/x/net/http2
+// Shows the raw framing layer beneath HTTP semantics
+package main
+
+import (
+    "crypto/tls"
+    "fmt"
+    "golang.org/x/net/http2"
+    "golang.org/x/net/http2/hpack"
+    "net"
+    "net/http"
+    "sync"
+    "time"
+)
+
+func main() {
+    // Use Go's built-in HTTP/2 but with transport-level inspection
+    transport := &http2.Transport{
+        TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
+        // ConnPool is where H2 connection reuse happens
+    }
+
+    client := &http.Client{Transport: transport, Timeout: 10 * time.Second}
+
+    var wg sync.WaitGroup
+    // Send 10 concurrent requests — watch them multiplex over ONE TCP connection
+    for i := 0; i < 10; i++ {
+        wg.Add(1)
+        streamID := i
+        go func() {
+            defer wg.Done()
+            resp, err := client.Get("https://www.cloudflare.com/")
+            if err != nil {
+                fmt.Printf("[stream %d] error: %v\n", streamID, err)
+                return
+            }
+            defer resp.Body.Close()
+            fmt.Printf("[stream %d] status=%d proto=%s\n",
+                streamID, resp.StatusCode, resp.Proto)
+        }()
+    }
+    wg.Wait()
+
+    // Raw HPACK decoder — show what header compression looks like
+    decoder := hpack.NewDecoder(4096, func(f hpack.HeaderField) {
+        fmt.Printf("  header: %s = %s\n", f.Name, f.Value)
+    })
+    // Example: ":method: GET" compressed to a single byte 0x82 in HPACK static table
+    hpackStaticTableGETExample := []byte{0x82, 0x86, 0x84} // :method GET, :scheme https, :path /
+    decoder.Write(hpackStaticTableGETExample)
+
+    // Verify HTTP/2 is actually used (not HTTP/1.1 fallback)
+    conn, err := tls.Dial("tcp", "www.cloudflare.com:443", &tls.Config{
+        NextProtos: []string{"h2", "http/1.1"},
+    })
+    if err == nil {
+        defer conn.Close()
+        fmt.Printf("ALPN negotiated: %s\n", conn.ConnectionState().NegotiatedProtocol)
+        // Should print: h2
+    }
+}
+```
+
+```bash
+# Inspect HTTP/2 session with curl
+curl -v --http2 https://www.cloudflare.com/ 2>&1 | grep -E "< HTTP|TLSv|ALPN|h2"
+
+# See the raw HTTP/2 frames (requires unencrypted H2 or decryption keys)
+# Force H2 without TLS (h2c) against a local server:
+go install golang.org/x/net/http2/h2c@latest
+
+# nghttp2 shows frame-level detail
+sudo apt install nghttp2-client
+nghttp -v https://www.cloudflare.com/ 2>&1 | head -60
+# Shows: [SETTINGS frame], [HEADERS frame], stream IDs, etc.
+```
+
+---
+
+## Part 3 — Encryption and Decryption
+
+### 3.1 Where Encryption Happens — Three Possible Planes
+
+```
+Plane A: Userspace Library (OpenSSL/BoringSSL/rustls)
+    app → TLS lib → encrypted bytes → write() → kernel
+    Kernel sees: encrypted sk_buff
+    Pro: full control, widely supported
+    Con: extra copy: plaintext → TLS lib buffer → socket buffer
+
+Plane B: Kernel TLS (ktls)
+    app → write() → kernel TLS → encrypted sk_buff → NIC
+    Kernel does encryption after write(), before TCP segmentation
+    Pro: zero-copy possible (splice, sendfile work)
+    Con: limited cipher support, harder to debug
+
+Plane C: NIC offload (TLS offload)
+    app → write() → kernel → plaintext sk_buff → NIC → NIC encrypts
+    NIC has TLS crypto engine (e.g. Mellanox ConnectX-6)
+    Pro: zero CPU overhead for encryption
+    Con: expensive NICs only, limited cipher support
+```
+
+### 3.2 TLS 1.3 Encryption — Exact Cipher Operation
+
+```
+Negotiated: TLS_AES_128_GCM_SHA256
+
+AEAD: AES-128-GCM (Authenticated Encryption with Associated Data)
+    Key:    16 bytes (128 bits) — from key schedule
+    IV:     12 bytes — from key schedule, XORed with 64-bit sequence number
+    Tag:    16 bytes — authentication tag appended to ciphertext
+    Input:  plaintext + content_type (1 byte)
+    AAD:    TLS record header (5 bytes)
+
+Encryption of one TLS record:
+    seq_num:        8-byte big-endian counter, starts at 0
+    nonce:          client_write_iv XOR (seq_num padded to 12 bytes)
+    plaintext_in:   application_data || 0x17  ← 0x17 = content type APPLICATION_DATA
+    aad:            0x17 0x03 0x03 len_high len_low  ← TLS record header
+    ciphertext_out: AES-128-GCM(key, nonce, plaintext_in, aad)
+                  = encrypted_data || 16-byte authentication_tag
+```
+
+### 3.3 Kernel Crypto API — AF_ALG
+
+```c
+// af_alg_aes_gcm.c — use kernel's AES-GCM from userspace via AF_ALG
+// This is how you access kernel crypto without writing a kernel module
+// Used by: cryptsetup, strongSwan, some VPN implementations
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <linux/if_alg.h>
+
+#define KEY_LEN  16     // AES-128
+#define IV_LEN   12     // GCM nonce
+#define TAG_LEN  16     // GCM authentication tag
+
+int main(void) {
+    // Step 1: Create algorithm socket — binds to kernel crypto API
+    int tfm_fd = socket(AF_ALG, SOCK_SEQPACKET, 0);
+    if (tfm_fd < 0) { perror("socket AF_ALG"); return 1; }
+
+    // Specify the algorithm
+    struct sockaddr_alg sa = {
+        .salg_family = AF_ALG,
+        .salg_type   = "aead",            // authenticated encryption
+        .salg_name   = "gcm(aes)",        // AES-GCM
+    };
+    if (bind(tfm_fd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+        perror("bind AF_ALG"); return 1;
+    }
+
+    // Set tag length
+    setsockopt(tfm_fd, SOL_ALG, ALG_SET_AEAD_AUTHSIZE, NULL, TAG_LEN);
+
+    // Set encryption key
+    uint8_t key[KEY_LEN] = {
+        0x00,0x01,0x02,0x03, 0x04,0x05,0x06,0x07,
+        0x08,0x09,0x0a,0x0b, 0x0c,0x0d,0x0e,0x0f
+    };
+    setsockopt(tfm_fd, SOL_ALG, ALG_SET_KEY, key, sizeof(key));
+
+    // Step 2: Accept creates an operation socket for actual encrypt/decrypt
+    int op_fd = accept(tfm_fd, NULL, NULL);
+    if (op_fd < 0) { perror("accept AF_ALG"); return 1; }
+
+    // Step 3: Set up control message with IV and operation (encrypt)
+    uint8_t iv[IV_LEN] = {
+        0x00,0x01,0x02,0x03, 0x04,0x05,0x06,0x07,
+        0x08,0x09,0x0a,0x0b
+    };
+
+    // Control message structure for AF_ALG
+    struct {
+        struct cmsghdr cm;
+        struct af_alg_iv aiv;
+        uint8_t iv_data[IV_LEN];
+    } ctrl_msg;
+
+    struct cmsghdr op_hdr;
+    uint32_t op = ALG_OP_ENCRYPT;
+
+    char ctrl_buf[CMSG_SPACE(sizeof(op)) + CMSG_SPACE(sizeof(struct af_alg_iv) + IV_LEN)];
+    memset(ctrl_buf, 0, sizeof(ctrl_buf));
+
+    struct msghdr msg = {0};
+    msg.msg_control    = ctrl_buf;
+    msg.msg_controllen = sizeof(ctrl_buf);
+
+    // First cmsg: operation (encrypt)
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg);
+    cmsg->cmsg_level = SOL_ALG;
+    cmsg->cmsg_type  = ALG_SET_OP;
+    cmsg->cmsg_len   = CMSG_LEN(sizeof(op));
+    *(uint32_t *)CMSG_DATA(cmsg) = ALG_OP_ENCRYPT;
+
+    // Second cmsg: IV
+    cmsg = CMSG_NXTHDR(&msg, cmsg);
+    cmsg->cmsg_level = SOL_ALG;
+    cmsg->cmsg_type  = ALG_SET_IV;
+    cmsg->cmsg_len   = CMSG_LEN(sizeof(struct af_alg_iv) + IV_LEN);
+    struct af_alg_iv *aiv = (struct af_alg_iv *)CMSG_DATA(cmsg);
+    aiv->ivlen = IV_LEN;
+    memcpy(aiv->iv, iv, IV_LEN);
+
+    // Plaintext to encrypt
+    uint8_t plaintext[] = "Hello, kernel crypto!";
+    struct iovec iov = { .iov_base = plaintext, .iov_len = sizeof(plaintext) };
+    msg.msg_iov    = &iov;
+    msg.msg_iovlen = 1;
+
+    // Step 4: Send plaintext to kernel crypto engine
+    if (sendmsg(op_fd, &msg, 0) < 0) { perror("sendmsg"); return 1; }
+
+    // Step 5: Read ciphertext + authentication tag
+    uint8_t ciphertext[sizeof(plaintext) + TAG_LEN];
+    ssize_t n = read(op_fd, ciphertext, sizeof(ciphertext));
+    printf("Encrypted %zd bytes (ciphertext + %d byte tag)\n", n, TAG_LEN);
+
+    // Hex dump
+    for (int i = 0; i < n; i++) printf("%02x", ciphertext[i]);
+    printf("\n");
+
+    // Step 6: Decrypt — same setup but ALG_OP_DECRYPT
+    // Send ciphertext, read back plaintext
+    op = ALG_OP_DECRYPT;
+    *(uint32_t *)CMSG_DATA(CMSG_FIRSTHDR(&msg)) = ALG_OP_DECRYPT;
+    iov.iov_base = ciphertext;
+    iov.iov_len  = n;
+    sendmsg(op_fd, &msg, 0);
+
+    uint8_t decrypted[sizeof(plaintext)];
+    ssize_t m = read(op_fd, decrypted, sizeof(decrypted));
+    printf("Decrypted: %.*s\n", (int)m, decrypted);
+
+    close(op_fd);
+    close(tfm_fd);
+    return 0;
+}
+```
+
+```bash
+gcc -O2 -o af_alg_test af_alg_aes_gcm.c && ./af_alg_test
+
+# See available kernel crypto algorithms
+cat /proc/crypto | grep -A5 "name.*gcm"
+# Shows: driver, priority (hardware accelerated vs software), type
+
+# Check if AES-NI hardware acceleration is available
+grep -m1 aes /proc/cpuinfo  # "aes" flag = hardware AES instructions
+# Kernel uses AES-NI automatically when available — much faster than software
+```
+
+### 3.4 Kernel TLS (ktls) — Encryption in Kernel After write()
+
+```
+Normal TLS (userspace):
+    app write("data") → OpenSSL encrypt → write(encrypted) → sk_buff → NIC
+                        ↑ CPU work here, extra copy
+
+ktls:
+    app write("data") → socket buffer (plaintext) → kernel TLS encrypt → sk_buff → NIC
+                                                     ↑ CPU work here, but:
+    - No extra copy for sendfile/splice (zero-copy for file serving)
+    - Encryption happens after TCP segmentation decision
+    - Works with NIC TLS offload (NIC can do the encryption)
+```
+
+```c
+// ktls_server.c — enable kernel TLS on a socket after handshake
+// OpenSSL does the handshake, then hands keys to kernel via setsockopt
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <linux/tls.h>      // struct tls12_crypto_info_aes_gcm_128
+
+// After TLS 1.3 handshake with OpenSSL:
+// 1. Get the negotiated keys from OpenSSL
+// 2. Pass them to the kernel via setsockopt(TCP_ULP, "tls")
+// 3. setsockopt(SOL_TLS, TLS_TX/RX, &crypto_info) for TX and RX keys
+
+int setup_ktls(int sockfd,
+               const uint8_t *write_key, const uint8_t *write_iv,
+               const uint8_t *write_seq,
+               const uint8_t *read_key,  const uint8_t *read_iv,
+               const uint8_t *read_seq)
+{
+    // Step 1: Enable TLS upper layer protocol on the socket
+    // This tells the kernel: "I want kernel TLS on this socket"
+    if (setsockopt(sockfd, SOL_TCP, TCP_ULP, "tls", sizeof("tls")) < 0) {
+        perror("TCP_ULP tls");
+        return -1;
+    }
+
+    // Step 2: Configure TX (send) key — AES-128-GCM
+    struct tls12_crypto_info_aes_gcm_128 tx_info = {
+        .info = {
+            .version     = TLS_1_3_VERSION,
+            .cipher_type = TLS_CIPHER_AES_GCM_128,
+        },
+    };
+    // Copy the 16-byte key, 12-byte IV, 8-byte implicit IV, 8-byte sequence number
+    memcpy(tx_info.key, write_key, TLS_CIPHER_AES_GCM_128_KEY_SIZE);    // 16 bytes
+    memcpy(tx_info.iv,  write_iv + 4, TLS_CIPHER_AES_GCM_128_IV_SIZE);  // 8 bytes explicit
+    memcpy(tx_info.salt,write_iv,   TLS_CIPHER_AES_GCM_128_SALT_SIZE);   // 4 bytes implicit
+    memcpy(tx_info.rec_seq, write_seq, TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE); // 8 bytes
+
+    if (setsockopt(sockfd, SOL_TLS, TLS_TX, &tx_info, sizeof(tx_info)) < 0) {
+        perror("TLS_TX");
+        return -1;
+    }
+
+    // Step 3: Configure RX (receive) key
+    struct tls12_crypto_info_aes_gcm_128 rx_info = tx_info;
+    memcpy(rx_info.key,     read_key, TLS_CIPHER_AES_GCM_128_KEY_SIZE);
+    memcpy(rx_info.iv,      read_iv + 4, TLS_CIPHER_AES_GCM_128_IV_SIZE);
+    memcpy(rx_info.salt,    read_iv, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
+    memcpy(rx_info.rec_seq, read_seq, TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE);
+
+    if (setsockopt(sockfd, SOL_TLS, TLS_RX, &rx_info, sizeof(rx_info)) < 0) {
+        perror("TLS_RX");
+        return -1;
+    }
+
+    // Now: write() on sockfd sends plaintext → kernel encrypts → TCP → NIC
+    //       read() on sockfd gets plaintext ← kernel decrypts ← TCP ← NIC
+    printf("ktls enabled on fd=%d\n", sockfd);
+    return 0;
+}
+```
+
+```bash
+# Enable ktls kernel module
+sudo modprobe tls
+lsmod | grep tls
+
+# Verify kernel was compiled with TLS support
+grep CONFIG_TLS /boot/config-$(uname -r)
+# CONFIG_TLS=m or CONFIG_TLS=y
+
+# Test with nginx + ktls (nginx supports ktls since 1.21.4)
+# nginx config:
+cat > /tmp/nginx_ktls.conf << 'EOF'
+worker_processes 1;
+events { worker_connections 1024; }
+http {
+    server {
+        listen 443 ssl;
+        ssl_certificate     /etc/ssl/certs/ssl-cert-snakeoil.pem;
+        ssl_certificate_key /etc/ssl/private/ssl-cert-snakeoil.key;
+        ssl_protocols TLSv1.3;
+        # ktls: nginx sets TCP_ULP after handshake
+        sendfile on;   # with ktls: sendfile = true zero-copy (file → kernel TLS → NIC)
+        location / { return 200 "ktls test\n"; }
+    }
+}
+EOF
+```
+
+### 3.5 IPsec — Encryption at L3
+
+```
+IPsec encrypts at IP layer — transparent to TCP/UDP
+
+Two modes:
+    Transport mode: encrypts IP payload only — L4 header exposed
+    Tunnel mode:    encrypts entire IP packet — adds new IP header
+                    used for VPN (original packet becomes payload of outer IP)
+
+Two protocols:
+    AH  (Authentication Header):  integrity + authentication, NO encryption
+        Original IP header → AH header → payload
+        AH covers: most IP header fields + AH header + payload
+
+    ESP (Encapsulating Security Payload): integrity + authentication + encryption
+        Original IP header → ESP header → encrypted(payload + ESP trailer) → ESP auth
+        This is what is actually used in practice
+
+Security Association (SA):
+    Unidirectional: src → dst uses one SA, dst → src uses another SA
+    Identified by: SPI (32-bit Security Parameter Index) + dst IP + protocol
+    Contains: algorithm, keys, lifetime, replay window
+
+Key exchange: IKEv2 (strongSwan, libreswan in Linux)
+    Uses ECDH for forward secrecy
+    Creates SAs → stored in SADB (Security Association Database)
+    Kernel uses xfrm subsystem to apply SAs to packets
+```
+
+```bash
+# Set up IPsec tunnel between two netns (no IKEv2, manual SAs)
+# Demonstrates: ESP encryption, SPI, the xfrm subsystem
+
+ip netns add ipsec_left
+ip netns add ipsec_right
+
+ip link add veth-l type veth peer name veth-r
+ip link set veth-l netns ipsec_left
+ip link set veth-r netns ipsec_right
+
+ip netns exec ipsec_left  ip addr add 10.0.0.1/24 dev veth-l
+ip netns exec ipsec_right ip addr add 10.0.0.2/24 dev veth-r
+ip netns exec ipsec_left  ip link set veth-l up
+ip netns exec ipsec_right ip link set veth-r up
+
+# Create Security Associations (manual keying)
+AES_KEY="0x$(openssl rand -hex 16)"
+HMAC_KEY="0x$(openssl rand -hex 20)"
+SPI_LEFT=0x1000
+SPI_RIGHT=0x2000
+
+# Left → Right SA (left encrypts with this SA)
+ip netns exec ipsec_left ip xfrm state add \
+    src 10.0.0.1 dst 10.0.0.2 \
+    proto esp spi $SPI_LEFT \
+    enc aes "$AES_KEY" \
+    auth sha1 "$HMAC_KEY" \
+    mode transport
+
+# Right needs the same SA to decrypt incoming packets from left
+ip netns exec ipsec_right ip xfrm state add \
+    src 10.0.0.1 dst 10.0.0.2 \
+    proto esp spi $SPI_LEFT \
+    enc aes "$AES_KEY" \
+    auth sha1 "$HMAC_KEY" \
+    mode transport
+
+# Policy: left must encrypt all traffic to right
+ip netns exec ipsec_left ip xfrm policy add \
+    src 10.0.0.1 dst 10.0.0.2 dir out \
+    tmpl src 10.0.0.1 dst 10.0.0.2 proto esp mode transport
+
+# Verify: ping now goes through ESP
+ip netns exec ipsec_left ping -c3 10.0.0.2
+
+# Observe ESP packets
+ip netns exec ipsec_right tshark -i veth-r -V &
+# You'll see: Protocol: ESP, SPI, encrypted payload — not ICMP anymore
+
+# Show SA usage counters
+ip netns exec ipsec_left ip xfrm state show
+
+# Cleanup
+ip netns del ipsec_left
+ip netns del ipsec_right
+```
+
+---
+
+## Part 4 — Application Layer → Kernel Space Data Path
+
+### 4.1 The Five Mechanisms — Compared
+
+```
+Mechanism        Copy count    When to use
+──────────────────────────────────────────────────────────────
+write()/send()   2 (usr→skb)   General purpose — always works
+sendmsg()+iovec  2 (iov→skb)   Scatter-gather — multiple buffers
+sendfile()       1 (page→skb)  File → socket — page cache to NIC
+splice()         0 (pipe→skb)  Pipe → socket — pure kernel path
+MSG_ZEROCOPY     0 (pin pages) Userspace buffer → NIC without copy
+io_uring         0-2           Async, batched, reduces syscall overhead
+```
+
+### 4.2 write() — The Full Path
+
+```
+userspace: write(fd, buf, len)
+    │  glibc: syscall(SYS_write, ...)
+    │
+    ▼ [SYSCALL ENTRY — privilege level switch, kernel stack]
+sys_write()                               fs/read_write.c
+    ksys_write()
+        vfs_write()
+            file->f_op->write_iter()      ← dispatches by file type
+
+For a TCP socket: sock_write_iter()       net/socket.c
+    sock_sendmsg()
+        sock->ops->sendmsg()              ← INET TCP
+
+tcp_sendmsg()                             net/ipv4/tcp.c
+    tcp_sendmsg_locked()
+        lock_sock(sk)                     ← acquire socket lock
+        
+        loop: for each chunk of data:
+            skb = tcp_stream_alloc_skb()  ← allocate sk_buff
+            skb_add_data_nocache()        ← COPY userspace buf → skb->data
+                                            (this is THE copy — unavoidable in write())
+            tcp_push()
+                tcp_write_xmit()          ← segment and send
+                    tcp_transmit_skb()
+                        ip_queue_xmit()
+                        ...
+        
+        release_sock(sk)
+
+Returns to userspace: number of bytes consumed (may be < len if buffer full)
+```
+
+```bash
+# Trace the exact copy happening in tcp_sendmsg
+sudo bpftrace -e '
+kprobe:tcp_sendmsg {
+    @start_ns[tid] = nsecs;
+    @size[tid] = arg2;
+}
+kretprobe:tcp_sendmsg {
+    if (@start_ns[tid]) {
+        printf("tcp_sendmsg: pid=%-6d comm=%-16s size=%-8d time=%dus\n",
+               pid, comm, @size[tid],
+               (nsecs - @start_ns[tid]) / 1000);
+        delete(@start_ns[tid]);
+        delete(@size[tid]);
+    }
+}'
+```
+
+### 4.3 sendmsg() with iovec — Scatter-Gather
+
+```c
+// scatter_send.c — send from multiple buffers in one syscall
+// Avoids: application-level copy to assemble contiguous buffer
+// Kernel does gather-and-send from the iovec array
+
+#include <sys/socket.h>
+#include <sys/uio.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+
+int main(void) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port   = htons(3000),
+    };
+    inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+    connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+
+    // Three separate buffers — HTTP request split across headers, body
+    char method[]  = "POST /api HTTP/1.1\r\n";
+    char headers[] = "Host: localhost\r\nContent-Length: 5\r\n\r\n";
+    char body[]    = "hello";
+
+    struct iovec iov[3] = {
+        { .iov_base = method,  .iov_len = strlen(method)  },
+        { .iov_base = headers, .iov_len = strlen(headers) },
+        { .iov_base = body,    .iov_len = strlen(body)    },
+    };
+
+    struct msghdr msg = {
+        .msg_name    = NULL,     // already connected — no need
+        .msg_iov     = iov,
+        .msg_iovlen  = 3,
+        .msg_control = NULL,     // no ancillary data
+        .msg_flags   = 0,
+    };
+
+    // One syscall sends all three buffers
+    // Kernel calls tcp_sendmsg_locked() → iterates iov array
+    // Each iov chunk copied into sk_buff (or multiple sk_buffs if > MSS)
+    ssize_t n = sendmsg(fd, &msg, 0);
+    printf("sendmsg sent %zd bytes\n", n);
+
+    close(fd);
+    return 0;
+}
+```
+
+```bash
+# Verify: strace shows ONE sendmsg syscall instead of three write() calls
+strace -e trace=write,sendmsg ./scatter_send 2>&1 | grep -E "sendmsg|write"
+```
+
+### 4.4 sendfile() — Zero-Copy File Serving
+
+```
+Without sendfile:
+    disk → kernel page cache → kernel buffer → userspace buffer → socket buffer → NIC
+    2 kernel↔userspace copies
+
+With sendfile:
+    disk → kernel page cache → socket buffer → NIC
+    0 userspace copies — page cache pages referenced directly
+
+In kernel: sendfile() calls do_sendfile() → tcp_sendpage()
+    tcp_sendpage() maps page cache pages into sk_buff via skb_fill_page_desc()
+    No copy — the page pointer is shared between page cache and sk_buff
+    NIC DMA reads directly from the page cache page
+```
+
+```go
+// fileserver/main.go — file server comparing write() vs sendfile() performance
+package main
+
+import (
+    "fmt"
+    "net"
+    "net/http"
+    "os"
+    "time"
+)
+
+func main() {
+    // Method 1: normal http.ServeFile — Go uses sendfile internally on Linux
+    // net/http's (*response).ReadFrom() detects *os.File and calls sendfile syscall
+    http.HandleFunc("/file", func(w http.ResponseWriter, r *http.Request) {
+        http.ServeFile(w, r, "/tmp/testfile")
+        // Internally: w.(io.ReaderFrom).ReadFrom(f) → net.(*TCPConn).ReadFrom()
+        // → splice() or sendfile() depending on Go version
+    })
+
+    // Method 2: read into userspace then write — slower, shows the copy
+    http.HandleFunc("/file-copy", func(w http.ResponseWriter, r *http.Request) {
+        data, _ := os.ReadFile("/tmp/testfile")  // userspace copy
+        w.Write(data)                              // another copy to socket buffer
+    })
+
+    // Create test file
+    f, _ := os.Create("/tmp/testfile")
+    f.Write(make([]byte, 10*1024*1024))  // 10MB
+    f.Close()
+
+    go http.ListenAndServe(":8080", nil)
+    time.Sleep(100 * time.Millisecond)
+
+    // Benchmark both methods
+    benchmark := func(path string) {
+        t := time.Now()
+        resp, _ := http.Get("http://localhost:8080" + path)
+        buf := make([]byte, 4096)
+        total := 0
+        for {
+            n, err := resp.Body.Read(buf)
+            total += n
+            if err != nil { break }
+        }
+        fmt.Printf("%-12s: %d bytes in %v\n", path, total, time.Since(t))
+    }
+
+    for i := 0; i < 3; i++ {
+        benchmark("/file")
+        benchmark("/file-copy")
+    }
+}
+```
+
+```bash
+go run fileserver/main.go &
+
+# Verify sendfile is being used
+strace -e trace=sendfile,sendfile64 -p $(pgrep -f fileserver) 2>&1 | head
+
+# Or with bpftrace
+sudo bpftrace -e '
+tracepoint:syscalls:sys_enter_sendfile {
+    printf("sendfile: fd_out=%d fd_in=%d count=%d\n",
+           args->out_fd, args->in_fd, args->count);
+}'
+```
+
+### 4.5 MSG_ZEROCOPY — True Zero-Copy from Userspace
+
+```
+MSG_ZEROCOPY pins userspace pages and passes them directly to NIC DMA
+No kernel copy at all — NIC DMA reads from your userspace buffer
+Application must wait for completion notification before reusing buffer
+```
+
+```c
+// zerocopy_send.c — MSG_ZEROCOPY: NIC DMA reads directly from userspace memory
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <linux/errqueue.h>  // for SO_EE_ORIGIN_ZEROCOPY
+#include <sys/mman.h>
+
+#define MSG_SIZE (1024 * 1024)   // 1MB
+
+void wait_zerocopy_completion(int fd) {
+    // After each send with MSG_ZEROCOPY, we MUST wait for kernel to signal
+    // it's done with our buffer before we can modify or free it
+    struct msghdr msg = {0};
+    char ctrl[1024];
+    msg.msg_control    = ctrl;
+    msg.msg_controllen = sizeof(ctrl);
+
+    // recvmsg on error queue — gets the completion notification
+    // Blocks until kernel signals: "your buffer is no longer in use"
+    recvmsg(fd, &msg, MSG_ERRQUEUE);
+
+    struct cmsghdr *cm = CMSG_FIRSTHDR(&msg);
+    if (cm && cm->cmsg_level == SOL_IP && cm->cmsg_type == IP_RECVERR) {
+        struct sock_extended_err *serr = (void *)CMSG_DATA(cm);
+        if (serr->ee_origin == SO_EE_ORIGIN_ZEROCOPY) {
+            printf("zerocopy completion: seq %u..%u (could=%s)\n",
+                   serr->ee_info, serr->ee_data,
+                   (serr->ee_code & SO_EE_CODE_ZEROCOPY_COPIED) ?
+                   "no, copied" : "yes");
+            // SO_EE_CODE_ZEROCOPY_COPIED: kernel fell back to copy
+            // This happens for small packets — not worth the overhead
+        }
+    }
+}
+
+int main(void) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+
+    // Must enable SO_ZEROCOPY before connecting
+    int one = 1;
+    setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &one, sizeof(one));
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port   = htons(3000),
+    };
+    inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+    connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+
+    // Allocate page-aligned buffer — required for pinning
+    void *buf = mmap(NULL, MSG_SIZE, PROT_READ|PROT_WRITE,
+                     MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    memset(buf, 'A', MSG_SIZE);
+
+    // Send with MSG_ZEROCOPY
+    // Kernel pins the pages, passes to NIC DMA — no copy
+    ssize_t n = send(fd, buf, MSG_SIZE, MSG_ZEROCOPY);
+    printf("send with MSG_ZEROCOPY: %zd bytes\n", n);
+
+    // CRITICAL: must not modify buf until kernel signals completion
+    wait_zerocopy_completion(fd);
+    printf("buffer is free to reuse\n");
+
+    // Now safe to modify
+    memset(buf, 'B', MSG_SIZE);
+
+    munmap(buf, MSG_SIZE);
+    close(fd);
+    return 0;
+}
+```
+
+### 4.6 io_uring — Async Batched I/O
+
+```
+io_uring eliminates per-operation syscall overhead
+Shared ring buffers between kernel and userspace — no syscall to submit or complete
+
+Two rings:
+    SQ (Submission Queue): userspace writes I/O requests here
+    CQ (Completion Queue): kernel writes completions here
+
+Userspace:
+    io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+    io_uring_prep_send(sqe, fd, buf, len, 0);
+    io_uring_submit(&ring);           ← ONE syscall for N operations
+    io_uring_wait_cqe(&ring, &cqe);  ← or busy poll with IORING_FEAT_SQPOLL
+
+Kernel-side (io_uring path):
+    SQ polled or woken → io_uring_send() → sock_sendmsg() → tcp_sendmsg()
+    Same path as write() but no syscall per operation
+    With SQPOLL: kernel thread polls SQ continuously — zero syscalls from app
+```
+
+```rust
+// io_uring_send/src/main.rs — async send via io_uring
+// Cargo.toml: io-uring = "0.6", tokio = { version="1", features=["full"] }
+
+use io_uring::{IoUring, opcode, types};
+use std::net::TcpStream;
+use std::os::unix::io::AsRawFd;
+
+fn main() -> std::io::Result<()> {
+    let stream = TcpStream::connect("127.0.0.1:3000")?;
+    let fd = types::Fd(stream.as_raw_fd());
+
+    // Create io_uring instance with 64-entry queue depth
+    let mut ring = IoUring::new(64)?;
+
+    let data = b"Hello from io_uring!\n";
+
+    unsafe {
+        // Prepare send operation — no syscall yet
+        let sqe = opcode::Send::new(fd, data.as_ptr(), data.len() as _)
+            .build()
+            .user_data(0x42);  // tag to identify this completion
+
+        // Push to submission queue
+        ring.submission()
+            .push(&sqe)
+            .expect("submission queue full");
+    }
+
+    // ONE syscall to submit all queued operations and wait for completion
+    ring.submit_and_wait(1)?;
+
+    // Read completion
+    let cqe = ring.completion().next().expect("no completion");
+    println!("io_uring send result: {} bytes (user_data=0x{:x})",
+             cqe.result(), cqe.user_data());
+
+    Ok(())
+}
+```
+
+```bash
+# Benchmark: write() vs io_uring syscall overhead
+# wrk2 uses io_uring internally
+cargo run --release
+
+# Measure syscalls per request
+strace -c -e trace=io_uring_enter,write,sendto ./target/release/io_uring_send
+# io_uring_enter: 1 call submits N operations
+# compare to N write() calls for same N operations
+
+# Enable io_uring tracing in kernel
+sudo bpftrace -e '
+tracepoint:io_uring:io_uring_submit_sqe {
+    printf("io_uring submit: op=%d fd=%d\n", args->opcode, args->fd);
+}'
+```
+
+### 4.7 How Rust tokio/async Sends Data
+
+```
+tokio runtime → async TCP socket → kernel
+
+tokio::net::TcpStream::write()
+    ↓
+tokio runtime: checks if socket is writable (using epoll)
+    ↓
+if writable:
+    std::os::unix::io::AsRawFd → raw fd
+    libc::write(fd, buf, len)  ← blocking syscall, but:
+        - tokio runs on a thread pool
+        - if write() would block (returns EAGAIN): register with epoll
+        - suspend this task (yield to runtime) — other tasks run
+        - when epoll says writable again: retry write()
+        ↓
+    sys_write() → tcp_sendmsg() — same kernel path as always
+
+tokio uses epoll (Linux) / kqueue (macOS) for readiness notification
+Not completion-based — it's readiness-based (different from io_uring)
+
+io_uring tokio integration (tokio-uring crate):
+    Uses io_uring completion events instead of epoll readiness
+    More efficient for high-concurrency — fewer syscalls, no epoll overhead
+```
+
+```bash
+# Observe tokio's epoll usage
+sudo bpftrace -e '
+tracepoint:syscalls:sys_enter_epoll_ctl {
+    printf("epoll_ctl: op=%d fd=%d\n", args->op, args->fd);
+}
+tracepoint:syscalls:sys_enter_epoll_pwait {
+    printf("epoll_wait: maxevents=%d timeout=%d\n",
+           args->maxevents, args->timeout);
+}' &
+
+# Run your Axum server and make requests
+curl http://localhost:3000/
+# See the epoll_ctl registrations and epoll_wait cycles
+```
+
+---
+
+## Architecture: Complete Data Path with All Mechanisms
+
+```
+USERSPACE                    SYSCALL BOUNDARY             KERNEL
+─────────────────────────────────────────────────────────────────────
+                                                       struct sock
+OpenSSL/rustls                                         sk_write_queue
+TLS encrypt ─┐                                         sk_rcv_queue
+             │                                              │
+write()   ───┼──► sys_write ──► tcp_sendmsg ─► skb alloc ──┤
+sendmsg() ───┤                                  skb copy  ──┤
+             │                                              │
+sendfile()───┤    sys_sendfile ─► tcp_sendpage ─► skb ref ─┤ (no copy)
+             │                                              │
+splice() ─── ┤    sys_splice ──► do_splice ─────► skb ref ─┤ (no copy)
+             │                                              │
+MSG_ZCOPY ───┘    sys_send ────► tcp_sendmsg ─► page pin ──┤ (no copy)
+                                                            │
+io_uring  ───────► io_uring_enter ──────────────────────────┘
+                   (batch all above)
+                                                            │
+                                                  qdisc / tc
+                                                  Netfilter OUTPUT
+                                                  ip_output()
+                                                  driver xmit()
+                                                  virtio ring
+                                                            │
+                                                           NIC
+```
+
+---
+
+## Tests to Run in Your Lab
+
+```bash
+# 1. Verify all copy paths with bpftrace
+sudo bpftrace -e '
+kprobe:skb_add_data_nocache { @copies = count(); }
+kretprobe:tcp_sendmsg        { printf("tx: copies=%d\n", @copies); clear(@copies); }'
+
+# 2. Compare throughput: write() vs sendfile()
+dd if=/dev/zero bs=1M count=100 | nc -l 3001 &
+dd if=/dev/zero bs=1M count=100 | socat - TCP:localhost:3001
+
+# 3. Test TLS session resumption timing
+for i in $(seq 5); do
+    time openssl s_client -connect localhost:3000 \
+        -sess_in /tmp/sess.pem -tls1_3 < /dev/null 2>&1 | grep "Reused"
+done
+
+# 4. Measure io_uring vs write() syscall count
+perf stat -e syscalls:sys_enter_write ./write_bench
+perf stat -e syscalls:sys_enter_io_uring_enter ./uring_bench
+
+# 5. Observe ktls in action
+sudo bpftrace -e '
+kprobe:tls_sw_sendmsg {
+    printf("ktls encrypt: pid=%d size=%d\n", pid, arg2);
+}'
+```
+
+---
+
+## Next 3 Steps
+
+1. **Build and run the TUN inspector in C, then rewrite it in Rust using `pnet`** — add ICMP echo reply support. This forces you to understand: byte ordering in protocol headers, how the kernel routes packets based on the TUN address, and how `write()` to a TUN fd injects a packet back into the kernel stack.
+
+2. **Set up the three-namespace topology** (`ns_client → ns_router → ns_server`), run your Axum server in `ns_server`, capture with `tshark` in `ns_router`, and simultaneously trace `tcp_sendmsg` with `bpftrace`. You will see the exact moment `write()` from your Rust server crosses into the kernel, the sk_buff travel through the router namespace, and the frame arrive at the client — full end-to-end visibility.
+
+3. **Enable `ktls` on your Axum server** — add `rustls` to it, complete the handshake in userspace, extract the session keys using `rustls`'s `dangerous_config()` API, then call `setsockopt(TCP_ULP, "tls")` + `TLS_TX`/`TLS_RX` via the `libc` crate. Verify with `bpftrace` on `tls_sw_sendmsg` that the kernel is doing encryption, and with `tshark` that the wire traffic is TLS-encrypted while your Rust code only calls `write()` with plaintext.
