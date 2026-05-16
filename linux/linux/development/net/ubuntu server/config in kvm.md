@@ -2027,3 +2027,1155 @@ wget -4 -O ubuntu-26.04-live-server-amd64.iso \
 ```
 
 Which option do you prefer?
+
+Your notes are extremely thorough — great foundation. I can see exactly where the **mental model gap** is. Let me fix that first, then give you the complete working setup.
+
+---
+
+## The Mental Model Fix (Your Current Doubt)
+
+Your understanding is **almost right but has one critical misconception:**
+
+```
+❌ WRONG mental model:
+   "Attach kernel image WITH the Ubuntu Server ISO and run"
+
+✅ CORRECT mental model:
+   ISO  → used ONCE to install Ubuntu Server onto a .qcow2 disk
+   bzImage → replaces the kernel INSIDE that .qcow2 disk (separately)
+
+   Two completely independent things. ISO is thrown away after install.
+```
+
+There are **two valid workflows** for kernel dev — you pick one:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  WORKFLOW A: Direct Kernel Boot (Best for fast iteration)       │
+│  QEMU boots YOUR bzImage directly, mounts Ubuntu rootfs        │
+│  No .deb install needed. Just: rebuild → run QEMU → test       │
+│                                                                 │
+│  WORKFLOW B: .deb Install into VM (Closer to production)        │
+│  make bindeb-pkg → scp to VM → dpkg -i → reboot                │
+│  More steps but VM behaves exactly like a real Ubuntu system    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Recommendation for learning net subsystem → Use Workflow A.** Fastest iteration loop.
+
+---
+
+## Phase 0 — Dell G3 Host Prerequisites
+
+```bash
+# Check KVM is enabled (Dell G3 supports VT-x)
+egrep -c '(vmx|svm)' /proc/cpuinfo    # must be > 0
+kvm-ok                                  # must say "KVM acceleration can be used"
+
+# Install everything needed
+sudo apt install -y \
+  qemu-kvm qemu-system-x86 libvirt-daemon-system \
+  virt-manager bridge-utils \
+  build-essential libncurses-dev bison flex \
+  libssl-dev libelf-dev dwarves bc cpio pahole \
+  gdb-multiarch crash trace-cmd kernelshark \
+  git tmux
+
+# Add yourself to kvm group
+sudo usermod -aG kvm,libvirt $USER
+newgrp kvm
+```
+
+---
+
+## Phase 1 — Get Kernel Source
+
+```bash
+mkdir -p ~/kerneldev && cd ~/kerneldev
+
+# Option A: Vanilla mainline (recommended for net subsystem learning)
+git clone --depth=1 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+cd linux
+
+# Option B: Ubuntu kernel (matches your running system exactly)
+# apt source linux   ← run from ~/kerneldev
+```
+
+---
+
+## Phase 2 — Configure for Net Dev (Fast Build)
+
+```bash
+cd ~/kerneldev/linux
+
+# Start from your host config
+cp /boot/config-$(uname -r) .config
+
+# Trim it down for fast builds (disables most drivers you don't need)
+make localmodconfig      # only keeps modules currently loaded on your host
+# → press Enter for all prompts (accept defaults)
+
+# Enable net debugging + KGDB
+scripts/config --enable  CONFIG_DEBUG_INFO
+scripts/config --enable  CONFIG_DEBUG_INFO_DWARF4
+scripts/config --enable  CONFIG_GDB_SCRIPTS
+scripts/config --enable  CONFIG_KGDB
+scripts/config --enable  CONFIG_KGDB_SERIAL_CONSOLE
+scripts/config --enable  CONFIG_DEBUG_KERNEL
+scripts/config --enable  CONFIG_DYNAMIC_DEBUG
+scripts/config --enable  CONFIG_FTRACE
+scripts/config --enable  CONFIG_FUNCTION_TRACER
+scripts/config --enable  CONFIG_FUNCTION_GRAPH_TRACER
+scripts/config --enable  CONFIG_KPROBES
+scripts/config --enable  CONFIG_NET_SCH_INGRESS
+
+# Disable KASLR (makes GDB addresses stable)
+scripts/config --disable CONFIG_RANDOMIZE_BASE
+
+# Apply
+make olddefconfig
+```
+
+**Build:**
+
+```bash
+# Full build — ~20-40 min first time on Dell G3 (i5/i7 with 8+ cores)
+make -j$(nproc) 2>&1 | tee build.log
+
+# Verify output
+ls -lh arch/x86/boot/bzImage   # THIS is your kernel image
+ls -lh vmlinux                  # THIS is the uncompressed debug symbol file (for GDB)
+```
+
+---
+
+## Phase 3 — Create Ubuntu Server Root Filesystem (One-Time)
+
+This is the Ubuntu OS disk the VM will live on. **ISO used here and never again.**
+
+```bash
+mkdir -p ~/vms
+
+# Create disk
+qemu-img create -f qcow2 ~/vms/netlab.qcow2 30G
+
+# Download Ubuntu Server ISO (22.04 LTS)
+wget -P ~/vms/ https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+
+# Install Ubuntu Server into the disk (ISO used HERE — one time)
+sudo qemu-system-x86_64 \
+  -enable-kvm \
+  -m 4096 \
+  -smp 4 \
+  -drive file=~/vms/netlab.qcow2,format=qcow2 \
+  -cdrom ~/vms/ubuntu-22.04.4-live-server-amd64.iso \
+  -boot d \
+  -net nic -net user \
+  -vnc :0
+# Connect to VNC on localhost:5900 to complete Ubuntu install
+# (virt-viewer, remmina, or: vncviewer localhost:5900)
+```
+
+After install completes and VM reboots — **you're done with the ISO forever.**
+
+---
+
+## Phase 4 — Workflow A: Direct Kernel Boot (The Fast Dev Loop)
+
+This is the key insight your notes were missing. **You don't need to install your kernel into the VM.** QEMU boots it directly:
+
+```bash
+# Create a convenience script — save as ~/vms/run-netlab.sh
+cat > ~/vms/run-netlab.sh << 'EOF'
+#!/bin/bash
+KERNEL=~/kerneldev/linux/arch/x86/boot/bzImage
+DISK=~/vms/netlab.qcow2
+
+sudo qemu-system-x86_64 \
+  -enable-kvm \
+  -m 4096 \
+  -smp 4 \
+  -kernel $KERNEL \
+  -drive file=$DISK,format=qcow2 \
+  -append "root=/dev/sda2 console=ttyS0,115200 nokaslr kgdboc=ttyS0,115200" \
+  -net nic,model=virtio \
+  -net user,hostfwd=tcp::2222-:22,hostfwd=tcp::3000-:3000 \
+  -serial mon:stdio \
+  -nographic
+EOF
+
+chmod +x ~/vms/run-netlab.sh
+```
+
+> **`root=/dev/sda2`** — adjust to match your Ubuntu partition. Check with:
+> `sudo qemu-system-x86_64 -enable-kvm -m 2048 -drive file=~/vms/netlab.qcow2,format=qcow2 -nographic -append "console=ttyS0" -kernel /boot/vmlinuz-$(uname -r)` and look at boot messages to find partition.
+
+**Run it:**
+
+```bash
+~/vms/run-netlab.sh
+# VM boots with YOUR kernel, Ubuntu rootfs
+# Login at the serial console directly in your terminal
+```
+
+**SSH in (from another terminal on host):**
+
+```bash
+ssh -p 2222 youruser@localhost
+```
+
+**The dev loop is now:**
+
+```
+1. Edit net/ipv4/tcp.c on host
+2. make -j$(nproc) net/ipv4/tcp.o   ← ~10 seconds
+3. make -j$(nproc)                   ← ~2-3 min incremental
+4. Ctrl+A X  (kill QEMU)
+5. ~/vms/run-netlab.sh              ← reboot with new kernel
+6. Test, observe dmesg
+```
+
+---
+
+## Phase 5 — Workflow B: .deb Install (When You Need It)
+
+Use this when you want the VM to permanently run your kernel across reboots without specifying `-kernel`:
+
+```bash
+# In kernel source dir on host
+make -j$(nproc) bindeb-pkg
+
+# Generated in parent dir
+ls ~/kerneldev/*.deb
+# linux-image-6.x.x-custom_amd64.deb
+# linux-headers-6.x.x-custom_amd64.deb
+
+# Copy to VM
+scp -P 2222 ~/kerneldev/*.deb youruser@localhost:~
+
+# Inside VM
+sudo dpkg -i ~/linux-image-*.deb ~/linux-headers-*.deb
+sudo update-grub
+sudo reboot
+```
+
+---
+
+## Phase 6 — KGDB: Step Through Net Code Live
+
+```bash
+# Start VM with KGDB serial port exposed on host port 1234
+sudo qemu-system-x86_64 \
+  -enable-kvm -m 4096 -smp 4 \
+  -kernel ~/kerneldev/linux/arch/x86/boot/bzImage \
+  -drive file=~/vms/netlab.qcow2,format=qcow2 \
+  -append "root=/dev/sda2 console=ttyS0,115200 nokaslr kgdboc=ttyS0,115200 kgdbwait" \
+  -net nic,model=virtio -net user,hostfwd=tcp::2222-:22 \
+  -serial tcp::1234,server,nowait \
+  -monitor stdio
+
+# kgdbwait = VM halts at boot waiting for GDB connection
+
+# On HOST — connect GDB (new terminal)
+cd ~/kerneldev/linux
+gdb vmlinux
+(gdb) target remote localhost:1234
+(gdb) break tcp_sendmsg
+(gdb) break ip_queue_xmit
+(gdb) break dev_queue_xmit
+(gdb) break start_xmit          # virtio_net driver
+(gdb) continue                  # VM resumes
+
+# Now from another terminal — SSH into VM and run curl
+ssh -p 2222 youruser@localhost
+curl http://example.com         # GDB will break at each function
+```
+
+In GDB when broken at `tcp_sendmsg`:
+
+```gdb
+(gdb) bt                        # full call stack
+(gdb) p skb->len                # packet size right now
+(gdb) p/x skb->protocol         # ethertype
+(gdb) p *tcp_sk(sk)             # full TCP socket state
+(gdb) info locals               # all local variables
+(gdb) next                      # step one line
+(gdb) step                      # step into function call
+(gdb) finish                    # run until function returns
+```
+
+---
+
+## Quick Reference — The Full Setup at a Glance
+
+```
+~/kerneldev/linux/          ← kernel source, edit here
+~/kerneldev/linux/vmlinux   ← debug symbols (GDB uses this)
+~/kerneldev/linux/arch/x86/boot/bzImage  ← boot image (QEMU -kernel)
+~/vms/netlab.qcow2          ← Ubuntu Server rootfs (never reinstall)
+~/vms/run-netlab.sh         ← your QEMU launch script
+
+EDIT CODE → make -j$(nproc) → kill QEMU → run-netlab.sh → test
+```
+
+---
+
+## Tell Me Your Specific Doubts
+
+Based on your notes, the most likely blockers are one of these — which is it?
+
+1. **`root=` parameter** — don't know which partition Ubuntu is on inside qcow2?
+2. **VNC setup** — couldn't see Ubuntu installer during initial install?
+3. **Serial console** — VM boots but you see no output?
+4. **Kernel panics** — VM crashes with your built kernel?
+5. **Build errors** — specific error in `make`?
+
+Drop the exact error or the step where you're stuck and I'll fix it directly.
+
+Good — this is a much cleaner goal. Let me reframe everything around **what you actually want**, then give you the exact setup and roadmap.
+
+---
+
+## The Complete Picture: What Lives Where
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        YOUR KVM VM                              │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                  USER SPACE                              │  │
+│  │                                                          │  │
+│  │  L7  Your custom HTTP server (C) / curl / wget          │  │
+│  │  L6  OpenSSL (TLS) — edit source, rebuild               │  │
+│  │  L5  Custom protocol you write from scratch             │  │
+│  │  L4  Raw socket programs — craft TCP/UDP by hand        │  │
+│  │  L3  iproute2 (ip, ss, tc) — edit source, rebuild       │  │
+│  │  L2  libpcap / custom AF_PACKET socket — raw frames      │  │
+│  │                                                          │  │
+│  │  ─────────────── syscall boundary ───────────────────── │  │
+│  │                                                          │  │
+│  │                  KERNEL SPACE                            │  │
+│  │                                                          │  │
+│  │  L4  net/ipv4/tcp.c  net/ipv4/udp.c                    │  │
+│  │  L3  net/ipv4/ip_output.c  ip_input.c  route.c          │  │
+│  │  L2  net/core/dev.c  net/ethernet/  net/core/skbuff.c   │  │
+│  │  L1  drivers/net/virtio_net.c  ← virtual NIC driver     │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                          virtio ring                            │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  HOST KERNEL: drivers/vhost/net.c  (other side)         │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Two separate source trees to work with:
+
+```
+~/kerneldev/linux/          ← kernel space (L1–L4 kernel side)
+~/userspace/                ← userspace sources (L3–L7 userspace side)
+  ├── iproute2/             ← ip, ss, tc commands
+  ├── openssl/              ← TLS
+  ├── libpcap/              ← packet capture library
+  └── mylab/                ← YOUR custom C programs (most important)
+```
+
+---
+
+## One-Time Lab Setup
+
+### 1. KVM VM (Ubuntu Server — your runtime)
+
+```bash
+# On your Dell G3 host
+sudo apt install -y qemu-kvm libvirt-daemon-system \
+  build-essential libncurses-dev bison flex \
+  libssl-dev libelf-dev dwarves bc pahole \
+  gdb-multiarch trace-cmd git tmux
+
+# Create disk + install Ubuntu Server (one time)
+qemu-img create -f qcow2 ~/vms/netlab.qcow2 30G
+# Install normally via virt-manager or virt-install with the ISO
+# After install — done with ISO forever
+```
+
+### 2. Kernel Source (kernel space editing)
+
+```bash
+mkdir -p ~/kerneldev && cd ~/kerneldev
+git clone --depth=1 \
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+cd linux
+
+cp /boot/config-$(uname -r) .config
+make localmodconfig
+
+# Enable debug + tracing
+scripts/config --enable CONFIG_DEBUG_INFO
+scripts/config --enable CONFIG_KGDB
+scripts/config --enable CONFIG_KGDB_SERIAL_CONSOLE
+scripts/config --enable CONFIG_FTRACE
+scripts/config --enable CONFIG_FUNCTION_GRAPH_TRACER
+scripts/config --enable CONFIG_DYNAMIC_DEBUG
+scripts/config --disable CONFIG_RANDOMIZE_BASE   # stable addresses for GDB
+make olddefconfig
+make -j$(nproc)   # first build ~30 min
+```
+
+### 3. Userspace Sources
+
+```bash
+mkdir -p ~/userspace && cd ~/userspace
+
+# Inside your VM (ssh into it):
+sudo apt install -y \
+  gcc make gdb strace ltrace \
+  libssl-dev libpcap-dev \
+  tshark tcpdump iproute2 \
+  tmux vim cscope universal-ctags
+
+# Get userspace source to edit
+cd ~/userspace
+apt source iproute2      # ip, ss, tc
+apt source libpcap       # packet capture
+# OpenSSL
+git clone --depth=1 https://github.com/openssl/openssl.git
+
+# YOUR lab programs dir — this is where you write custom code
+mkdir -p ~/userspace/mylab
+```
+
+### 4. QEMU Launch Script
+
+```bash
+cat > ~/vms/run-netlab.sh << 'EOF'
+#!/bin/bash
+sudo qemu-system-x86_64 \
+  -enable-kvm \
+  -m 4096 -smp 4 \
+  -kernel ~/kerneldev/linux/arch/x86/boot/bzImage \
+  -drive file=~/vms/netlab.qcow2,format=qcow2 \
+  -append "root=/dev/sda2 console=ttyS0,115200 nokaslr kgdboc=ttyS0,115200" \
+  -netdev user,id=net0,hostfwd=tcp::2222-:22,hostfwd=tcp::8080-:8080 \
+  -device virtio-net-pci,netdev=net0 \
+  -serial mon:stdio -nographic
+EOF
+chmod +x ~/vms/run-netlab.sh
+```
+
+---
+
+## The Learning Roadmap — Layer by Layer
+
+Each layer: you write/edit code → build → run in VM → observe with tools.
+
+---
+
+### Layer 1 — Physical (virtio NIC driver)
+
+**What it is:** In KVM, your "physical layer" is the virtio ring — a shared memory queue between VM kernel and host kernel.
+
+**Kernel file to study/edit:**
+```
+drivers/net/virtio_net.c       ← TX: start_xmit(), RX: virtnet_poll()
+drivers/vhost/net.c            ← host side (runs on your Dell G3)
+```
+
+**Add a print to see every frame leaving the VM:**
+```c
+// drivers/net/virtio_net.c — inside start_xmit()
+pr_info("[L1-TX] frame out: len=%u queue=%d\n",
+        skb->len, qnum);
+```
+
+**Observe:**
+```bash
+sudo dmesg -w | grep L1-TX     # fires on every outbound frame
+```
+
+**No userspace at L1** — the virtio driver IS the L1 for your VM.
+
+---
+
+### Layer 2 — Data Link (Ethernet frames)
+
+**Kernel files:**
+```
+net/core/dev.c          ← dev_queue_xmit() TX,  netif_receive_skb() RX
+net/ethernet/eth.c      ← eth_type_trans(), eth_header()
+include/linux/skbuff.h  ← sk_buff struct — the packet container
+```
+
+**Userspace — write a raw socket program** (this is your L2 lab):
+
+```c
+// ~/userspace/mylab/l2_raw.c
+// Sends a hand-crafted Ethernet frame
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <linux/if_packet.h>
+#include <linux/if_ether.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <arpa/inet.h>
+
+int main() {
+    int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+
+    struct ifreq ifr;
+    strncpy(ifr.ifr_name, "eth0", IFNAMSIZ);
+    ioctl(sock, SIOCGIFINDEX, &ifr);
+
+    // Build raw Ethernet frame by hand
+    unsigned char frame[64] = {0};
+
+    // Dst MAC: broadcast
+    memset(frame, 0xff, 6);
+    // Src MAC: 00:11:22:33:44:55
+    unsigned char src[] = {0x00,0x11,0x22,0x33,0x44,0x55};
+    memcpy(frame + 6, src, 6);
+    // EtherType: 0x0800 = IPv4
+    frame[12] = 0x08; frame[13] = 0x00;
+    // Payload
+    memcpy(frame + 14, "HELLO L2 LAYER", 14);
+
+    struct sockaddr_ll addr = {
+        .sll_ifindex = ifr.ifr_ifindex,
+        .sll_halen   = ETH_ALEN,
+    };
+    memset(addr.sll_addr, 0xff, 6);
+
+    sendto(sock, frame, 64, 0,
+           (struct sockaddr *)&addr, sizeof(addr));
+    printf("Raw Ethernet frame sent\n");
+    return 0;
+}
+```
+
+```bash
+gcc -o l2_raw l2_raw.c
+sudo ./l2_raw
+
+# Capture it — see the exact frame you built
+sudo tshark -i eth0 -f "ether src 00:11:22:33:44:55"
+```
+
+**What you learn:** You crafted a real Ethernet frame. The kernel's `eth_type_trans()` in `net/ethernet/eth.c` reads byte 12-13 of your frame to figure out the protocol. No IP, no TCP — raw L2.
+
+---
+
+### Layer 3 — Network (IP)
+
+**Kernel files:**
+```
+net/ipv4/ip_output.c    ← ip_queue_xmit(), ip_output(), ip_finish_output2()
+net/ipv4/ip_input.c     ← ip_rcv(), ip_local_deliver()
+net/ipv4/route.c        ← routing table lookup
+net/ipv4/arp.c          ← ARP resolution
+```
+
+**Userspace — craft a raw IP packet:**
+
+```c
+// ~/userspace/mylab/l3_raw_ip.c
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+
+int main() {
+    // AF_INET + SOCK_RAW + IPPROTO_RAW = you build the IP header yourself
+    int sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+
+    char packet[40] = {0};
+
+    struct iphdr *iph = (struct iphdr *)packet;
+    iph->version  = 4;
+    iph->ihl      = 5;          // header length in 32-bit words
+    iph->ttl      = 64;
+    iph->protocol = 253;        // 253 = experimental, won't confuse TCP/UDP
+    iph->saddr    = inet_addr("192.168.1.100");
+    iph->daddr    = inet_addr("192.168.1.1");
+    iph->tot_len  = htons(40);
+    iph->id       = htons(12345);
+    // kernel fills checksum when IP_HDRINCL is set
+
+    int one = 1;
+    setsockopt(sock, IPPROTO_IP, IP_HDRINCL, &one, sizeof(one));
+
+    memcpy(packet + 20, "HELLO L3", 8);
+
+    struct sockaddr_in dest = {
+        .sin_family = AF_INET,
+        .sin_addr.s_addr = inet_addr("192.168.1.1"),
+    };
+
+    sendto(sock, packet, 40, 0,
+           (struct sockaddr *)&dest, sizeof(dest));
+    printf("Raw IP packet sent\n");
+    return 0;
+}
+```
+
+```bash
+gcc -o l3_raw_ip l3_raw_ip.c
+sudo ./l3_raw_ip
+sudo tshark -i eth0 -f "ip proto 253"   # see your custom protocol field
+```
+
+**iproute2 userspace — edit and rebuild:**
+
+```bash
+cd ~/userspace/iproute2-*/
+# Edit ip/link.c — add a printf to print_link()
+# to understand how 'ip link show' works
+
+make -j$(nproc)
+./ip/ip link show     # your modified binary
+```
+
+**Kernel trace — watch IP routing decision:**
+
+```c
+// net/ipv4/route.c — inside ip_route_output_key_hash()
+pr_info("[L3-ROUTE] dst=%pI4 via=%pI4 dev=%s\n",
+        &fl4->daddr, &rt->rt_gateway, rt->dst.dev->name);
+```
+
+---
+
+### Layer 4 — Transport (TCP/UDP)
+
+**Kernel files:**
+```
+net/ipv4/tcp.c           ← tcp_sendmsg(), tcp_recvmsg()
+net/ipv4/tcp_output.c    ← tcp_write_xmit(), tcp_transmit_skb()
+net/ipv4/tcp_input.c     ← tcp_rcv_established(), tcp_data_queue()
+net/ipv4/tcp_timer.c     ← retransmit timers
+net/ipv4/udp.c           ← udp_sendmsg(), udp_rcv()
+```
+
+**Userspace — write a TCP client/server from scratch:**
+
+```c
+// ~/userspace/mylab/l4_tcp_server.c
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>   // TCP_NODELAY, TCP_INFO
+#include <string.h>
+#include <unistd.h>
+
+int main() {
+    int srv = socket(AF_INET, SOCK_STREAM, 0);
+
+    // Observe: SO_SNDBUF is the kernel send buffer
+    int sndbuf = 87380;
+    setsockopt(srv, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+
+    // Disable Nagle — sends immediately, no batching
+    int one = 1;
+    setsockopt(srv, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port   = htons(8080),
+        .sin_addr.s_addr = INADDR_ANY,
+    };
+    bind(srv, (struct sockaddr *)&addr, sizeof(addr));
+    listen(srv, 5);
+
+    printf("Listening on :8080\n");
+    int cli = accept(srv, NULL, NULL);
+
+    // Read kernel TCP stats for THIS connection
+    struct tcp_info info;
+    socklen_t len = sizeof(info);
+    getsockopt(cli, IPPROTO_TCP, TCP_INFO, &info, &len);
+    printf("RTT: %u us | cwnd: %u | state: %u\n",
+           info.tcpi_rtt, info.tcpi_snd_cwnd, info.tcpi_state);
+
+    char buf[1024];
+    int n = recv(cli, buf, sizeof(buf), 0);
+    send(cli, "HTTP/1.0 200 OK\r\n\r\nHello L4\n", 28, 0);
+    close(cli); close(srv);
+    return 0;
+}
+```
+
+```bash
+gcc -o l4_tcp_server l4_tcp_server.c
+./l4_tcp_server &
+curl http://localhost:8080
+
+# Watch TCP state machine
+ss -tan sport = :8080    # LISTEN → SYN_RECV → ESTABLISHED → TIME_WAIT
+
+# Deep TCP stats
+ss -tin sport = :8080    # rtt, cwnd, ssthresh, retrans
+```
+
+**Kernel — watch TCP state transitions:**
+
+```c
+// net/ipv4/tcp.c — tcp_set_state()
+pr_info("[L4-STATE] TCP: %s → %s sk=%px\n",
+        tcp_state_names[sk->sk_state],
+        tcp_state_names[state],
+        sk);
+```
+
+---
+
+### Layer 5/6 — Session / Presentation (TLS)
+
+**This lives entirely in userspace** — OpenSSL, GnuTLS, etc.
+
+```bash
+cd ~/userspace/openssl/
+./Configure linux-x86_64 --debug
+make -j$(nproc)
+
+# Edit ssl/record/rec_layer_s3.c — ssl3_write_bytes()
+# Add: fprintf(stderr, "[L6-TLS] writing %zu bytes\n", len);
+make -j$(nproc)
+
+# Test with your modified OpenSSL
+./apps/openssl s_client -connect google.com:443
+# Your print fires on every TLS record write
+```
+
+---
+
+### Layer 7 — Application (HTTP)
+
+**Write a minimal HTTP/1.1 server in C** — you control every byte:
+
+```c
+// ~/userspace/mylab/l7_http_server.c
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+
+#define PORT 8080
+
+void handle(int fd) {
+    char req[4096] = {0};
+    recv(fd, req, sizeof(req)-1, 0);
+
+    // Parse method + path (minimal)
+    char method[8], path[256];
+    sscanf(req, "%s %s", method, path);
+    fprintf(stderr, "[L7] %s %s\n", method, path);
+
+    // Build HTTP response by hand
+    const char *body   = "<h1>Hello from L7</h1>\n";
+    char resp[512];
+    snprintf(resp, sizeof(resp),
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Content-Length: %zu\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "%s", strlen(body), body);
+
+    send(fd, resp, strlen(resp), 0);
+    close(fd);
+}
+
+int main() {
+    int srv = socket(AF_INET, SOCK_STREAM, 0);
+    int opt = 1;
+    setsockopt(srv, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    struct sockaddr_in addr = {
+        .sin_family      = AF_INET,
+        .sin_port        = htons(PORT),
+        .sin_addr.s_addr = INADDR_ANY,
+    };
+    bind(srv, (struct sockaddr *)&addr, sizeof(addr));
+    listen(srv, 10);
+
+    fprintf(stderr, "[L7] HTTP server on :%d\n", PORT);
+    while (1) {
+        int cli = accept(srv, NULL, NULL);
+        handle(cli);
+    }
+}
+```
+
+```bash
+gcc -o l7_http l7_http_server.c
+./l7_http &
+curl -v http://localhost:8080/hello
+```
+
+---
+
+## The Packet's Full Journey — Watching All Layers Together
+
+Set up tmux in your VM with 4 panes and run one `curl` — watch everything fire:
+
+```bash
+tmux new-session -s lab \; \
+  split-window -h \; \
+  split-window -v \; \
+  select-pane -t 0 \; split-window -v
+
+# Pane 0: kernel trace (L1-L4 kernel)
+sudo cat /sys/kernel/debug/tracing/trace_pipe
+
+# Pane 1: tshark (L2-L7 wire view)
+sudo tshark -i eth0 -V -f "tcp port 8080" 2>/dev/null
+
+# Pane 2: socket state (L4 userspace view)
+watch -n0.2 "ss -tin sport = :8080"
+
+# Pane 3: your L7 server output + curl
+./l7_http &
+strace -e trace=network curl http://localhost:8080   # see every syscall
+```
+
+`strace -e trace=network` shows you exactly which syscalls userspace makes — `socket()`, `connect()`, `sendto()`, `recvfrom()` — and those are the exact entry points into the kernel.
+
+---
+
+## Your Build + Test Loop
+
+```bash
+# Userspace change (e.g. edited l7_http_server.c)
+gcc -o l7_http l7_http_server.c && ./l7_http
+
+# Kernel change (e.g. added printk in tcp.c)
+cd ~/kerneldev/linux
+make -j$(nproc)          # incremental, ~2-3 min
+# Kill QEMU → re-run ~/vms/run-netlab.sh → test
+
+# iproute2 change
+cd ~/userspace/iproute2-*/
+make -j$(nproc)
+./ip/ip link show
+```
+
+---
+
+## What to Do Now — In Order
+
+1. **Get the VM running** with Ubuntu Server in KVM
+2. **Write and run `l2_raw.c`** — feel what a raw Ethernet frame is
+3. **Write `l3_raw_ip.c`** — craft an IP header by hand
+4. **Write `l4_tcp_server.c`** — watch TCP state machine with `ss`
+5. **Write `l7_http_server.c`** — build HTTP manually, see the bytes
+6. **Add one `pr_info` in `tcp_sendmsg`** — rebuild kernel, boot VM, see it fire
+7. **Run all 4 tmux panes** during one `curl` — you'll see the same packet from every angle simultaneously
+
+Tell me which layer you want to start with and I'll give you the exact code + what to observe.
+
+Good — now I understand the real goal. Let me restructure everything around that. First, the complete picture of what you're actually working with, then the lab setup.Click any layer to ask about it. Now here's exactly what you need to set up and how to work at each layer.
+
+---
+
+## What You're Actually Editing
+
+Three separate source trees, three separate build systems:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  SOURCE TREE 1: Your app (C/Rust)                       │
+│  → build normally, run inside VM                        │
+│                                                         │
+│  SOURCE TREE 2: Userspace libs (glibc, iproute2, etc.)  │
+│  → apt source, build, LD_PRELOAD or replace binary      │
+│                                                         │
+│  SOURCE TREE 3: Linux kernel                            │
+│  → make bzImage, boot VM with -kernel flag              │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## One-Time Lab Setup
+
+### Step 1 — Host dependencies
+
+```bash
+sudo apt install -y \
+  qemu-kvm qemu-system-x86 libvirt-daemon-system \
+  build-essential libncurses-dev bison flex \
+  libssl-dev libelf-dev dwarves bc cpio pahole \
+  gdb-multiarch trace-cmd tmux \
+  devscripts dpkg-dev fakeroot quilt
+```
+
+### Step 2 — Get kernel source (one-time)
+
+```bash
+mkdir -p ~/lab/kernel && cd ~/lab/kernel
+git clone --depth=1 \
+  https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+cd linux
+```
+
+### Step 3 — Configure (enable everything you need for net learning)
+
+```bash
+cp /boot/config-$(uname -r) .config
+make localmodconfig       # trim to only what you need
+
+# Net + debug essentials
+scripts/config --enable  CONFIG_DEBUG_INFO
+scripts/config --enable  CONFIG_DEBUG_INFO_DWARF4
+scripts/config --enable  CONFIG_KGDB
+scripts/config --enable  CONFIG_KGDB_SERIAL_CONSOLE
+scripts/config --enable  CONFIG_FTRACE
+scripts/config --enable  CONFIG_FUNCTION_TRACER
+scripts/config --enable  CONFIG_FUNCTION_GRAPH_TRACER
+scripts/config --enable  CONFIG_KPROBES
+scripts/config --enable  CONFIG_DYNAMIC_DEBUG
+scripts/config --enable  CONFIG_NET_SCH_INGRESS
+scripts/config --disable CONFIG_RANDOMIZE_BASE   # stable GDB addresses
+
+make olddefconfig
+make -j$(nproc)           # ~20-40 min first time
+```
+
+### Step 4 — Install Ubuntu Server into a disk once (ISO only used here)
+
+```bash
+mkdir -p ~/lab/vms
+qemu-img create -f qcow2 ~/lab/vms/netlab.qcow2 30G
+
+# Install Ubuntu Server — connect via VNC to complete installer
+sudo qemu-system-x86_64 -enable-kvm -m 4096 \
+  -drive file=~/lab/vms/netlab.qcow2,format=qcow2 \
+  -cdrom ~/Downloads/ubuntu-22.04-server.iso \
+  -boot d -net nic -net user -vnc :0
+
+# VNC viewer on localhost:5900 — finish the install, then shut down
+```
+
+### Step 5 — The permanent run script (your daily driver)
+
+```bash
+cat > ~/lab/run.sh << 'EOF'
+#!/bin/bash
+sudo qemu-system-x86_64 \
+  -enable-kvm -m 4096 -smp 4 \
+  -kernel ~/lab/kernel/linux/arch/x86/boot/bzImage \
+  -drive file=~/lab/vms/netlab.qcow2,format=qcow2 \
+  -append "root=/dev/sda2 console=ttyS0,115200 nokaslr" \
+  -net nic,model=virtio \
+  -net user,hostfwd=tcp::2222-:22,hostfwd=tcp::8080-:8080 \
+  -serial mon:stdio -nographic
+EOF
+chmod +x ~/lab/run.sh
+~/lab/run.sh    # VM boots with YOUR kernel, Ubuntu rootfs
+```
+
+> **`root=/dev/sda2`** — find the right partition. Boot once with the stock Ubuntu kernel (`-kernel /boot/vmlinuz-$(uname -r)`), check boot messages for `EXT4-fs (sdaX)`, use that partition.
+
+---
+
+## How to Work at Each Layer
+
+### Layer 7 — Your Application (C or Rust, inside VM)
+
+Write a simple TCP client/server in C so you can trace every call:
+
+```c
+// ~/lab/app/client.c
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+int main() {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);   // socket syscall
+    
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET,
+        .sin_port   = htons(8080),
+    };
+    inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+    
+    connect(fd, (struct sockaddr*)&addr, sizeof(addr));  // 3-way handshake
+    
+    char *msg = "GET / HTTP/1.0\r\n\r\n";
+    send(fd, msg, strlen(msg), 0);   // THIS is what you trace down to L1
+    
+    char buf[4096];
+    int n = recv(fd, buf, sizeof(buf), 0);
+    write(1, buf, n);
+    
+    close(fd);
+}
+```
+
+```bash
+# Build and run inside VM
+gcc -g -o client client.c
+strace ./client          # see every syscall it makes
+ltrace ./client          # see every library call (glibc wrappers)
+```
+
+`strace` shows you the exact syscall boundary — the moment your code leaves userspace.
+
+---
+
+### Layer 5/6 — Userspace Libraries (glibc, openssl)
+
+```bash
+# On HOST — get source
+mkdir -p ~/lab/userspace && cd ~/lab/userspace
+apt source glibc          # the send() wrapper lives here
+apt source openssl        # SSL_write() → BIO → socket layer
+apt source iproute2       # ip, ss, tc — tools you'll use constantly
+```
+
+The `send()` call chain in glibc:
+
+```
+send()
+  → sysdeps/unix/sysv/linux/send.c    ← just sets flags, calls sendto
+    → sendto()
+      → sysdeps/unix/sysv/linux/sendto.c   ← calls SYSCALL_CANCEL(sendto, ...)
+        → kernel                            ← crosses the boundary here
+```
+
+To use your modified glibc in the VM without breaking the system:
+
+```bash
+# Build modified glibc
+cd ~/lab/userspace/glibc-*/
+mkdir build && cd build
+../configure --prefix=/opt/glibc-test
+make -j$(nproc)
+
+# Run your app WITH your modified glibc
+LD_PRELOAD=/opt/glibc-test/lib/libc.so.6 ./client
+```
+
+---
+
+### Layers 4–2 — Kernel Net Subsystem (the main work)
+
+**Edit → build → boot cycle:**
+
+```bash
+# 1. Edit a kernel file on HOST
+vim ~/lab/kernel/linux/net/ipv4/tcp.c
+
+# 2. Rebuild only changed files (fast — seconds not minutes)
+cd ~/lab/kernel/linux
+make -j$(nproc) net/ipv4/tcp.o    # recompile one file
+make -j$(nproc)                    # link new kernel (~2-3 min incremental)
+
+# 3. Kill running VM (Ctrl+A X in the serial console)
+# 4. Reboot with new kernel
+~/lab/run.sh
+
+# 5. Inside VM — trigger your code and observe
+dmesg -w | grep NETLAB             # watch your printk() fire
+```
+
+**The five files to start with, in order:**
+
+| Week | File | What to do |
+|------|------|-----------|
+| 1 | `net/socket.c` | Add `pr_info` to `__sys_sendto()`, watch it fire on every send |
+| 2 | `net/ipv4/tcp.c` | Add prints in `tcp_sendmsg()`, watch sk_buff be born |
+| 3 | `net/ipv4/tcp_output.c` | Add prints in `tcp_transmit_skb()`, watch TCP header attach |
+| 4 | `net/ipv4/ip_output.c` | Add prints in `ip_queue_xmit()`, watch IP header attach |
+| 5 | `net/core/dev.c` + `drivers/net/virtio_net.c` | Watch packet reach the driver and leave the kernel |
+
+---
+
+### Layer 1 — virtio-net Driver (VM↔Host boundary)
+
+```bash
+# TX side (VM kernel → host)
+drivers/net/virtio_net.c    → start_xmit()
+
+# RX side (host → VM kernel)  
+drivers/net/virtio_net.c    → virtnet_poll()
+
+# Host side (what receives it on the other end)
+drivers/vhost/net.c         → vhost_net_sendmsg()
+```
+
+Adding your first print to the driver:
+
+```c
+// drivers/net/virtio_net.c — start_xmit()
+static netdev_tx_t start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+    pr_info("[L1] start_xmit: len=%u\n", skb->len);
+    // ... rest of function
+```
+
+---
+
+## The Observation Setup (Run All Four Simultaneously)
+
+Inside the VM, use tmux with four panes:
+
+```bash
+# Install tmux in VM
+sudo apt install -y tmux tshark
+
+tmux new -s lab
+# Pane 1 (Ctrl+b ") — live kernel messages
+sudo dmesg -w | grep NETLAB
+
+# Pane 2 (Ctrl+b %) — packet capture at wire level
+sudo tshark -i eth0 -V -f "host 93.184.216.34"
+
+# Pane 3 — socket state watcher  
+watch -n0.2 "ss -tip"
+
+# Pane 4 — generate traffic
+curl http://example.com
+```
+
+You now see the same packet from four angles simultaneously: your `pr_info` prints show the kernel call chain, tshark shows the actual bytes on the wire, `ss` shows the socket buffer state.
+
+---
+
+## The Learning Order That Actually Works
+
+```
+Phase 1 — Observe without touching anything
+  strace your app → see syscalls
+  tshark → see packets at each layer
+  ftrace → see kernel function call tree
+  Spend 1 week just reading real traffic
+
+Phase 2 — Edit userspace first (safer, faster iteration)
+  Write your own send() wrapper
+  Modify iproute2 to print internal state
+  Understand the syscall boundary cold
+
+Phase 3 — Edit kernel net/socket.c and net/core/
+  Add pr_info at each layer boundary
+  Follow sk_buff through every function
+  Read the source alongside your prints
+
+Phase 4 — Edit protocol implementations
+  Modify TCP congestion window logic
+  Add a custom socket option
+  Break something intentionally, understand the crash
+
+Phase 5 — Edit the driver
+  Modify virtio_net.c TX path
+  Observe the virtio ring directly
+  Read vhost/net.c on the host side
+```
+
+**The one rule:** always have a working `tshark` capture AND a `dmesg -w` running when you make a change. The packet and the kernel trace together tell you the full story.
+
+Tell me which layer you want to start at and I'll give you the first specific edit to make.
