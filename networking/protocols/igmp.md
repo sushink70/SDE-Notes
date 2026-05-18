@@ -77,7 +77,7 @@ Year    RFC       Version   Key Additions
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    IGMP PARTICIPANTS                      │
+│                    IGMP PARTICIPANTS                    │
 ├─────────────────┬──────────────────┬────────────────────┤
 │   HOST          │   ROUTER         │   QUERIER          │
 │                 │                  │                    │
@@ -102,8 +102,8 @@ IPv4 multicast addresses occupy the range `224.0.0.0` to `239.255.255.255`. The 
 Bit Layout of a Class D IPv4 Address:
 ┌────────────────────────────────────────────────────┐
 │ 1 1 1 0 | xxxx xxxx | xxxx xxxx | xxxx xxxx xxxx   │
-│  ^^^^                                               │
-│  0xE0... identifies Class D                         │
+│  ^^^^                                              │
+│  0xE0... identifies Class D                        │
 └────────────────────────────────────────────────────┘
 
 Range:  224.0.0.0  = 1110 0000 . 0000 0000 . 0000 0000 . 0000 0000
@@ -196,7 +196,7 @@ IPv4 Header (with IGMP):
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 ├─┴─┴─┴─┼─┴─┴─┴─┼─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┤
 │  VER  │  IHL  │      ToS      │           Total Length         │
-├───────┴───────┴───────────────┴─┬─────────────────────────────┤
+├───────┴───────┴───────────────┴─┬──────────────────────────── ─┤
 │          Identification         │  Flags  │  Fragment Offset   │
 ├─────────────────────────────────┼─────────┼────────────────────┤
 │     TTL = 1 (!)                 │Proto=2  │    Checksum        │
@@ -257,10 +257,10 @@ IGMPv1 Message (8 bytes total):
 │  Version (4b)   │    Type (4b)    │  Unused (8b)  │  Checksum   │
 │     = 0x1       │    = 0x1/0x2    │  (must be 0)  │  (16 bits)  │
 ├─────────────────┴─────────────────┴───────────────┴─────────────┤
-│                     Group Address (32 bits)                      │
+│                     Group Address (32 bits)                     │
 │  Query: 0.0.0.0 (General Query)                                 │
 │  Report: The multicast group being joined                       │
-└──────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────┘
 
 IMPORTANT HISTORICAL NOTE:
 The Version and Type fields are 4 bits each in IGMPv1.
@@ -350,15 +350,15 @@ IGMPv2 Message (8 bytes):
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 ┌─────────────────┬─────────────────────────────────────────────┐
-│    Type (8b)    │ Max Resp Time(8b) │       Checksum (16b)     │
+│    Type (8b)    │ Max Resp Time(8b)│       Checksum (16b)     │
 │  0x11/0x16/0x17 │  In 1/10 seconds │                          │
 ├─────────────────┴─────────────────────────────────────────────┤
-│                     Group Address (32 bits)                     │
-│  General Query:        0.0.0.0                                 │
-│  Group-Specific Query: <multicast group being queried>         │
-│  Membership Report:    <multicast group being joined>          │
-│  Leave Group:          <multicast group being left>            │
-└────────────────────────────────────────────────────────────────┘
+│                     Group Address (32 bits)                   │
+│  General Query:        0.0.0.0                                │
+│  Group-Specific Query: <multicast group being queried>        │
+│  Membership Report:    <multicast group being joined>         │
+│  Leave Group:          <multicast group being left>           │
+└───────────────────────────────────────────────────────────────┘
 
 Max Response Time:
   Default = 100 (= 10.0 seconds)
@@ -504,12 +504,12 @@ INCLUDE MODE:
   Think: whitelist
   
   ┌─────────────────────────────────┐
-  │ Group G                        │
-  │  Source S1 ──── ALLOW ────► H  │
-  │  Source S2 ──── ALLOW ────► H  │
-  │  Source S3 ──── ALLOW ────► H  │
-  │  Source S4 ──── BLOCK ────✗ H  │
-  │  Source S5 ──── BLOCK ────✗ H  │
+  │ Group G                         │
+  │  Source S1 ──── ALLOW ────► H   │
+  │  Source S2 ──── ALLOW ────► H   │
+  │  Source S3 ──── ALLOW ────► H   │
+  │  Source S4 ──── BLOCK ────✗ H   │
+  │  Source S5 ──── BLOCK ────✗ H   │
   └─────────────────────────────────┘
 
 EXCLUDE MODE:
@@ -519,12 +519,12 @@ EXCLUDE MODE:
   Think: blacklist
   
   ┌─────────────────────────────────┐
-  │ Group G                        │
-  │  Source S1 ──── ALLOW ────► H  │
-  │  Source S2 ──── ALLOW ────► H  │
-  │  Source S3 ──── ALLOW ────► H  │
-  │  Source S4 ──── BLOCK ────✗ H  │
-  │  Source S5 ──── BLOCK ────✗ H  │
+  │ Group G                         │
+  │  Source S1 ──── ALLOW ────► H   │
+  │  Source S2 ──── ALLOW ────► H   │
+  │  Source S3 ──── ALLOW ────► H   │
+  │  Source S4 ──── BLOCK ────✗ H   │
+  │  Source S5 ──── BLOCK ────✗ H   │
   └─────────────────────────────────┘
   (Same effect here, but semantically different for state transitions)
 
@@ -552,23 +552,23 @@ IGMPv3 Membership Query (variable length):
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 ┌────────────────┬───────────────────────────┬────────────────────┐
-│ Type = 0x11    │  Max Resp Code (8b)        │  Checksum (16b)    │
+│ Type = 0x11    │  Max Resp Code (8b)       │  Checksum (16b)    │
 ├────────────────┴───────────────────────────┴────────────────────┤
-│                     Group Address (32b)                          │
+│                     Group Address (32b)                         │
 │   0.0.0.0 for General Query                                     │
 │   Specific group for Group-Specific or G-and-S-Specific Query   │
 ├──┬──┬─────────┬───────────────────────────────────────────────  │
-│Re│S │  QRV   │    QQIC (8b)       │    Num Sources (16b)       │
-│sv│  │ (3b)   │                    │                            │
+│Re│S │  QRV    │    QQIC (8b)       │    Num Sources (16b)       │
+│sv│  │ (3b)    │                    │                            │
 ├──┴──┴─────────┴────────────────────┴────────────────────────────┤
 │               Source Address [1]  (32b)                         │
-├────────────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────────── ─────────┤
 │               Source Address [2]  (32b)                         │
-├────────────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────────── ─────────┤
 │               ...                                               │
-├────────────────────────────────────────────────────────────────┤
+├────────────────────────────────────────────────────── ──────────┤
 │               Source Address [N]  (32b)                         │
-└────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────── ─────────┘
 
 Field Breakdown:
   Type:          0x11 (same as v1/v2 — backward compatible)
@@ -601,11 +601,11 @@ Field Breakdown:
 IGMPv3 Membership Report:
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-┌────────────────┬──────────────────┬─────────────────────────────┐
-│ Type = 0x22    │  Reserved (8b)   │       Checksum (16b)        │
-├────────────────┴──────────────────┴─────────────────────────────┤
-│   Reserved (16b)                  │  Number of Group Records    │
-├───────────────────────────────────┴─────────────────────────────┤
+┌────────────────┬──────────────────┬──────────────────────── ─────┐
+│ Type = 0x22    │  Reserved (8b)   │       Checksum (16b)         │
+├────────────────┴──────────────────┴─────────────────────── ──────┤
+│   Reserved (16b)                  │  Number of Group Records     │
+├───────────────────────────────────┴───────────────────── ────────┤
 │                                                                  │
 │                    Group Record [1]                              │
 │                                                                  │
@@ -622,15 +622,15 @@ Each Group Record:
 │ Record Type(8b) │  Aux Data Len(8b)│   Number of Sources (16b)  │
 ├─────────────────┴──────────────────┴────────────────────────────┤
 │                  Multicast Address (32b)                        │
-├────────────────────────────────────────────────────────────────┤
+├──────────────────────────────────────────────────────────── ────┤
 │                  Source Address [1] (32b)                       │
-├────────────────────────────────────────────────────────────────┤
+├──────────────────────────────────────────────────────────── ────┤
 │                  Source Address [2] (32b)                       │
-├────────────────────────────────────────────────────────────────┤
+├──────────────────────────────────────────────────────────── ────┤
 │                  ...                                            │
-├────────────────────────────────────────────────────────────────┤
+├───────────────────────────────────────────────────────────── ───┤
 │                  Auxiliary Data (variable, rarely used)         │
-└────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────── ───┘
 ```
 
 ### Group Record Types
@@ -758,7 +758,7 @@ States:
 DETAILED TRANSITIONS:
 
 ┌──────────────────┬──────────────────────────────────────────────┐
-│ Current State    │ Event → Action → New State                    │
+│ Current State    │ Event → Action → New State                   │
 ├──────────────────┼──────────────────────────────────────────────┤
 │ NON-MEMBER       │ join group →                                 │
 │                  │   send Report, start timer →                 │
@@ -914,9 +914,9 @@ IGMP SNOOPING TABLE (Switch Multicast Table):
 ┌──────────────────┬──────────────────────────────────────────────┐
 │ VLAN │ Group      │ Ports                         │ Expiry      │
 ├──────┼────────────┼───────────────────────────────┼─────────────┤
-│  1   │ 239.1.1.1  │ Gi0/1 (router), Gi0/3 (hostA) │ 260 sec    │
-│  1   │ 239.2.2.2  │ Gi0/1 (router), Gi0/5 (hostB) │ 260 sec    │
-│  10  │ 225.0.1.1  │ Gi0/1 (router), Gi0/7, Gi0/9 │ 255 sec    │
+│  1   │ 239.1.1.1  │ Gi0/1 (router), Gi0/3 (hostA) │ 260 sec     │
+│  1   │ 239.2.2.2  │ Gi0/1 (router), Gi0/5 (hostB) │ 260 sec     │
+│  10  │ 225.0.1.1  │ Gi0/1 (router), Gi0/7, Gi0/9  │ 255 sec     │
 └──────┴────────────┴───────────────────────────────┴─────────────┘
 ```
 
@@ -963,12 +963,12 @@ IGMP is only the host-router signaling layer. Distributing multicast traffic acr
 PROTOCOL STACK OVERVIEW:
 
 ┌─────────────────────────────────────────────────────────────┐
-│                   Applications / Services                    │
+│                   Applications / Services                   │
 │            (IPTV, video conferencing, SDR, mDNS)            │
 ├─────────────────────────────────────────────────────────────┤
-│                    Transport Layer (UDP)                     │
+│                    Transport Layer (UDP)                    │
 ├─────────────────────────────────────────────────────────────┤
-│                       IP Layer                               │
+│                       IP Layer                              │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │ MULTICAST ROUTING PROTOCOLS (router-to-router)       │   │
 │  │   PIM-SM  (Protocol Independent Multicast Sparse Mode│   │
@@ -1080,7 +1080,7 @@ IGMP has minimal authentication. Any host on a segment can send any IGMP message
 IGMP ATTACK TAXONOMY:
 
 ┌─────────────────────────────────────────────────────────────┐
-│                    IGMP ATTACKS                              │
+│                    IGMP ATTACKS                             │
 ├─────────────────────────────────────────────────────────────┤
 │ 1. IGMP Flooding / Amplification                            │
 │    Attacker sends massive number of Join Reports            │
@@ -1092,7 +1092,7 @@ IGMP ATTACK TAXONOMY:
 │    Router sends Group-Specific Query                        │
 │    If timing is right, disrupts legitimate members          │
 │    (mitigated by Last Member Query mechanism, but           │
-│     still causes temporary service disruption)             │
+│     still causes temporary service disruption)              │
 ├─────────────────────────────────────────────────────────────┤
 │ 3. IGMP Report Suppression Attack                           │
 │    Attacker sends Reports for all groups it sees            │

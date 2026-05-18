@@ -51,7 +51,7 @@ The key phrase is "suite of protocols" — IPSec is like a toolbox containing mu
 +-------------------------------------------+
 |  Layer 4: Transport    (TCP, UDP)         |
 +-------------------------------------------+
-|  Layer 3: Network      <<< IPSec lives here >>>
+|  Layer 3: Network  <<< IPSec lives here >>>
 +-------------------------------------------+
 |  Layer 2: Data Link    (Ethernet, WiFi)   |
 +-------------------------------------------+
@@ -241,12 +241,12 @@ Think of an SA as a **contract between two peers**:
 +-----------+                              +-----------+
 |  Peer A   |                              |  Peer B   |
 |           |                              |           |
-| SA #1001  |<------ Direction A→B ------->| SA #1001  |
+| SA #1001|<----Direction A→B------->    | SA #1001|
 |  SPI=101  |                              |  SPI=101  |
 |  AES-256  |                              |  AES-256  |
 |  Key=0xAB |                              |  Key=0xAB |
 |           |                              |           |
-| SA #1002  |<------ Direction B→A ------->| SA #1002  |
+| SA #1002|<------ Direction B→A   ------| SA #1002|
 |  SPI=202  |                              |  SPI=202  |
 |  AES-256  |                              |  AES-256  |
 |  Key=0xCD |                              |  Key=0xCD |
@@ -716,10 +716,10 @@ Initiator (A)                                    Responder (B)
      |   (Now both compute shared secret g^ab mod p)    |
      |                                                  |
      |------- Message 5: Identity + Auth [ENCRYPTED]--> |
-     |   [ID_A, AUTH data]  <-- encrypted with SKEYID  |
+     |   [ID_A, AUTH data]  <-- encrypted with SKEYID   |
      |                                                  |
      |<------ Message 6: Identity + Auth [ENCRYPTED]--  |
-     |   [ID_B, AUTH data]  <-- encrypted with SKEYID  |
+     |   [ID_B, AUTH data]  <-- encrypted with SKEYID   |
      |                                                  |
      |   === IKE SA (ISAKMP SA) now established ===     |
      |   === Phase 1 complete ===                       |
@@ -750,10 +750,10 @@ CKY-R = Cookie of Responder
 ```
 Initiator (A)                                    Responder (B)
      |                                                  |
-     |-- Message 1: SA + DH + Nonce + ID_A ----------> |
+     |-- Message 1: SA + DH + Nonce + ID_A ---------->  |
      |   [All crypto params + identity in one msg]      |
      |                                                  |
-     |<- Message 2: SA + DH + Nonce + ID_B + AUTH ---- |
+     |<- Message 2: SA + DH + Nonce + ID_B + AUTH ----  |
      |   [Chosen params + B's DH + auth of B]           |
      |   (Identity of B visible in plaintext!)          |
      |                                                  |
@@ -830,7 +830,7 @@ IKEv2 (RFC 7296) was designed to address IKEv1's complexity, redundancy, and sec
 ```
 Initiator (A)                                    Responder (B)
      |                                                  |
-     |== EXCHANGE: IKE_SA_INIT ==========================|
+     |== EXCHANGE: IKE_SA_INIT =========================|
      |                                                  |
      |------- Request 1: IKE_SA_INIT --------------->   |
      |   HDR, SAi1, KEi, Ni                             |
@@ -844,21 +844,21 @@ Initiator (A)                                    Responder (B)
      |   SKEYSEED = PRF(Ni | Nr, g^ir)                  |
      |   Derive: SK_d, SK_ai, SK_ar, SK_ei, SK_er, SK_pi, SK_pr|
      |                                                  |
-     |== EXCHANGE: IKE_AUTH =============================|
+     |== EXCHANGE: IKE_AUTH ============================|
      |                                                  |
      |------- Request 2: IKE_AUTH [ENCRYPTED] ------->  |
-     |   HDR, SK { IDi, [CERT,] [CERTREQ,]             |
+     |   HDR, SK { IDi, [CERT,] [CERTREQ,]              |
      |             [IDr,] AUTH, SAi2, TSi, TSr }        |
      |   [Identity, Auth proof, IPSec SA proposal,      |
      |    Traffic selectors]                            |
      |                                                  |
      |<------ Response 2: IKE_AUTH [ENCRYPTED] -------  |
-     |   HDR, SK { IDr, [CERT,] AUTH, SAr2, TSi, TSr } |
+     |   HDR, SK { IDr, [CERT,] AUTH, SAr2, TSi, TSr }  |
      |   [Identity, Auth proof, IPSec SA acceptance,    |
      |    Traffic selectors]                            |
      |                                                  |
      |   === IKE SA + First IPSec SA both established! =|
-     |   === Data can flow immediately after 4 messages =|
+     |   === Data can flow immediately after 4 messages=|
 ```
 
 **Key improvement:** IKEv2 completes both IKE SA and first Child SA in just 4 messages vs IKEv1's 9+ messages.
@@ -894,7 +894,7 @@ After the initial exchange, IKEv2 uses **INFORMATIONAL exchanges** for:
 Initiator (A)                           Responder (B)
      |                                        |
      |-- INFORMATIONAL [ENCRYPTED] ------->   |
-     |   HDR, SK { N(DELETE) }               |
+     |   HDR, SK { N(DELETE) }                |
      |   [Requesting deletion of SA]          |
      |                                        |
      |<-- INFORMATIONAL [ENCRYPTED] --------  |
@@ -910,10 +910,10 @@ After initial exchange, additional IPSec SAs (Child SAs) are created with:
 Initiator (A)                           Responder (B)
      |                                        |
      |-- CREATE_CHILD_SA [ENCRYPTED] ----->   |
-     |   HDR, SK { SA, Ni, [KEi], TSi, TSr } |
+     |   HDR, SK { SA, Ni, [KEi], TSi, TSr }  |
      |                                        |
      |<-- CREATE_CHILD_SA [ENCRYPTED] ------  |
-     |   HDR, SK { SA, Nr, [KEr], TSi, TSr } |
+     |   HDR, SK { SA, Nr, [KEr], TSi, TSr }  |
      |                                        |
      |   === New Child SA established ===     |
 ```
@@ -1130,50 +1130,50 @@ Receive Packet
 Original Packet (from Host A 192.168.1.10 to Host B 10.0.0.20):
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 |Ver|IHL|TOS|    Total Length   |  Identification  |Flags| Frag |
-|IP Header: src=192.168.1.10, dst=10.0.0.20, proto=TCP           |
+|IP Header: src=192.168.1.10, dst=10.0.0.20, proto=TCP          |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|TTL|Pro|    Header Checksum    |    Source IP (192.168.1.10)     |
+|TTL|Pro|    Header Checksum    |    Source IP (192.168.1.10)   |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|         Destination IP (10.0.0.20)    |    TCP Src Port         |
+|         Destination IP (10.0.0.20)    |    TCP Src Port       |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|       TCP Dst Port        |          Sequence Number            |
+|       TCP Dst Port        |          Sequence Number          |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|                 Acknowledgment Number                           |
+|                 Acknowledgment Number                         |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-|   Application Data (HTTP, SSH, etc.)                           |
+|   Application Data (HTTP, SSH, etc.)                          |
 +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
 
 After ESP Tunnel Mode (Gateway GW1 → Gateway GW2):
 Byte 0         4         8         12        16
 |     |     |     |     |     |     |     |     |     |     |
 +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-|Ver=4|IHL=5|TOS  |       Total Length      | Identification |
+|Ver=4|IHL=5|TOS  |       Total Length      | Identification|
 +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-|Flags|FragOff    |TTL  |Proto=50 (ESP)|  Header Checksum    |
+|Flags|FragOff    |TTL  |Proto=50 (ESP)|  Header Checksum   |
 +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-|            Source IP: GW1 (203.0.113.1)                    |
+|            Source IP: GW1 (203.0.113.1)                   |
 +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-|         Destination IP: GW2 (198.51.100.1)                 |
-+===================== ESP Header ============================+
-|           Security Parameters Index (SPI) e.g. 0x0000C6BA  |
+|         Destination IP: GW2 (198.51.100.1)                |
++===================== ESP Header ==========================+
+|           Security Parameters Index (SPI) e.g. 0x0000C6BA |
 +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-|          Sequence Number (e.g., 00 00 27 10 = 10000)        |
-+================= ESP IV (for CBC) or Nonce (for GCM) =======+
-|    IV/Nonce: 8 or 12 bytes of random data                   |
-|   (e.g., A3 F2 9B 1C 7E 44 D8 0F 22 B5 91 3A)              |
-+================= ENCRYPTED PAYLOAD =========================+
-|         [Original IP Header (192.168.1.10 → 10.0.0.20)]    |
-|         [Original TCP Header (src:12345 dst:443)]           |
-|         [HTTP Data: GET / HTTP/1.1...]                      |
-|         ... all encrypted with AES-256-GCM ...              |
-|         (nobody can see inner addresses or content)         |
-+================= ESP Trailer ================================+
-|                Padding (variable, 0-255 bytes)              |
+|          Sequence Number (e.g., 00 00 27 10 = 10000)      |
++================= ESP IV (for CBC) or Nonce (for GCM) =====+
+|    IV/Nonce: 8 or 12 bytes of random data                 |
+|   (e.g., A3 F2 9B 1C 7E 44 D8 0F 22 B5 91 3A)             |
++================= ENCRYPTED PAYLOAD =======================+
+|         [Original IP Header (192.168.1.10 → 10.0.0.20)]   |
+|         [Original TCP Header (src:12345 dst:443)]         |
+|         [HTTP Data: GET / HTTP/1.1...]                    |
+|         ... all encrypted with AES-256-GCM ...            |
+|         (nobody can see inner addresses or content)       |
++================= ESP Trailer =============================+
+|                Padding (variable, 0-255 bytes)            |
 +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-|  Pad Length   |  Next Header (4 = IPv4, inner packet)       |
-+================= ICV (Authentication Tag) ===================+
-|    GCM Tag: 16 bytes (128 bits) e.g.,                       |
-|    8F 3A 91 C2 4B D0 E7 F5 12 6A 88 C4 3D 97 B1 2E         |
+|  Pad Length   |  Next Header (4 = IPv4, inner packet)     |
++================= ICV (Authentication Tag) ================+
+|    GCM Tag: 16 bytes (128 bits) e.g.,                     |
+|    8F 3A 91 C2 4B D0 E7 F5 12 6A 88 C4 3D 97 B1 2E        |
 +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 ```
 
@@ -1183,48 +1183,48 @@ Byte 0         4         8         12        16
 IKEv2 Message: IKE_SA_INIT Request
 +========================================================+
 |                   IKE HEADER                           |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+-- -----+
 | Initiator SPI (8 bytes, random)                        |
 | e.g.: A1 B2 C3 D4 E5 F6 07 18                          |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+----- --+
 | Responder SPI (8 bytes, zero for initial request)      |
 | 00 00 00 00 00 00 00 00                                |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+---- ---+
 |Next Payload|Vers|Exch Type|Flags|      Message ID      |
 |  SA (33)   | 2.0| 34      | 0x08|      0x00000001      |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+----- --+
 |                   Total Length                         |
 +========================================================+
 |               SA PAYLOAD (Security Associations)       |
 +-----+-----+-----+-----+-----+-----+-----+-----+-------+
 |Next |Critical|      SA Payload Length                  |
 | KE  |   0   |                                          |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+--- ----+
 |       PROPOSAL #1                                      |
 |  Proposal Num | Protocol ID=IKE | SPI Size=0 | 4 Trans |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+---- ---+
 | Transform 1: ENCR_AES_CBC (type=1, id=12) keylen=256   |
 | Transform 2: PRF_HMAC_SHA2_256 (type=2, id=5)          |
 | Transform 3: AUTH_HMAC_SHA2_256_128 (type=3, id=12)    |
 | Transform 4: DH_GROUP_19 (type=4, id=19)               |
 +========================================================+
 |               KE PAYLOAD (Key Exchange)                |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+--- ----+
 |Next |Critical|       KE Payload Length                 |
 | Ni  |   0   |                                          |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+-- -----+
 | DH Group: 19 |          RESERVED                       |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+---- ---+
 | DH Public Key (g^a mod p), 64 bytes for Group 19       |
 | 04 7B 2A 9C F1 3D 5E 8B ... (64 bytes of DH public key)|
 +========================================================+
 |               Ni PAYLOAD (Nonce)                       |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+-----+----  ---+
 |Next |Critical|       Nonce Payload Length              |
 |  0  |   0   |                                          |
-+-----+-----+-----+-----+-----+-----+-----+-----+-------+
++-----+-----+-----+-----+-----+-----+-----+----- +-------+
 | Nonce data (16-32 bytes of random):                    |
-| 3F A8 C1 9D 72 B4 E6 01 5C 8A 2F 7E D3 94 B0 61       |
+| 3F A8 C1 9D 72 B4 E6 01 5C 8A 2F 7E D3 94 B0 61        |
 +========================================================+
 ```
 
