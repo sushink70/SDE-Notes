@@ -1948,3 +1948,2978 @@ The most natural next step is **Fault Injection** — you have the probes, now *
 **Net Namespaces** connects everything you know to Kubernetes/container networking — a packet from a pod crosses a `veth`, hits a bridge, traverses `iptables` rules set by kube-proxy, and exits through the host NIC. Each crossing is a separate trip through `ip_rcv → ip_output`. With your current probes already in place, you'd see the packet appear *twice* in the TX chain.
 
 **Security Probing** is where this whole lab becomes a threat model tool — watch SYN cookies activate under flood, trace how `nf_conntrack` decides NEW vs ESTABLISHED, and see exactly at what kernel boundary a connection attempt is rejected.
+
+# Linux Kernel Network — Deep Instrumentation Guide
+
+**Baseline**: NL-1→NL-9 TX · NL-R1→NL-R4 RX · UDP · ICMP · sk_buff geometry  
+**SSH filter** (carry this everywhere to suppress noise):
+
+```c
+#define SSH_PORT 22
+#define NOT_SSH(sp, dp) ((sp) != SSH_PORT && (dp) != SSH_PORT)
+```
+
+---
+
+## 1. Proper Tracing — kprobes, ftrace, eBPF (No Recompile)
+
+These let you instrument any kernel function **without touching kernel source**.
+
+### 1.1 ftrace — follow what ip_rcv calls
+
+```bash
+cd /sys/kernel/debug/tracing
+echo function_graph > current_tracer
+echo ip_rcv          > set_graph_function
+echo 1               > tracing_on
+# --- in another terminal: curl http://1.1.1.1 ---
+echo 0               > tracing_on
+cat trace | head -80
+```
+
+Expected output shows the full call tree: `ip_rcv → ip_rcv_core → ip_local_deliver → ip_local_deliver_finish → tcp_v4_rcv → ...`
+
+To also filter by PID (eliminate background noise):
+
+```bash
+echo $$ > set_ftrace_pid   # trace only current shell's children
+echo function_graph > current_tracer
+echo ip_rcv > set_graph_function
+echo 1 > tracing_on
+curl -s http://1.1.1.1 > /dev/null
+echo 0 > tracing_on
+cat trace
+```
+
+### 1.2 kprobes via tracefs — no C, no recompile
+
+```bash
+# Probe tcp_sendmsg — arg0=sock, arg1=msg, arg2=size
+echo 'p:kp_tcp_send tcp_sendmsg size=%dx' \
+    > /sys/kernel/debug/tracing/kprobe_events
+
+echo 1 > /sys/kernel/debug/tracing/events/kprobes/kp_tcp_send/enable
+echo 1 > /sys/kernel/debug/tracing/tracing_on
+
+# Trigger traffic, then:
+cat /sys/kernel/debug/tracing/trace_pipe   # live stream
+
+# Cleanup:
+echo 0 > /sys/kernel/debug/tracing/events/kprobes/kp_tcp_send/enable
+echo '-:kp_tcp_send' >> /sys/kernel/debug/tracing/kprobe_events
+```
+
+Probe ip_finish_output2 (matches your NL-5):
+
+```bash
+echo 'p:kp_ip_out ip_finish_output2 len=+0xc4(%dx):u32' \
+    > /sys/kernel/debug/tracing/kprobe_events
+```
+
+### 1.3 bpftrace — the power tool
+
+```bash
+sudo apt install bpftrace
+```
+
+**Trace tx stack with per-layer timestamps (no SSH)**:
+
+```bash
+sudo bpftrace -e '
+#include <net/sock.h>
+kprobe:tcp_sendmsg {
+    $sk = (struct sock *)arg0;
+    $sp = (uint16)$sk->__sk_common.skc_num;
+    $dp = ntohs((uint16)$sk->__sk_common.skc_dport);
+    if ($sp != 22 && $dp != 22) {
+        @t[tid] = nsecs;
+        printf("[BPF-NL2] tcp_sendmsg: pid=%d sport=%d dport=%d\n",
+               pid, $sp, $dp);
+    }
+}
+kprobe:ip_queue_xmit {
+    if (@t[tid]) {
+        printf("[BPF-NL4] ip_queue_xmit: +%d ns from sendmsg\n",
+               nsecs - @t[tid]);
+        delete(@t[tid]);
+    }
+}'
+```
+
+**Trace packet drops with reason string**:
+
+```bash
+sudo bpftrace -e '
+kprobe:kfree_skb_reason {
+    $skb = (struct sk_buff *)arg0;
+    printf("[BPF-DROP] len=%d reason=%d\n", $skb->len, (int)arg1);
+}'
+```
+
+**Count packets per protocol (histogram)**:
+
+```bash
+sudo bpftrace -e '
+kprobe:__netif_receive_skb_core {
+    $skb = (struct sk_buff *)arg0;
+    @proto[ntohs($skb->protocol)] = count();
+}
+interval:s:5 { print(@proto); clear(@proto); }'
+```
+
+### 1.4 Built-in tracepoints (safest, lowest overhead)
+
+```bash
+# List all net tracepoints:
+ls /sys/kernel/debug/tracing/events/net/
+ls /sys/kernel/debug/tracing/events/tcp/
+ls /sys/kernel/debug/tracing/events/skb/
+
+# Enable tcp state change tracepoint:
+echo 1 > /sys/kernel/debug/tracing/events/tcp/tcp_set_state/enable
+
+# Enable skb drop tracepoint:
+echo 1 > /sys/kernel/debug/tracing/events/skb/kfree_skb/enable
+
+# Stream them live:
+cat /sys/kernel/debug/tracing/trace_pipe
+```
+
+---
+
+## 2. NAPI & RX Deep — DMA Ring, softirq, GRO
+
+### 2.1 softirq NET_RX entry (net/core/dev.c)
+
+Find `net_rx_action` — this is the bottom half that processes received packets:
+
+```c
+static __latent_entropy void net_rx_action(struct softirq_action *h)
+{
+    struct softnet_data *sd = this_cpu_ptr(&softnet_data);
+
+    /* ADD: use ratelimited to avoid flooding */
+    pr_info_ratelimited("[NL-SIRQ] net_rx_action: cpu=%d\n",
+                        smp_processor_id());
+    /* ... rest of function ... */
+}
+```
+
+> **Why `pr_info_ratelimited`?** softirq fires thousands of times/sec. `_ratelimited` suppresses after 10 prints/5s by default. Use it for any RX hot path.
+
+### 2.2 NAPI poll (net/core/dev.c)
+
+Find `napi_poll`:
+
+```c
+static int napi_poll(struct napi_struct *napi, struct list_head *repoll)
+{
+    /* ADD */
+    pr_info_ratelimited("[NL-NAPI] napi_poll: dev=%s\n",
+                        napi->dev ? napi->dev->name : "?");
+    /* ... */
+}
+```
+
+### 2.3 DMA ring → skb (drivers/net/virtio_net.c)
+
+Since you run QEMU, the NIC is virtio. Find `virtnet_receive` or `receive_buf`:
+
+```c
+static int virtnet_receive(struct receive_queue *rq, int budget,
+                           unsigned int *xdp_xmit)
+{
+    /* ADD at top */
+    pr_info_ratelimited("[NL-DMA] virtnet_receive: queue=%d budget=%d\n",
+                        vq2rxq(rq->vq), budget);
+```
+
+After the skb is assembled from the DMA buffer (find the `page_to_skb` call):
+
+```c
+    /* After: skb = page_to_skb(...) or receive_small(...) */
+    if (skb)
+        pr_info_ratelimited("[NL-DMA2] DMA→skb: skb=%px len=%u headroom=%u\n",
+                            skb, skb->len, skb_headroom(skb));
+```
+
+This is the **DMA boundary crossing**: before this line the data lives in a hardware-mapped page, after it the kernel owns an sk_buff.
+
+### 2.4 GRO — Generic Receive Offload (net/core/dev.c)
+
+GRO merges multiple arriving frames into one big skb so upper layers do less work.
+
+Find `napi_gro_receive`:
+
+```c
+gro_result_t napi_gro_receive(struct napi_struct *napi, struct sk_buff *skb)
+{
+    /* ADD */
+    pr_info_ratelimited("[NL-GRO] napi_gro_receive: skb=%px len=%u dev=%s\n",
+                        skb, skb->len, skb->dev->name);
+```
+
+Find `dev_gro_receive` — this is where the GRO decision happens:
+
+```c
+static enum gro_result dev_gro_receive(struct napi_struct *napi,
+                                        struct sk_buff *skb)
+{
+    /* ADD at top */
+    pr_info_ratelimited("[NL-GRO2] dev_gro_receive: proto=0x%04x\n",
+                        ntohs(skb->protocol));
+
+    /* ... function body ... */
+
+    /* ADD just before final return — capture what GRO decided */
+    pr_info_ratelimited("[NL-GRO3] GRO decision: %s\n",
+        ret == GRO_MERGED      ? "MERGED (coalesced into existing)" :
+        ret == GRO_MERGED_FREE ? "MERGED_FREE" :
+        ret == GRO_NORMAL      ? "NORMAL (pass up as-is)" :
+        ret == GRO_DROP        ? "DROP" : "HELD");
+    return ret;
+}
+```
+
+### 2.5 __netif_receive_skb — the dispatcher (after GRO, before ip_rcv)
+
+Find `__netif_receive_skb_core` in `net/core/dev.c`:
+
+```c
+static int __netif_receive_skb_core(struct sk_buff **pskb,
+                                     bool pfmemalloc,
+                                     struct packet_type **ppt_prev)
+{
+    struct sk_buff *skb = *pskb;
+
+    /* ADD — this fires right before proto handlers (ip_rcv, arp_rcv, etc.) */
+    pr_info_ratelimited("[NL-RDISP] dispatch: skb=%px len=%u proto=0x%04x dev=%s\n",
+                        skb, skb->len,
+                        ntohs(skb->protocol),
+                        skb->dev->name);
+```
+
+### RX path summary after your patches
+
+```
+NIC hardware
+  → DMA ring fill          [NL-DMA]   virtnet_receive
+  → sk_buff allocated      [NL-DMA2]  page_to_skb
+  → NAPI poll              [NL-NAPI]  napi_poll
+  → GRO decision           [NL-GRO3]  MERGED or NORMAL
+  → softirq processing     [NL-SIRQ]  net_rx_action
+  → protocol dispatch      [NL-RDISP] __netif_receive_skb_core
+  → NL-R1..R4              ip_rcv → tcp_v4_rcv (already patched)
+```
+
+---
+
+## 3. TCP State Machine — SYN→FIN, Retransmit, Congestion
+
+### 3.1 State transitions (net/ipv4/tcp.c)
+
+Find `tcp_set_state`:
+
+```c
+void tcp_set_state(struct sock *sk, int state)
+{
+    static const char * const tcp_state_name[] = {
+        "ESTAB", "SYN_SENT", "SYN_RECV", "FIN_WAIT1",
+        "FIN_WAIT2", "TIME_WAIT", "CLOSE", "CLOSE_WAIT",
+        "LAST_ACK", "LISTEN", "CLOSING", "NEW_SYN_RECV"
+    };
+
+    /* ADD — show the state transition */
+    if (sk->sk_state < 12 && state < 12) {
+        u16 sp = ntohs(inet_sk(sk)->inet_sport);
+        u16 dp = ntohs(inet_sk(sk)->inet_dport);
+        if (NOT_SSH(sp, dp))
+            pr_info("[NL-STATE] %s→%s sport=%u dport=%u\n",
+                    tcp_state_name[sk->sk_state - 1],
+                    tcp_state_name[state - 1],
+                    sp, dp);
+    }
+    /* ... original state change code ... */
+}
+```
+
+After `curl http://example.com` you should see:
+
+```
+[NL-STATE] CLOSE→SYN_SENT sport=54321 dport=80
+[NL-STATE] SYN_SENT→ESTAB sport=54321 dport=80
+[NL-STATE] ESTAB→FIN_WAIT1 sport=54321 dport=80
+[NL-STATE] FIN_WAIT1→FIN_WAIT2 sport=54321 dport=80
+[NL-STATE] FIN_WAIT2→TIME_WAIT sport=54321 dport=80
+```
+
+### 3.2 Retransmits (net/ipv4/tcp_output.c)
+
+Find `tcp_retransmit_skb`:
+
+```c
+int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb, int segs)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    u16 sp = ntohs(inet_sk(sk)->inet_sport);
+    u16 dp = ntohs(inet_sk(sk)->inet_dport);
+
+    if (NOT_SSH(sp, dp))
+        pr_info("[NL-RETX] retransmit #%u: sport=%u dport=%u seq=%u cwnd=%u\n",
+                tp->total_retrans + 1, sp, dp,
+                TCP_SKB_CB(skb)->seq,
+                tp->snd_cwnd);
+    /* ... */
+}
+```
+
+Trigger retransmits: `sudo tc qdisc add dev enp1s0 root netem loss 20%` then curl.
+
+### 3.3 Congestion window probes (net/ipv4/tcp_input.c)
+
+Find `tcp_ack`, near the congestion avoidance call:
+
+```c
+/* Add after congestion avoidance update, inside tcp_ack() */
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    u16 sp = ntohs(inet_sk(sk)->inet_sport);
+    if (NOT_SSH(sp, ntohs(inet_sk(sk)->inet_dport)))
+        pr_info("[NL-CA] sport=%u cwnd=%u ssthresh=%u "
+                "inflight=%u rtt_us=%u ca=%s\n",
+                sp,
+                tp->snd_cwnd,
+                tp->snd_ssthresh,
+                tcp_packets_in_flight(tp),
+                tp->srtt_us >> 3,
+                inet_csk(sk)->icsk_ca_ops->name);
+}
+```
+
+### 3.4 Loss detection (net/ipv4/tcp_input.c)
+
+Find `tcp_enter_loss`:
+
+```c
+void tcp_enter_loss(struct sock *sk)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    u16 sp = ntohs(inet_sk(sk)->inet_sport);
+    if (NOT_SSH(sp, ntohs(inet_sk(sk)->inet_dport)))
+        pr_info("[NL-LOSS] LOSS detected: sport=%u cwnd=%u→1 "
+                "ssthresh=%u retrans=%u\n",
+                sp, tp->snd_cwnd, tp->snd_ssthresh,
+                tp->total_retrans);
+    /* ... */
+}
+```
+
+---
+
+## 4. Drop Analysis — kfree_skb_reason, drop_monitor, perf
+
+### 4.1 kfree_skb_reason in-kernel patch (net/core/skbuff.c)
+
+```c
+void kfree_skb_reason(struct sk_buff *skb, enum skb_drop_reason reason)
+{
+    if (unlikely(!skb_unref(skb)))
+        return;
+
+    /* ADD: only print IP/IPv6 drops, not ARP/misc */
+    if (skb->protocol == htons(ETH_P_IP) ||
+        skb->protocol == htons(ETH_P_IPV6)) {
+        pr_info_ratelimited("[NL-DROP] kfree_skb: reason=%d len=%u "
+                            "dev=%s\n",
+                            reason, skb->len,
+                            skb->dev ? skb->dev->name : "none");
+    }
+
+    /* ... original kfree_skb body ... */
+}
+```
+
+The reason codes are in `include/linux/skbuff.h` (enum `skb_drop_reason`).  
+Common ones: `SKB_DROP_REASON_NOT_SPECIFIED=1`, `SKB_DROP_REASON_NO_SOCKET=8`,  
+`SKB_DROP_REASON_PKT_TOO_SMALL=2`, `SKB_DROP_REASON_TCP_FILTER=55`.
+
+### 4.2 bpftrace drops — no recompile needed
+
+```bash
+sudo bpftrace -e '
+#include <linux/skbuff.h>
+kprobe:kfree_skb_reason {
+    $skb    = (struct sk_buff *)arg0;
+    $reason = (int)arg1;
+    $dev    = $skb->dev;
+    printf("[DROP] reason=%-3d len=%-5d dev=%s\n",
+           $reason, $skb->len,
+           $dev ? $dev->name : "(null)");
+}' 2>/dev/null
+```
+
+### 4.3 Built-in tracepoint (zero overhead when disabled)
+
+```bash
+# See what fields are available:
+cat /sys/kernel/debug/tracing/events/skb/kfree_skb/format
+
+# Enable it:
+echo 1 > /sys/kernel/debug/tracing/events/skb/kfree_skb/enable
+cat /sys/kernel/debug/tracing/trace_pipe
+
+# Disable:
+echo 0 > /sys/kernel/debug/tracing/events/skb/kfree_skb/enable
+```
+
+### 4.4 perf — show drop call stacks
+
+```bash
+sudo perf record -e skb:kfree_skb -ag -- sleep 10
+sudo perf report --stdio | head -60
+```
+
+This shows **which kernel function** caused the drop, with full call stack.
+
+### 4.5 dropwatch — real-time drop locations
+
+```bash
+sudo apt install dropwatch
+sudo dropwatch -l kas
+# Output: location in kernel text + count per second
+```
+
+---
+
+## 5. NIC Offloads — GSO, GRO, TSO, XDP, skb_shinfo
+
+### 5.1 GSO — Generic Segmentation Offload TX side
+
+GSO lets the kernel send one giant "super-skb" to the NIC driver, which then segments it (or the hardware does). Find `validate_xmit_skb` in `net/core/dev.c`:
+
+```c
+static struct sk_buff *validate_xmit_skb(struct sk_buff *skb,
+                                          struct net_device *dev,
+                                          bool *again)
+{
+    /* ADD */
+    if (skb_is_gso(skb))
+        pr_info("[NL-GSO] GSO skb queued: len=%u gso_size=%u "
+                "gso_segs=%u gso_type=0x%x dev=%s\n",
+                skb->len,
+                skb_shinfo(skb)->gso_size,
+                skb_shinfo(skb)->gso_segs,
+                skb_shinfo(skb)->gso_type,
+                dev->name);
+```
+
+Find `__skb_gso_segment` — this is where GSO splitting happens in software:
+
+```c
+struct sk_buff *__skb_gso_segment(struct sk_buff *skb,
+                                   netdev_features_t features,
+                                   bool tx_path)
+{
+    /* ADD */
+    pr_info("[NL-GSO2] __skb_gso_segment: about to split "
+            "len=%u gso_size=%u segs=%u type=0x%x\n",
+            skb->len,
+            skb_shinfo(skb)->gso_size,
+            skb_shinfo(skb)->gso_segs,
+            skb_shinfo(skb)->gso_type);
+```
+
+### 5.2 TSO — TCP Segmentation Offload detection
+
+TSO is GSO with `SKB_GSO_TCPV4` or `SKB_GSO_TCPV6` type set. In your NL-3 patch (`tcp_transmit_skb`), extend it:
+
+```c
+if (NOT_SSH(ntohs(inet_sk(sk)->inet_sport),
+            ntohs(inet_sk(sk)->inet_dport))) {
+    bool is_tso = skb_is_gso(skb) &&
+                  (skb_shinfo(skb)->gso_type &
+                   (SKB_GSO_TCPV4 | SKB_GSO_TCPV6));
+    pr_info("[NL-3] tcp_transmit_skb: skb=%px len=%u sport=%u "
+            "dport=%u seq=%u TSO=%s gso_size=%u\n",
+            skb, skb->len,
+            ntohs(inet_sk(sk)->inet_sport),
+            ntohs(inet_sk(sk)->inet_dport),
+            TCP_SKB_CB(skb)->seq,
+            is_tso ? "YES" : "no",
+            skb_is_gso(skb) ? skb_shinfo(skb)->gso_size : 0);
+}
+```
+
+### 5.3 skb_shinfo deep dive — add a dump helper
+
+Add this near the top of `net/core/dev.c` (or your own debug header):
+
+```c
+static void nl_dump_shinfo(const char *tag, struct sk_buff *skb)
+{
+    struct skb_shared_info *si = skb_shinfo(skb);
+    pr_info("[NL-SHI] %s: skb=%px len=%u headlen=%u\n"
+            "         frags=%u frag_list=%s\n"
+            "         gso_size=%u gso_segs=%u gso_type=0x%x\n"
+            "         tx_flags=0x%x\n",
+            tag, skb, skb->len, skb_headlen(skb),
+            si->nr_frags,
+            si->frag_list ? "YES" : "none",
+            si->gso_size, si->gso_segs, si->gso_type,
+            si->tx_flags);
+}
+
+/* Call it in your NL-8 / dev_queue_xmit patch: */
+nl_dump_shinfo("at-dev_queue_xmit", skb);
+```
+
+### 5.4 XDP — eXpress Data Path
+
+XDP hooks into the driver **before** sk_buff allocation. It operates on raw DMA frame pointers.
+
+**Step 1**: Install tools in VM:
+
+```bash
+sudo apt install clang llvm libbpf-dev linux-headers-$(uname -r) iproute2
+```
+
+**Step 2**: Write `xdp_observe.c`:
+
+```c
+// SPDX-License-Identifier: GPL-2.0
+#include <linux/bpf.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_endian.h>
+
+SEC("xdp")
+int xdp_observe(struct xdp_md *ctx)
+{
+    void *data_end = (void *)(long)ctx->data_end;
+    void *data     = (void *)(long)ctx->data;
+    __u32 pkt_len  = data_end - data;
+
+    struct ethhdr *eth = data;
+    if ((void *)(eth + 1) > data_end)
+        return XDP_PASS;
+
+    __u16 proto = bpf_ntohs(eth->h_proto);
+
+    /* Skip non-IP */
+    if (proto != 0x0800 && proto != 0x86DD)
+        return XDP_PASS;
+
+    /* Log with bpf_printk — visible in trace_pipe */
+    bpf_printk("[XDP] proto=0x%04x len=%u rx_queue=%u\n",
+               proto, pkt_len, ctx->rx_queue_index);
+
+    return XDP_PASS;   /* always pass — observe only */
+}
+
+char _license[] SEC("license") = "GPL";
+```
+
+**Step 3**: Compile and attach:
+
+```bash
+clang -O2 -g -target bpf \
+    -I/usr/include/$(uname -m)-linux-gnu \
+    -c xdp_observe.c -o xdp_observe.o
+
+# Attach in generic mode (works on any driver, including virtio):
+sudo ip link set enp1s0 xdpgeneric obj xdp_observe.o sec xdp
+
+# Watch output:
+sudo cat /sys/kernel/debug/tracing/trace_pipe
+
+# Detach when done:
+sudo ip link set enp1s0 xdpgeneric off
+```
+
+**Step 4**: XDP action experiment — count drops without dropping:
+
+```bash
+# With bpftrace, probe XDP action outcomes:
+sudo bpftrace -e '
+tracepoint:xdp:xdp_exception {
+    printf("[XDP-EX] ifindex=%d prog_id=%d act=%d\n",
+           args->ifindex, args->prog_id, args->act);
+}
+tracepoint:xdp:xdp_redirect {
+    printf("[XDP-RED] ifindex=%d act=%d\n", args->ifindex, args->act);
+}'
+```
+
+---
+
+## 6. Protocol Expansion — IPv6, conntrack, netfilter, NAT
+
+### 6.1 IPv6 TX (net/ipv6/ip6_output.c)
+
+```c
+/* In ip6_output(): */
+pr_info("[NL-6TX] ip6_output: skb=%px len=%u "
+        "src=%pI6c dst=%pI6c dev=%s\n",
+        skb, skb->len,
+        &ipv6_hdr(skb)->saddr,
+        &ipv6_hdr(skb)->daddr,
+        skb_dst(skb)->dev->name);
+
+/* In ip6_finish_output2(): */
+pr_info("[NL-6TX2] ip6_finish_output2: nexthdr=%u len=%u dev=%s\n",
+        ipv6_hdr(skb)->nexthdr,
+        skb->len,
+        dst->dev->name);
+```
+
+Trigger with: `curl -6 http://ipv6.google.com`
+
+### 6.2 IPv6 RX (net/ipv6/ip6_input.c)
+
+```c
+/* In ip6_rcv_core() or ipv6_rcv(): */
+pr_info("[NL-6RX] ip6_rcv: skb=%px len=%u "
+        "src=%pI6c nexthdr=%u\n",
+        skb, skb->len,
+        &ipv6_hdr(skb)->saddr,
+        ipv6_hdr(skb)->nexthdr);
+```
+
+### 6.3 UDP TX path (net/ipv4/udp.c)
+
+```c
+/* In udp_send_skb(): */
+pr_info("[NL-UDP-TX] udp_send_skb: skb=%px len=%u "
+        "src=%pI4:%u dst=%pI4:%u\n",
+        skb, skb->len,
+        &inet_sk(sk)->inet_saddr, ntohs(inet_sk(sk)->inet_sport),
+        &inet_sk(sk)->inet_daddr, ntohs(inet_sk(sk)->inet_dport));
+```
+
+Trigger with: `nc -u 8.8.8.8 53 <<< "test"` or `dig @8.8.8.8 example.com`
+
+### 6.4 Netfilter hooks — all 5 hook points
+
+Use bpftrace (no recompile, works immediately):
+
+```bash
+sudo bpftrace -e '
+kprobe:nf_hook_slow {
+    $hook = (int)arg2;
+    $pf   = (int)arg1;
+    printf("[NF] pf=%d hook=%s\n", $pf,
+        $hook == 0 ? "PRE_ROUTING" :
+        $hook == 1 ? "LOCAL_IN" :
+        $hook == 2 ? "FORWARD" :
+        $hook == 3 ? "LOCAL_OUT" :
+        $hook == 4 ? "POST_ROUTING" : "UNKNOWN");
+}' 
+```
+
+| Hook# | Name | Fires when |
+|------:|------|-----------|
+| 0 | PRE_ROUTING | Packet just arrived, before routing decision |
+| 1 | LOCAL_IN | Routed to local socket |
+| 2 | FORWARD | Routed to another interface |
+| 3 | LOCAL_OUT | From local process, before routing |
+| 4 | POST_ROUTING | After routing, before going out wire |
+
+### 6.5 conntrack — connection state tracking
+
+```c
+/* In net/netfilter/nf_conntrack_core.c, nf_conntrack_in(): */
+/* Add after ct is resolved */
+pr_info_ratelimited("[NL-CT] conntrack: proto=%u "
+                    "state=0x%lx dir=%s\n",
+                    nf_ct_protonum(ct),
+                    ct->status,
+                    CTINFO2DIR(ctinfo) ? "REPLY" : "ORIG");
+```
+
+Or bpftrace:
+
+```bash
+sudo bpftrace -e '
+kprobe:nf_conntrack_in  { printf("[CT] enter hooknum=%d\n", (int)arg2); }
+kretprobe:nf_conntrack_in { printf("[CT] verdict=%d\n", retval); }'
+```
+
+### 6.6 NAT observation
+
+```bash
+sudo bpftrace -e '
+kprobe:nf_nat_packet {
+    printf("[NAT] manip=%d proto=%d\n", (int)arg2, (int)arg3);
+}'
+```
+
+Enable NAT for testing:
+
+```bash
+# MASQUERADE outgoing (acts like home router):
+sudo iptables -t nat -A POSTROUTING -o enp1s0 -j MASQUERADE
+sudo iptables -L -t nat -v
+```
+
+---
+
+## 7. Fault Injection — netem, cwnd & OFO watching
+
+### 7.1 netem — the network emulator qdisc
+
+```bash
+# Add 100ms fixed delay:
+sudo tc qdisc add dev enp1s0 root netem delay 100ms
+
+# Change to delay + jitter (± 20ms):
+sudo tc qdisc change dev enp1s0 root netem delay 100ms 20ms
+
+# Add 10% packet loss:
+sudo tc qdisc change dev enp1s0 root netem loss 10%
+
+# Combine: delay + jitter + loss + corruption:
+sudo tc qdisc change dev enp1s0 root netem \
+    delay 50ms 10ms \
+    loss 5% \
+    corrupt 1%
+
+# Out-of-order: 25% packets delayed by 10ms (creates OOO):
+sudo tc qdisc change dev enp1s0 root netem \
+    delay 10ms reorder 25% 50%
+
+# Check current config:
+sudo tc qdisc show dev enp1s0
+
+# Remove all:
+sudo tc qdisc del dev enp1s0 root
+```
+
+### 7.2 Watch OFO (out-of-order) queue (net/ipv4/tcp_input.c)
+
+Find `tcp_data_queue_ofo`:
+
+```c
+static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    u16 sp = ntohs(inet_sk(sk)->inet_sport);
+    if (NOT_SSH(sp, ntohs(inet_sk(sk)->inet_dport)))
+        pr_info("[NL-OFO] OFO enqueue: sport=%u seq=%u end_seq=%u\n",
+                sp,
+                TCP_SKB_CB(skb)->seq,
+                TCP_SKB_CB(skb)->end_seq);
+```
+
+And when OFO is flushed (find `tcp_ofo_queue`):
+
+```c
+static void tcp_ofo_queue(struct sock *sk)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    u16 sp = ntohs(inet_sk(sk)->inet_sport);
+    if (NOT_SSH(sp, ntohs(inet_sk(sk)->inet_dport)))
+        pr_info("[NL-OFO2] OFO dequeue: sport=%u rcv_nxt=%u\n",
+                sp, tp->rcv_nxt);
+```
+
+### 7.3 Full fault injection test script
+
+```bash
+#!/bin/bash
+# Run on your VM — watches cwnd react to injected loss
+
+IFACE="enp1s0"
+
+echo "=== Starting dmesg monitor ==="
+sudo dmesg -w | grep -E "\[NL-(CA|LOSS|OFO|RETX|STATE)\]" &
+DMESG_PID=$!
+
+echo "=== Baseline: no loss ==="
+curl -o /dev/null -s http://example.com
+sleep 2
+
+echo "=== Injecting 20% packet loss ==="
+sudo tc qdisc add dev $IFACE root netem loss 20%
+sleep 1
+curl -o /dev/null -s http://example.com
+sleep 2
+
+echo "=== Injecting OOO (reorder 40%) ==="
+sudo tc qdisc change dev $IFACE root netem \
+    delay 10ms reorder 40% 50%
+sleep 1
+curl -o /dev/null -s http://example.com
+sleep 2
+
+echo "=== Removing fault injection ==="
+sudo tc qdisc del dev $IFACE root
+
+kill $DMESG_PID
+echo "=== Done — check dmesg output above ==="
+```
+
+---
+
+## 8. Net Namespaces — veth, FIB, container path
+
+### 8.1 Create namespace + veth pair
+
+```bash
+# Create network namespace:
+sudo ip netns add netlab
+
+# Create veth pair (veth0 stays in host, veth1 goes into ns):
+sudo ip link add veth0 type veth peer name veth1
+
+# Move veth1 into namespace:
+sudo ip link set veth1 netns netlab
+
+# Configure host side:
+sudo ip addr add 10.99.0.1/24 dev veth0
+sudo ip link set veth0 up
+
+# Configure namespace side:
+sudo ip netns exec netlab ip addr add 10.99.0.2/24 dev veth1
+sudo ip netns exec netlab ip link set veth1 up
+sudo ip netns exec netlab ip link set lo up
+
+# Test connectivity:
+ping -c 3 10.99.0.2
+sudo ip netns exec netlab ping -c 3 10.99.0.1
+```
+
+### 8.2 Instrument veth_xmit (drivers/net/veth.c)
+
+```c
+static netdev_tx_t veth_xmit(struct sk_buff *skb,
+                               struct net_device *dev)
+{
+    struct veth_priv *priv = netdev_priv(dev);
+
+    /* ADD */
+    pr_info("[NL-VETH] veth_xmit: skb=%px len=%u src_dev=%s\n",
+            skb, skb->len, dev->name);
+
+    /* After peer is found (struct net_device *rcv = ...): */
+    /* ADD */
+    pr_info("[NL-VETH2] veth inject→peer: dst_dev=%s\n",
+            rcv->name);
+```
+
+### 8.3 FIB (Forwarding Information Base) lookup trace
+
+```bash
+# bpftrace — trace every FIB lookup:
+sudo bpftrace -e '
+kprobe:fib_lookup {
+    printf("[FIB] lookup called\n");
+}
+kretprobe:fib_lookup {
+    printf("[FIB] result=%d (0=success)\n", retval);
+}'
+```
+
+Or in kernel source, `net/ipv4/fib_frontend.c`, find `ip_route_input_noref` and add near fib_lookup call:
+
+```c
+err = fib_lookup(net, &fl4, res, 0);
+pr_info("[NL-FIB] fib_lookup: dst=%pI4 result=%d "
+        "type=%u\n",
+        &fl4.daddr, err,
+        err ? 0 : res->type);
+```
+
+### 8.4 Watch packet cross the namespace boundary
+
+```bash
+sudo bpftrace -e '
+kprobe:veth_xmit {
+    $skb = (struct sk_buff *)arg0;
+    $dev = (struct net_device *)arg1;
+    printf("[VETH] xmit: len=%d src=%s\n",
+           $skb->len, $dev->name);
+}'
+```
+
+Send traffic across the veth:
+
+```bash
+# In one terminal — watch:
+sudo bpftrace -e 'kprobe:veth_xmit { printf("veth xmit len=%d\n", ((struct sk_buff*)arg0)->len); }'
+
+# In another terminal — trigger:
+sudo ip netns exec netlab curl http://10.99.0.1:8080
+# or: ping -c 5 10.99.0.2
+```
+
+---
+
+## 9. Security Probing — SYN cookies, conntrack anomalies
+
+### 9.1 SYN flood detection + SYN cookie generation
+
+In `net/ipv4/tcp_input.c`, find `tcp_conn_request`:
+
+```c
+int tcp_conn_request(struct request_sock_ops *rsk_ops, ...)
+{
+    /* ... near the want_cookie / syncookie decision: */
+    pr_info("[NL-SYN] SYN received: src=%pI4 sport=%u dport=%u "
+            "syncookies=%s\n",
+            &ip_hdr(skb)->saddr,
+            ntohs(tcp_hdr(skb)->source),
+            ntohs(tcp_hdr(skb)->dest),
+            want_cookie ? "YES" : "no");
+```
+
+In `net/ipv4/syncookies.c`, find `cookie_v4_init_sequence`:
+
+```c
+static __u32 cookie_v4_init_sequence(const struct sk_buff *skb,
+                                      __u16 *mssp)
+{
+    pr_info("[NL-SYNCK] cookie generated: src=%pI4 sport=%u\n",
+            &ip_hdr(skb)->saddr,
+            ntohs(tcp_hdr(skb)->source));
+```
+
+Simulate SYN flood:
+
+```bash
+# On a different host/namespace:
+sudo hping3 -S -p 80 --flood 10.99.0.1
+
+# Watch on VM:
+sudo dmesg -w | grep "\[NL-SYN"
+```
+
+### 9.2 RST / anomaly detection
+
+```bash
+# Watch for TCP RSTs (connection rejections, port scans):
+sudo bpftrace -e '
+tracepoint:tcp:tcp_receive_reset {
+    printf("[RST] sport=%d dport=%d\n",
+           args->sport, args->dport);
+}
+tracepoint:tcp:tcp_send_reset {
+    printf("[SRST] sport=%d dport=%d\n",
+           args->sport, args->dport);
+}'
+```
+
+### 9.3 Built-in TCP tracepoints (enable without recompile)
+
+```bash
+# See what's available:
+ls /sys/kernel/debug/tracing/events/tcp/
+
+# Enable several:
+for ev in tcp_set_state tcp_retransmit_skb tcp_receive_reset tcp_send_reset tcp_destroy_sock; do
+    echo 1 > /sys/kernel/debug/tracing/events/tcp/$ev/enable
+done
+
+# Stream live:
+cat /sys/kernel/debug/tracing/trace_pipe
+
+# Disable all tcp events:
+echo 0 > /sys/kernel/debug/tracing/events/tcp/enable
+```
+
+---
+
+## Master Tag Reference
+
+| Tag | File | Layer | What you learn |
+|-----|------|-------|----------------|
+| `NL-SIRQ` | net/core/dev.c | softirq | When NET_RX bottom-half fires |
+| `NL-NAPI` | net/core/dev.c | NAPI | Poll budget and driver scheduling |
+| `NL-DMA` | drivers/net/virtio_net.c | Driver | DMA ring draining |
+| `NL-DMA2` | virtio_net.c | Driver | DMA buffer → sk_buff boundary |
+| `NL-GRO` | net/core/dev.c | GRO | Packet enters GRO engine |
+| `NL-GRO2` | net/core/dev.c | GRO | Protocol-level GRO inspection |
+| `NL-GRO3` | net/core/dev.c | GRO | MERGED / NORMAL / DROP decision |
+| `NL-RDISP` | net/core/dev.c | L2→L3 | Before ip_rcv / arp_rcv dispatch |
+| `NL-R1..R4` | ip_input, tcp_ipv4 | IP/TCP RX | (already patched) |
+| `NL-STATE` | net/ipv4/tcp.c | TCP SM | Every TCP state transition |
+| `NL-RETX` | tcp_output.c | TCP | Retransmit events + count |
+| `NL-CA` | tcp_input.c | congestion | cwnd / ssthresh / RTT |
+| `NL-LOSS` | tcp_input.c | congestion | Loss detection, cwnd collapse |
+| `NL-OFO` | tcp_input.c | TCP RX | Out-of-order queue enqueue |
+| `NL-OFO2` | tcp_input.c | TCP RX | OFO queue flush |
+| `NL-DROP` | net/core/skbuff.c | all | kfree_skb with reason code |
+| `NL-GSO` | net/core/dev.c | offload | Super-skb at device layer |
+| `NL-GSO2` | net/core/dev.c | offload | GSO software segmentation |
+| `NL-TSO` | tcp_output.c | offload | TSO flags in TCP layer |
+| `NL-SHI` | anywhere | sk_buff | skb_shared_info dump |
+| `NL-6TX` | net/ipv6/ip6_output.c | IPv6 | IPv6 TX |
+| `NL-6RX` | net/ipv6/ip6_input.c | IPv6 | IPv6 RX |
+| `NL-UDP-TX` | net/ipv4/udp.c | UDP | UDP send path |
+| `NL-CT` | nf_conntrack_core.c | conntrack | Connection tracking |
+| `NL-VETH` | drivers/net/veth.c | veth | Cross-namespace TX |
+| `NL-VETH2` | drivers/net/veth.c | veth | Peer injection |
+| `NL-FIB` | fib_frontend.c | routing | Route lookup result |
+| `NL-SYN` | tcp_input.c | security | SYN + cookie decision |
+| `NL-SYNCK` | syncookies.c | security | SYN cookie generated |
+| `BPF-*` | userspace | all | bpftrace probes (no recompile) |
+
+---
+
+## Suggested Learning Order
+
+```
+Week 1: Proper tracing (Section 1) — learn to probe without recompiling
+         → ftrace on ip_rcv, kprobe on tcp_sendmsg, bpftrace drops
+
+Week 2: RX deep dive (Section 2) — patch DMA, NAPI, GRO, softirq
+         → Add NL-DMA, NL-NAPI, NL-GRO*, NL-RDISP
+         → Use netem to inject loss and see drops hit NL-DROP
+
+Week 3: TCP state machine (Section 3) — see full SYN→FIN lifecycle
+         → NL-STATE + NL-RETX + NL-CA
+         → netem 20% loss → watch cwnd collapse (NL-LOSS)
+
+Week 4: NIC offloads (Section 5) — understand GSO/GRO/TSO/XDP
+         → Write and load xdp_observe.c
+         → Compare GSO skb size vs final wire size
+
+Week 5: Protocol expansion (Section 6) + namespaces (Section 8)
+         → veth pair, ping across ns, watch NL-VETH + NL-FIB
+         → Enable IPv6, trace NL-6TX / NL-6RX
+
+Week 6: Security + fault injection (Sections 7 & 9)
+         → hping3 SYN flood → watch NL-SYN + NL-SYNCK
+         → netem OOO → watch NL-OFO queuing and draining
+```
+
+Good, now I have the full picture. Let me build this comprehensive guide as a markdown document covering all 9 learning paths from the image.Here's what the guide covers, matching all 9 cards from your image:
+
+**Section 1 — Proper Tracing (no recompile)**
+- `ftrace function_graph` on `ip_rcv` — see the full call tree
+- `kprobe_events` in tracefs — probe `tcp_sendmsg` with no C code
+- `bpftrace` scripts for TX latency, drop reasons, per-protocol packet counts
+
+**Section 2 — NAPI & RX Deep**
+- `net_rx_action` (softirq bottom half) — use `pr_info_ratelimited`
+- `napi_poll` — budget and driver scheduling
+- `virtnet_receive` + `page_to_skb` — the DMA boundary crossing
+- `dev_gro_receive` — catch MERGED / NORMAL / DROP decisions
+- `__netif_receive_skb_core` — the dispatcher right before `ip_rcv`
+
+**Section 3 — TCP State Machine**
+- `tcp_set_state` — every `CLOSE→SYN_SENT→ESTAB→FIN_WAIT1→TIME_WAIT`
+- `tcp_retransmit_skb` — retransmit count
+- `tcp_ack` — `cwnd`, `ssthresh`, RTT, congestion algo name
+- `tcp_enter_loss` — cwnd collapse moment
+
+**Section 4 — Drop Analysis** — `kfree_skb_reason` patch + bpftrace + `perf record -e skb:kfree_skb` + `dropwatch`
+
+**Section 5 — NIC Offloads** — GSO super-skb at `validate_xmit_skb`, software segmentation in `__skb_gso_segment`, TSO flag detection, `nl_dump_shinfo()` helper, XDP observe program (`xdp_observe.c`)
+
+**Section 6–9** — IPv6 RX/TX, conntrack, all 5 netfilter hooks, netem fault injection, veth cross-namespace tracing, FIB lookup, SYN cookie generation, RST detection via built-in tracepoints.
+
+The SSH filter `NOT_SSH(sp, dp)` is carried into every patch — no more feedback noise.
+
+# Linux Kernel Network Subsystem — Mastery Roadmap
+
+> **Where you are**: NL-1→NL-9 TX · NL-R1→NL-R4 RX · XDP · GRO · veth · kprobes/eBPF/ftrace  
+> **Where this takes you**: driver author, protocol implementor, performance engineer, BPF expert
+
+---
+
+## Table of Contents
+
+1. [sk_buff Lifecycle Mastery](#1-sk_buff-lifecycle-mastery)
+2. [Socket Layer Internals](#2-socket-layer-internals)
+3. [Writing Loadable Net Kernel Modules](#3-writing-loadable-net-kernel-modules)
+4. [Write Your Own Minimal Network Driver](#4-write-your-own-minimal-network-driver)
+5. [Queueing Disciplines — tc/qdisc Deep Dive](#5-queueing-disciplines--tcqdisc-deep-dive)
+6. [RSS, RPS, RFS, XPS — Multi-queue Scaling](#6-rss-rps-rfs-xps--multi-queue-scaling)
+7. [Zero-Copy Networking](#7-zero-copy-networking)
+8. [BPF — From bpftrace to CO-RE Programs](#8-bpf--from-bpftrace-to-co-re-programs)
+9. [TC BPF + Sockmap — Packet Steering in BPF](#9-tc-bpf--sockmap--packet-steering-in-bpf)
+10. [AF_XDP — Zero-Copy XDP to Userspace](#10-af_xdp--zero-copy-xdp-to-userspace)
+11. [Tunnel Protocols — VXLAN, GRE, WireGuard](#11-tunnel-protocols--vxlan-gre-wireguard)
+12. [Congestion Control — Write Your Own Algorithm](#12-congestion-control--write-your-own-algorithm)
+13. [Kernel TLS (kTLS)](#13-kernel-tls-ktls)
+14. [IPVS & Load Balancing Internals](#14-ipvs--load-balancing-internals)
+15. [Netfilter — nftables, iptables, BPF Replacement Path](#15-netfilter--nftables-iptables-bpf-replacement-path)
+16. [Perf Analysis & Flamegraphs for the Net Stack](#16-perf-analysis--flamegraphs-for-the-net-stack)
+17. [NUMA, IRQ Affinity, Interrupt Coalescing](#17-numa-irq-affinity-interrupt-coalescing)
+18. [Kernel Network Testing — pktgen, kselftest](#18-kernel-network-testing--pktgen-kselftest)
+19. [Reading /proc/net and ethtool Stats](#19-reading-procnet-and-ethtool-stats)
+20. [Bridge, Bonding, MACVLAN, IPVLAN](#20-bridge-bonding-macvlan-ipvlan)
+21. [Kernel Source Navigation Strategy](#21-kernel-source-navigation-strategy)
+22. [Submitting Patches to netdev](#22-submitting-patches-to-netdev)
+23. [Books, Papers, and Talks](#23-books-papers-and-talks)
+24. [Lab Projects — Build These End to End](#24-lab-projects--build-these-end-to-end)
+
+---
+
+## 1. sk_buff Lifecycle Mastery
+
+`sk_buff` is the central data structure of the entire Linux network stack. You must understand every phase.
+
+### 1.1 Allocation sites — know where skbs are born
+
+| Function | Where called | Why |
+|----------|-------------|-----|
+| `alloc_skb()` | generic | basic allocation |
+| `netdev_alloc_skb()` | NIC driver RX | pre-maps to DMA |
+| `build_skb()` | XDP / zero-copy | wraps an existing page |
+| `sock_alloc_send_skb()` | sendmsg TX | allocates with socket throttling |
+| `skb_clone()` | multicast, tee | new header, shared data |
+| `skb_copy()` | when CoW needed | full deep copy |
+
+Add probes to each:
+
+```bash
+sudo bpftrace -e '
+kprobe:__alloc_skb    { @alloc = count(); }
+kprobe:build_skb      { @build = count(); }
+kprobe:skb_clone      { @clone = count(); }
+kprobe:kfree_skb_reason { @free = count(); }
+interval:s:2 {
+    printf("alloc=%d build=%d clone=%d free=%d\n",
+           @alloc, @build, @clone, @free);
+    clear(@alloc); clear(@build); clear(@clone); clear(@free);
+}'
+```
+
+### 1.2 Head, data, tail, end — the geometry
+
+```
+skb->head ──┐
+            │  headroom  (push headers here on TX)
+skb->data ──┤
+            │  payload
+skb->tail ──┤
+            │  tailroom  (skb_put() extends here)
+skb->end ───┘
+            [skb_shared_info at skb->end]
+```
+
+Track headroom shrinkage as headers are pushed:
+
+```c
+/* Add in each NL-TX patch to watch headers being prepended */
+pr_info("[NL-SKB] at %s: headroom=%u len=%u tailroom=%u\n",
+        __func__,
+        skb_headroom(skb),
+        skb->len,
+        skb_tailroom(skb));
+```
+
+### 1.3 Cloning vs copying — the reference count trap
+
+```c
+/* In net/core/skbuff.c, skb_clone(): */
+pr_info("[NL-CLONE] clone: orig=%px new=%px users=%d dataref=%d\n",
+        skb, n,
+        refcount_read(&skb->users),
+        refcount_read(&skb_shinfo(skb)->dataref));
+```
+
+Key rule: `skb_clone()` shares the data pages (refcount on `dataref`). Any modification needs `skb_make_writable()` first — otherwise you corrupt another skb's data.
+
+### 1.4 Fragments — skb_shinfo->frags[]
+
+Large sends use paged data (scatter-gather). Each fragment is a `skb_frag_t` pointing to a page:
+
+```c
+/* Dump all fragments of an skb */
+static void dump_frags(const char *tag, struct sk_buff *skb)
+{
+    struct skb_shared_info *si = skb_shinfo(skb);
+    int i;
+    pr_info("[FRAG] %s: nr_frags=%u frag_list=%s\n",
+            tag, si->nr_frags, si->frag_list ? "yes" : "no");
+    for (i = 0; i < si->nr_frags; i++) {
+        skb_frag_t *f = &si->frags[i];
+        pr_info("[FRAG]   [%d] page=%px off=%u size=%u\n",
+                i, skb_frag_page(f),
+                skb_frag_off(f),
+                skb_frag_size(f));
+    }
+}
+```
+
+### 1.5 Lab: trace one skb from alloc to kfree
+
+Goal: tag a specific skb with a unique ID and trace it through all layers.
+
+```c
+/* In alloc_skb(), stamp a magic cookie in cb[] */
+#define NL_MAGIC 0xDEADBEEFUL
+
+/* In alloc_skb return path: */
+*(unsigned long *)skb->cb = NL_MAGIC;
+*(unsigned long *)(skb->cb + 8) = (unsigned long)skb; /* original ptr */
+
+/* In each NL-* probe, check and print: */
+if (*(unsigned long *)skb->cb == NL_MAGIC)
+    pr_info("[NL-TRACK] skb=%px at %s\n", skb, __func__);
+```
+
+---
+
+## 2. Socket Layer Internals
+
+The path from `write(fd, buf, n)` down to `tcp_sendmsg` is often skipped. It is not trivial.
+
+### 2.1 VFS → socket → protocol
+
+```
+write(fd) 
+  → sys_write()
+  → vfs_write()
+  → sock_write_iter()        [net/socket.c]
+  → sock->ops->sendmsg()     [proto_ops, e.g. inet_sendmsg]
+  → sk->sk_prot->sendmsg()   [proto, e.g. tcp_sendmsg]
+```
+
+Probe `sock_write_iter` — this is where the VFS/socket boundary is:
+
+```bash
+sudo bpftrace -e '
+kprobe:sock_write_iter {
+    printf("[SOCK-WRITE] pid=%d comm=%s\n", pid, comm);
+}'
+```
+
+### 2.2 The sock struct — what lives in it
+
+Open `include/net/sock.h`. Key fields to know:
+
+| Field | Meaning |
+|-------|---------|
+| `sk_state` | TCP_ESTABLISHED, TCP_LISTEN, etc. |
+| `sk_wmem_queued` | bytes queued in write buffer |
+| `sk_sndbuf` | send buffer size limit |
+| `sk_rcvbuf` | receive buffer size limit |
+| `sk_backlog` | packets queued while socket is locked |
+| `sk_receive_queue` | skb queue for received data |
+| `sk_write_queue` | skb queue for data to transmit |
+| `sk_prot` | pointer to `struct proto` (tcp_prot, udp_prot) |
+| `sk_socket` | back-pointer to `struct socket` |
+| `sk_dst_cache` | cached routing dst_entry |
+
+### 2.3 Socket buffer pressure — when backpressure kicks in
+
+```c
+/* In tcp_sendmsg_locked(), find sk_stream_wait_memory(): */
+pr_info("[NL-WMEMP] wmem pressure: wmem_queued=%d sndbuf=%d\n",
+        sk->sk_wmem_queued, sk->sk_sndbuf);
+```
+
+```bash
+# Tune socket buffers:
+sudo sysctl -w net.core.wmem_max=16777216
+sudo sysctl -w net.core.rmem_max=16777216
+sudo sysctl -w net.ipv4.tcp_wmem="4096 87380 16777216"
+sudo sysctl -w net.ipv4.tcp_rmem="4096 87380 16777216"
+
+# Watch buffer usage with ss:
+watch -n 1 'ss -tip | grep -v "127\|::1"'
+```
+
+### 2.4 Scatter-gather — MSG_ZEROCOPY path
+
+```bash
+# See if applications use MSG_ZEROCOPY:
+sudo bpftrace -e '
+kprobe:tcp_sendmsg {
+    $msg = (struct msghdr *)arg1;
+    if ($msg->msg_flags & 0x4000000) {  /* MSG_ZEROCOPY */
+        printf("[ZCOPY] pid=%d zerocopy sendmsg\n", pid);
+    }
+}'
+```
+
+### 2.5 recvmsg path — RX side socket delivery
+
+```
+tcp_v4_rcv
+  → tcp_rcv_established / tcp_rcv_state_process
+    → tcp_queue_rcv()        [adds to sk_receive_queue]
+      → sk->sk_data_ready()  [wakes up blocked recvmsg]
+        → tcp_recvmsg()      [copies to userspace]
+          → copy_to_iter()   [VFS boundary]
+```
+
+Probe the wakeup:
+
+```bash
+sudo bpftrace -e '
+kprobe:sock_def_readable {
+    printf("[RX-WAKE] sk=%p\n", arg0);
+}'
+```
+
+---
+
+## 3. Writing Loadable Net Kernel Modules
+
+No more full kernel rebuilds for every experiment. A kernel module lets you add probes, inject behavior, and register net devices dynamically.
+
+### 3.1 Minimal net observer module
+
+```c
+/* File: nl_probe.c */
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/netdevice.h>
+#include <linux/skbuff.h>
+#include <linux/netfilter.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("netlab");
+MODULE_DESCRIPTION("Network stack observer");
+
+static unsigned int nl_hook(void *priv,
+                             struct sk_buff *skb,
+                             const struct nf_hook_state *state)
+{
+    struct iphdr *iph;
+    struct tcphdr *tcph;
+
+    if (!skb || skb->protocol != htons(ETH_P_IP))
+        return NF_ACCEPT;
+
+    iph = ip_hdr(skb);
+    if (iph->protocol != IPPROTO_TCP)
+        return NF_ACCEPT;
+
+    tcph = tcp_hdr(skb);
+    if (ntohs(tcph->source) == 22 || ntohs(tcph->dest) == 22)
+        return NF_ACCEPT;
+
+    pr_info("[MOD] PRE_ROUTING: src=%pI4:%u dst=%pI4:%u len=%u\n",
+            &iph->saddr, ntohs(tcph->source),
+            &iph->daddr, ntohs(tcph->dest),
+            skb->len);
+
+    return NF_ACCEPT;
+}
+
+static struct nf_hook_ops nl_nf_ops = {
+    .hook     = nl_hook,
+    .pf       = NFPROTO_IPV4,
+    .hooknum  = NF_INET_PRE_ROUTING,
+    .priority = NF_IP_PRI_FIRST,
+};
+
+static int __init nl_probe_init(void)
+{
+    pr_info("[MOD] nl_probe loaded\n");
+    return nf_register_net_hook(&init_net, &nl_nf_ops);
+}
+
+static void __exit nl_probe_exit(void)
+{
+    nf_unregister_net_hook(&init_net, &nl_nf_ops);
+    pr_info("[MOD] nl_probe unloaded\n");
+}
+
+module_init(nl_probe_init);
+module_exit(nl_probe_exit);
+```
+
+```makefile
+# Makefile
+obj-m := nl_probe.o
+KDIR  := /lib/modules/$(shell uname -r)/build
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
+```
+
+```bash
+make
+sudo insmod nl_probe.ko
+sudo dmesg -w | grep "\[MOD\]"
+
+# Trigger traffic:
+curl http://example.com
+
+# Remove:
+sudo rmmod nl_probe
+```
+
+### 3.2 Module with kprobe — attach to any symbol
+
+```c
+#include <linux/kprobes.h>
+
+static struct kprobe kp = {
+    .symbol_name = "tcp_sendmsg",
+};
+
+static int handler_pre(struct kprobe *p, struct pt_regs *regs)
+{
+    /* arg0 = sock *, arg1 = msghdr *, arg2 = size_t */
+    pr_info("[KPROBE] tcp_sendmsg: size=%lu\n",
+            (unsigned long)regs->dx); /* rdx = 3rd arg on x86_64 */
+    return 0;
+}
+
+static int __init kp_init(void)
+{
+    kp.pre_handler = handler_pre;
+    return register_kprobe(&kp);
+}
+
+static void __exit kp_exit(void)
+{
+    unregister_kprobe(&kp);
+}
+
+module_init(kp_init);
+module_exit(kp_exit);
+MODULE_LICENSE("GPL");
+```
+
+### 3.3 Module with tracepoint hook
+
+```c
+#include <linux/tracepoint.h>
+#include <trace/events/skb.h>
+
+static void on_kfree_skb(void *ignore, struct sk_buff *skb,
+                          void *location,
+                          enum skb_drop_reason reason)
+{
+    pr_info("[TP] kfree_skb: reason=%d\n", reason);
+}
+
+static int __init tp_init(void)
+{
+    return register_trace_kfree_skb(on_kfree_skb, NULL);
+}
+
+static void __exit tp_exit(void)
+{
+    unregister_trace_kfree_skb(on_kfree_skb, NULL);
+}
+MODULE_LICENSE("GPL");
+module_init(tp_init);
+module_exit(tp_exit);
+```
+
+---
+
+## 4. Write Your Own Minimal Network Driver
+
+Writing even a toy driver teaches you: NAPI, DMA API, netdev ops, interrupt handling, and the driver↔core interface.
+
+### 4.1 The loopback-style "null" driver
+
+```c
+/* File: nl_dummy.c — a net device that drops all TX and injects on RX */
+#include <linux/module.h>
+#include <linux/netdevice.h>
+#include <linux/etherdevice.h>
+#include <linux/skbuff.h>
+
+static struct net_device *nl_dev;
+
+/* TX: called when kernel wants to send a packet */
+static netdev_tx_t nl_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+    struct net_device_stats *stats = &dev->stats;
+
+    pr_info("[NLDRV-TX] xmit: len=%u\n", skb->len);
+
+    /* Simulate loopback: flip src/dst and re-receive */
+    /* For now, just count and drop */
+    stats->tx_packets++;
+    stats->tx_bytes += skb->len;
+    dev_kfree_skb(skb);
+
+    return NETDEV_TX_OK;
+}
+
+/* Inject a fake packet from "the wire" into the stack */
+static void nl_inject_rx(struct net_device *dev)
+{
+    struct sk_buff *skb;
+    unsigned char *data;
+
+    /* Allocate an skb big enough for Ethernet + IP + TCP header */
+    skb = netdev_alloc_skb_ip_align(dev, ETH_HLEN + 40);
+    if (!skb)
+        return;
+
+    /* Build a minimal Ethernet frame */
+    data = skb_put(skb, ETH_HLEN + 40);
+    memset(data, 0, ETH_HLEN + 40);
+
+    skb->protocol = eth_type_trans(skb, dev);
+    skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+    pr_info("[NLDRV-RX] injecting fake frame len=%u\n", skb->len);
+
+    /* Hand to the network stack */
+    netif_rx(skb);
+    dev->stats.rx_packets++;
+}
+
+static const struct net_device_ops nl_ops = {
+    .ndo_start_xmit = nl_xmit,
+};
+
+static void nl_setup(struct net_device *dev)
+{
+    ether_setup(dev);
+    dev->netdev_ops = &nl_ops;
+    dev->flags |= IFF_NOARP;
+    eth_hw_addr_random(dev);
+}
+
+static int __init nl_driver_init(void)
+{
+    int ret;
+    nl_dev = alloc_netdev(0, "nldum%d", NET_NAME_ENUM, nl_setup);
+    if (!nl_dev)
+        return -ENOMEM;
+
+    ret = register_netdev(nl_dev);
+    if (ret) {
+        free_netdev(nl_dev);
+        return ret;
+    }
+    pr_info("[NLDRV] registered %s\n", nl_dev->name);
+    return 0;
+}
+
+static void __exit nl_driver_exit(void)
+{
+    unregister_netdev(nl_dev);
+    free_netdev(nl_dev);
+    pr_info("[NLDRV] unregistered\n");
+}
+
+module_init(nl_driver_init);
+module_exit(nl_driver_exit);
+MODULE_LICENSE("GPL");
+```
+
+```bash
+make && sudo insmod nl_dummy.ko
+ip link show nldum0
+sudo ip addr add 192.168.250.1/24 dev nldum0
+sudo ip link set nldum0 up
+ping 192.168.250.1  # watch your xmit probe fire
+```
+
+### 4.2 Next step: add NAPI to your driver
+
+Replace `netif_rx()` (slow path) with NAPI:
+
+```c
+struct nl_priv {
+    struct napi_struct napi;
+    struct net_device *dev;
+};
+
+/* NAPI poll callback */
+static int nl_poll(struct napi_struct *napi, int budget)
+{
+    int received = 0;
+    /* Process up to `budget` frames from your simulated RX ring */
+    /* ... */
+    if (received < budget)
+        napi_complete_done(napi, received);
+    return received;
+}
+
+/* In setup: */
+netif_napi_add(dev, &priv->napi, nl_poll);
+napi_enable(&priv->napi);
+```
+
+---
+
+## 5. Queueing Disciplines — tc/qdisc Deep Dive
+
+Every outgoing packet goes through a qdisc. Understanding them explains why latency behaves the way it does.
+
+### 5.1 The qdisc architecture
+
+```
+dev_queue_xmit()
+  → dev->qdisc->enqueue()    [enqueue to qdisc]
+  → net_tx_action (softirq)
+    → qdisc_run()
+      → qdisc->dequeue()     [dequeue from qdisc]
+        → dev->ndo_start_xmit()  [to driver]
+```
+
+### 5.2 Inspect the default qdisc
+
+```bash
+# What qdisc is on your interface now?
+sudo tc qdisc show dev enp1s0
+
+# Default is usually: pfifo_fast (priority FIFO, 3 bands)
+# Or: fq_codel on modern systems
+```
+
+### 5.3 HTB — Hierarchical Token Bucket (rate limiting)
+
+```bash
+# Rate-limit to 10 Mbit/s with bursts:
+sudo tc qdisc add dev enp1s0 root handle 1: htb default 10
+sudo tc class add dev enp1s0 parent 1: classid 1:10 htb \
+    rate 10mbit ceil 10mbit burst 15k
+
+# Verify:
+sudo tc -s qdisc show dev enp1s0
+sudo tc -s class show dev enp1s0
+
+# Generate traffic and watch stats:
+iperf3 -c <server> -t 30 &
+watch -n 1 'tc -s class show dev enp1s0'
+
+# Remove:
+sudo tc qdisc del dev enp1s0 root
+```
+
+### 5.4 FQ-CoDel — the latency-fighting qdisc
+
+```bash
+# Replace with fq_codel:
+sudo tc qdisc replace dev enp1s0 root fq_codel
+
+# Watch CoDel drop statistics (it drops to fight bufferbloat):
+watch -n 1 'tc -s qdisc show dev enp1s0'
+# Look for: dropped N, ecn_mark N, new_flow_count N
+```
+
+### 5.5 Probe qdisc from kernel
+
+```c
+/* In net/core/dev.c, __dev_queue_xmit(), just before qdisc enqueue: */
+pr_info("[NL-QDISC] qdisc enqueue: dev=%s qdisc=%s len=%u\n",
+        dev->name,
+        dev->qdisc->ops->id,
+        skb->len);
+```
+
+### 5.6 Write a trivial qdisc module
+
+```c
+/* A qdisc that logs every packet and passes it through */
+#include <net/sch_generic.h>
+#include <net/pkt_sched.h>
+
+static int nl_qdisc_enqueue(struct sk_buff *skb,
+                              struct Qdisc *sch,
+                              struct sk_buff **to_free)
+{
+    pr_info("[NLQ] enqueue: len=%u\n", skb->len);
+    return qdisc_enqueue_tail(skb, sch);
+}
+
+static struct sk_buff *nl_qdisc_dequeue(struct Qdisc *sch)
+{
+    return qdisc_dequeue_head(sch);
+}
+
+static struct Qdisc_ops nl_qdisc_ops __read_mostly = {
+    .id       = "nlpass",
+    .priv_size = 0,
+    .enqueue  = nl_qdisc_enqueue,
+    .dequeue  = nl_qdisc_dequeue,
+    .peek     = qdisc_peek_dequeued,
+    .owner    = THIS_MODULE,
+};
+
+static int __init nlq_init(void) { return register_qdisc(&nl_qdisc_ops); }
+static void __exit nlq_exit(void) { unregister_qdisc(&nl_qdisc_ops); }
+module_init(nlq_init); module_exit(nlq_exit);
+MODULE_LICENSE("GPL");
+
+/* Load and attach: */
+/* sudo tc qdisc add dev enp1s0 root nlpass */
+```
+
+---
+
+## 6. RSS, RPS, RFS, XPS — Multi-queue Scaling
+
+A single-queue NIC becomes a bottleneck at high packet rates. This section explains how Linux distributes load.
+
+### 6.1 RSS — Receive Side Scaling (hardware)
+
+The NIC hashes packet 5-tuples and distributes to multiple RX queues, each with its own interrupt.
+
+```bash
+# How many RX queues does your NIC have?
+ethtool -l enp1s0
+
+# For virtio in QEMU — set multiple queues:
+# Add to QEMU args: -device virtio-net-pci,vectors=4,mq=on
+# Then: ethtool -L enp1s0 combined 4
+
+# Check current IRQ assignment:
+cat /proc/interrupts | grep enp1s0
+
+# See which CPU handles each queue IRQ:
+for i in /proc/irq/*/smp_affinity_list; do
+    echo "$i: $(cat $i)";
+done | grep -v "^$"
+```
+
+### 6.2 RPS — Receive Packet Steering (software)
+
+Software hash-based steering when the NIC has only one queue:
+
+```bash
+# Enable RPS on all CPUs for queue 0:
+echo f > /sys/class/net/enp1s0/queues/rx-0/rps_cpus
+# 'f' = bitmask 0b1111 = CPUs 0-3
+
+# Verify:
+cat /sys/class/net/enp1s0/queues/rx-0/rps_cpus
+```
+
+### 6.3 RFS — Receive Flow Steering
+
+Steers packets to the CPU where the application that owns the socket is running:
+
+```bash
+echo 32768 > /proc/sys/net/core/rps_sock_flow_entries
+echo 1024  > /sys/class/net/enp1s0/queues/rx-0/rps_flow_cnt
+```
+
+### 6.4 XPS — Transmit Packet Steering
+
+Maps TX queues to CPUs so the TX path avoids cache contention:
+
+```bash
+# Map TX queue 0 to CPU 0:
+echo 1 > /sys/class/net/enp1s0/queues/tx-0/xps_cpus
+```
+
+### 6.5 Probe multi-queue path
+
+```bash
+sudo bpftrace -e '
+kprobe:netif_receive_skb {
+    @cpu_rx[cpu] = count();
+}
+interval:s:2 {
+    printf("RX distribution by CPU:\n");
+    print(@cpu_rx);
+    clear(@cpu_rx);
+}'
+```
+
+---
+
+## 7. Zero-Copy Networking
+
+Copying data between kernel and userspace is expensive. These mechanisms eliminate it.
+
+### 7.1 sendfile — kernel-to-kernel zero-copy
+
+```c
+/* Userspace: serve a file over a socket without copying to userspace */
+int file_fd = open("data.bin", O_RDONLY);
+off_t offset = 0;
+sendfile(sock_fd, file_fd, &offset, file_size);
+```
+
+Kernel path: `sys_sendfile` → `do_sendfile` → `tcp_sendpage` — the data page is mapped directly into the TX ring, never copied.
+
+```bash
+# See sendfile in action:
+sudo bpftrace -e '
+kprobe:do_sendfile {
+    printf("[SENDFILE] pid=%d size=%d\n", pid, (int)arg3);
+}'
+```
+
+### 7.2 MSG_ZEROCOPY — userspace buffer to NIC without copy
+
+```c
+/* In your application: */
+int one = 1;
+setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &one, sizeof(one));
+
+/* Send without kernel copy: */
+send(fd, buf, len, MSG_ZEROCOPY);
+
+/* MUST drain completion notifications: */
+struct msghdr msg = {};
+char cbuf[100];
+msg.msg_control = cbuf;
+msg.msg_controllen = sizeof(cbuf);
+recvmsg(fd, &msg, MSG_ERRQUEUE); /* blocks until NIC is done with buf */
+```
+
+```bash
+# Watch zero-copy completions:
+sudo bpftrace -e '
+kprobe:skb_zerocopy_iter_stream {
+    printf("[ZCOPY] zerocopy segment len=%d\n", (int)arg3);
+}'
+```
+
+### 7.3 splice / pipe — zero-copy between file descriptors
+
+```bash
+# In C — move data from socket to file via pipe without copying:
+splice(from_fd, NULL, pipe[1], NULL, len, SPLICE_F_MOVE);
+splice(pipe[0], NULL, to_fd,   NULL, len, SPLICE_F_MOVE);
+```
+
+---
+
+## 8. BPF — From bpftrace to CO-RE Programs
+
+`bpftrace` is great for one-liners. For production tools, write proper libbpf programs with BPF CO-RE (Compile Once, Run Everywhere).
+
+### 8.1 Install the full BPF toolchain
+
+```bash
+sudo apt install clang llvm libbpf-dev bpftool linux-headers-$(uname -r)
+
+# Verify BTF is available (required for CO-RE):
+ls /sys/kernel/btf/vmlinux
+# or:
+bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
+```
+
+### 8.2 A proper BPF program with maps
+
+```c
+/* File: tcp_latency.bpf.c */
+#include "vmlinux.h"
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
+#include <bpf/bpf_core_read.h>
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, u32);      /* tid */
+    __type(value, u64);    /* timestamp */
+} start SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 256 * 1024);
+} events SEC(".maps");
+
+struct event {
+    u32 pid;
+    u16 sport;
+    u16 dport;
+    u64 latency_ns;
+};
+
+SEC("kprobe/tcp_sendmsg")
+int BPF_KPROBE(tcp_sendmsg_enter, struct sock *sk)
+{
+    u16 sport = BPF_CORE_READ(sk, __sk_common.skc_num);
+    u16 dport = bpf_ntohs(BPF_CORE_READ(sk, __sk_common.skc_dport));
+
+    if (sport == 22 || dport == 22)
+        return 0;
+
+    u64 ts = bpf_ktime_get_ns();
+    u32 tid = bpf_get_current_pid_tgid();
+    bpf_map_update_elem(&start, &tid, &ts, BPF_ANY);
+    return 0;
+}
+
+SEC("kprobe/ip_queue_xmit")
+int BPF_KPROBE(ip_queue_xmit_enter, struct sock *sk)
+{
+    u32 tid = bpf_get_current_pid_tgid();
+    u64 *ts = bpf_map_lookup_elem(&start, &tid);
+    if (!ts) return 0;
+
+    struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+    if (e) {
+        e->pid        = bpf_get_current_pid_tgid() >> 32;
+        e->sport      = BPF_CORE_READ(sk, __sk_common.skc_num);
+        e->dport      = bpf_ntohs(BPF_CORE_READ(sk, __sk_common.skc_dport));
+        e->latency_ns = bpf_ktime_get_ns() - *ts;
+        bpf_ringbuf_submit(e, 0);
+    }
+
+    bpf_map_delete_elem(&start, &tid);
+    return 0;
+}
+
+char LICENSE[] SEC("license") = "GPL";
+```
+
+```bash
+# Compile:
+clang -O2 -g -target bpf -D__TARGET_ARCH_x86 \
+    -I/usr/include/$(uname -m)-linux-gnu \
+    -c tcp_latency.bpf.c -o tcp_latency.bpf.o
+
+# Inspect the BPF object:
+bpftool prog dump xlated pinned /sys/fs/bpf/tcp_lat
+bpftool map dump name start
+```
+
+### 8.3 BPF ring buffer — high-throughput event stream
+
+Ring buffer (BPF_MAP_TYPE_RINGBUF) is the modern replacement for perf_event arrays — lower overhead, no per-CPU complexity.
+
+```bash
+# Load and stream events (using bpftool):
+bpftool prog load tcp_latency.bpf.o /sys/fs/bpf/tcp_lat \
+    type kprobe
+
+# Pin the map and poll it from userspace with libbpf
+```
+
+### 8.4 BPF histogram — latency distribution in kernel
+
+```bash
+sudo bpftrace -e '
+kprobe:tcp_sendmsg { @start[tid] = nsecs; }
+kprobe:ip_queue_xmit /@start[tid]/ {
+    @lat_us = hist((nsecs - @start[tid]) / 1000);
+    delete(@start[tid]);
+}
+interval:s:10 { print(@lat_us); clear(@lat_us); }'
+```
+
+---
+
+## 9. TC BPF + Sockmap — Packet Steering in BPF
+
+BPF can be attached to the Traffic Control (tc) layer for fine-grained packet manipulation without Netfilter overhead.
+
+### 9.1 TC BPF — ingress/egress hooks
+
+```c
+/* File: tc_observe.bpf.c */
+#include "vmlinux.h"
+#include <bpf/bpf_helpers.h>
+#include <linux/pkt_cls.h>
+
+SEC("tc/ingress")
+int tc_ingress(struct __sk_buff *skb)
+{
+    bpf_printk("[TC-IN] proto=%d len=%d\n",
+               skb->protocol, skb->len);
+    return TC_ACT_OK;   /* pass */
+}
+
+SEC("tc/egress")
+int tc_egress(struct __sk_buff *skb)
+{
+    bpf_printk("[TC-OUT] proto=%d len=%d\n",
+               skb->protocol, skb->len);
+    return TC_ACT_OK;
+}
+
+char LICENSE[] SEC("license") = "GPL";
+```
+
+```bash
+# Compile and attach to tc:
+clang -O2 -target bpf -c tc_observe.bpf.c -o tc_observe.bpf.o
+
+# Add clsact qdisc (prerequisite):
+sudo tc qdisc add dev enp1s0 clsact
+
+# Attach BPF to ingress and egress:
+sudo tc filter add dev enp1s0 ingress bpf da obj tc_observe.bpf.o sec tc/ingress
+sudo tc filter add dev enp1s0 egress  bpf da obj tc_observe.bpf.o sec tc/egress
+
+# Watch output:
+sudo cat /sys/kernel/debug/tracing/trace_pipe
+
+# Remove:
+sudo tc qdisc del dev enp1s0 clsact
+```
+
+### 9.2 Sockmap — bypass the network stack between sockets
+
+Sockmap lets BPF redirect data directly from one socket's receive buffer to another socket's send buffer, bypassing the TCP/IP stack entirely. Used in service meshes (Cilium, Istio with eBPF mode).
+
+```bash
+# Concept demo with bpftrace:
+sudo bpftrace -e '
+kprobe:sk_psock_verdict_apply {
+    printf("[SOCKMAP] redirect applied\n");
+}'
+```
+
+---
+
+## 10. AF_XDP — Zero-Copy XDP to Userspace
+
+AF_XDP is a socket type that lets XDP programs redirect frames directly to userspace memory — bypassing the kernel networking stack entirely. Used for DPDK-style speeds without leaving the kernel.
+
+### 10.1 Concepts
+
+```
+NIC DMA → UMEM (user-registered memory)
+         ↕  (no copy)
+         AF_XDP socket → userspace application
+```
+
+### 10.2 Minimal AF_XDP setup
+
+```bash
+# Install dependencies:
+sudo apt install libxdp-dev libbpf-dev
+
+# Clone and build the reference example:
+git clone https://github.com/xdp-project/xdp-tutorial
+cd xdp-tutorial
+make
+
+# Run the AF_XDP receive example:
+sudo ./advanced03-AF_XDP/xdp_sock_user -d enp1s0 -S
+```
+
+### 10.3 What happens under the hood
+
+```bash
+# Watch AF_XDP socket operations:
+sudo bpftrace -e '
+kprobe:xsk_rcv {
+    printf("[AF_XDP] xsk_rcv: len=%d\n",
+           ((struct sk_buff*)arg1)->len);
+}
+kprobe:xsk_generic_rcv {
+    printf("[AF_XDP-GEN] generic rcv path\n");
+}'
+```
+
+---
+
+## 11. Tunnel Protocols — VXLAN, GRE, WireGuard
+
+Tunnels encapsulate packets inside other packets. Each adds a new header and uses the inner/outer distinction in the network stack.
+
+### 11.1 VXLAN — virtual extensible LAN
+
+```bash
+# Create a VXLAN tunnel between two namespaces (simulating two hosts):
+sudo ip netns add host1
+sudo ip netns add host2
+
+# Create veth links between host namespaces and default ns:
+sudo ip link add veth-h1 type veth peer name veth-h1-peer
+sudo ip link add veth-h2 type veth peer name veth-h2-peer
+
+sudo ip link set veth-h1-peer netns host1
+sudo ip link set veth-h2-peer netns host2
+
+# Configure underlay:
+sudo ip addr add 10.0.0.1/24 dev veth-h1 && sudo ip link set veth-h1 up
+sudo ip addr add 10.0.0.2/24 dev veth-h2 && sudo ip link set veth-h2 up
+sudo ip netns exec host1 ip addr add 10.0.0.10/24 dev veth-h1-peer
+sudo ip netns exec host1 ip link set veth-h1-peer up
+sudo ip netns exec host2 ip addr add 10.0.0.20/24 dev veth-h2-peer
+sudo ip netns exec host2 ip link set veth-h2-peer up
+
+# Create VXLAN overlay:
+sudo ip netns exec host1 ip link add vxlan0 type vxlan \
+    id 100 remote 10.0.0.20 local 10.0.0.10 dstport 4789
+sudo ip netns exec host1 ip addr add 192.168.100.1/24 dev vxlan0
+sudo ip netns exec host1 ip link set vxlan0 up
+
+# Probe VXLAN encap:
+sudo bpftrace -e 'kprobe:vxlan_xmit { printf("[VXLAN] xmit\n"); }'
+```
+
+### 11.2 GRE tunnel
+
+```bash
+# Simple GRE between two namespaces:
+sudo ip tunnel add gre0 mode gre remote 10.0.0.20 local 10.0.0.10 ttl 255
+sudo ip addr add 172.16.0.1/30 dev gre0
+sudo ip link set gre0 up
+
+# Probe GRE encap:
+sudo bpftrace -e 'kprobe:gre_build_header { printf("[GRE] build header\n"); }'
+```
+
+### 11.3 WireGuard — modern VPN kernel module
+
+```bash
+sudo apt install wireguard-tools
+
+# Generate keys:
+wg genkey | tee privkey | wg pubkey > pubkey
+
+# Create WireGuard interface:
+sudo ip link add wg0 type wireguard
+sudo wg set wg0 private-key ./privkey listen-port 51820
+sudo ip addr add 10.200.0.1/24 dev wg0
+sudo ip link set wg0 up
+
+# Probe WireGuard TX:
+sudo bpftrace -e '
+kprobe:wg_xmit { printf("[WG] wg_xmit: len=%d\n",
+    ((struct sk_buff*)arg0)->len); }'
+```
+
+---
+
+## 12. Congestion Control — Write Your Own Algorithm
+
+Linux makes it easy to plug in a new TCP congestion control algorithm as a module.
+
+### 12.1 The ops structure
+
+```c
+/* Every CA algorithm implements struct tcp_congestion_ops */
+struct tcp_congestion_ops {
+    void (*init)(struct sock *sk);
+    void (*release)(struct sock *sk);
+    u32  (*ssthresh)(struct sock *sk);      /* on loss */
+    void (*cong_avoid)(struct sock *sk,     /* on ACK */
+                       u32 ack, u32 acked);
+    void (*set_state)(struct sock *sk, u8 new_state);
+    void (*cwnd_event)(struct sock *sk, enum tcp_ca_event ev);
+    u32  (*undo_cwnd)(struct sock *sk);
+    struct tcp_info_ext_flags flags;
+    char name[TCP_CA_NAME_MAX];
+    struct module *owner;
+};
+```
+
+### 12.2 Minimal "nl_ca" congestion control module
+
+```c
+/* File: nl_ca.c — AIMD that logs every change */
+#include <linux/module.h>
+#include <linux/mm.h>
+#include <net/tcp.h>
+
+struct nl_ca_state {
+    u32 ack_count;
+};
+
+static void nl_ca_init(struct sock *sk)
+{
+    struct nl_ca_state *ca = inet_csk_ca(sk);
+    ca->ack_count = 0;
+    tcp_sk(sk)->snd_ssthresh = TCP_INFINITE_SSTHRESH;
+    pr_info("[NL-CA-MOD] init: sport=%u\n",
+            ntohs(inet_sk(sk)->inet_sport));
+}
+
+static void nl_ca_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    struct nl_ca_state *ca = inet_csk_ca(sk);
+
+    if (!tcp_is_cwnd_limited(sk))
+        return;
+
+    if (tcp_in_slow_start(tp)) {
+        acked = tcp_slow_start(tp, acked);
+        if (!acked) return;
+    }
+
+    /* Simple AIMD: +1 per RTT */
+    tp->snd_cwnd++;
+    ca->ack_count++;
+
+    if (ca->ack_count % 10 == 0)
+        pr_info("[NL-CA-MOD] sport=%u cwnd=%u ssthresh=%u acks=%u\n",
+                ntohs(inet_sk(sk)->inet_sport),
+                tp->snd_cwnd, tp->snd_ssthresh, ca->ack_count);
+}
+
+static u32 nl_ca_ssthresh(struct sock *sk)
+{
+    struct tcp_sock *tp = tcp_sk(sk);
+    pr_info("[NL-CA-MOD] LOSS: sport=%u cwnd=%u→%u\n",
+            ntohs(inet_sk(sk)->inet_sport),
+            tp->snd_cwnd, tp->snd_cwnd / 2);
+    return max(tp->snd_cwnd >> 1U, 2U);
+}
+
+static struct tcp_congestion_ops nl_ca __read_mostly = {
+    .init        = nl_ca_init,
+    .ssthresh    = nl_ca_ssthresh,
+    .cong_avoid  = nl_ca_cong_avoid,
+    .owner       = THIS_MODULE,
+    .name        = "nlca",
+};
+
+static int __init nl_ca_init_module(void)
+{
+    return tcp_register_congestion_control(&nl_ca);
+}
+
+static void __exit nl_ca_exit_module(void)
+{
+    tcp_unregister_congestion_control(&nl_ca);
+}
+
+module_init(nl_ca_init_module);
+module_exit(nl_ca_exit_module);
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("netlab");
+```
+
+```bash
+make && sudo insmod nl_ca.ko
+
+# Use it for a single connection:
+sudo sysctl net.ipv4.tcp_congestion_control=nlca
+
+# Or per-socket (in Python):
+# sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_CONGESTION, b"nlca")
+
+# Test with netem loss to trigger ssthresh:
+sudo tc qdisc add dev enp1s0 root netem loss 5%
+curl http://example.com
+sudo dmesg | grep "\[NL-CA-MOD\]"
+```
+
+---
+
+## 13. Kernel TLS (kTLS)
+
+kTLS moves TLS encryption into the kernel, enabling NIC-offloaded TLS (some NICs can encrypt in hardware).
+
+### 13.1 How kTLS works
+
+```
+Traditional TLS:
+  app → openssl (TLS encrypt in userspace) → send() → TCP → NIC
+
+kTLS:
+  app → send() with ULP=tls → TCP → kernel crypto → NIC
+                                              ↓ (if NIC supports TLS offload)
+                                           NIC encrypts in hardware
+```
+
+### 13.2 Enable kTLS in kernel config
+
+```bash
+grep TLS /boot/config-$(uname -r)
+# Look for: CONFIG_TLS=m or CONFIG_TLS=y
+
+sudo modprobe tls
+lsmod | grep tls
+```
+
+### 13.3 Test kTLS
+
+```bash
+# Using OpenSSL with kTLS:
+openssl s_server -ktls -key key.pem -cert cert.pem -port 4433 &
+openssl s_client -ktls -connect localhost:4433
+
+# Verify kTLS is active:
+sudo bpftrace -e '
+kprobe:tls_sw_sendmsg {
+    printf("[kTLS] tls_sw_sendmsg: pid=%d\n", pid);
+}'
+```
+
+### 13.4 Probe the kTLS TX path
+
+```bash
+sudo bpftrace -e '
+kprobe:tls_push_record { printf("[kTLS] push_record\n"); }
+kprobe:tls_sw_recvmsg  { printf("[kTLS] sw_recvmsg pid=%d\n", pid); }'
+```
+
+---
+
+## 14. IPVS & Load Balancing Internals
+
+IPVS (IP Virtual Server) is Linux's kernel-space L4 load balancer. Used by kube-proxy in older Kubernetes.
+
+### 14.1 IPVS modes
+
+| Mode | How it works | Return path |
+|------|-------------|-------------|
+| NAT | kernel rewrites dst IP | through LB |
+| DR (Direct Routing) | only changes MAC, not IP | directly from real server |
+| TUN (IP Tunneling) | encapsulates in IP-IP | directly from real server |
+
+### 14.2 Setup a simple IPVS virtual service
+
+```bash
+sudo apt install ipvsadm
+
+# Create a virtual service (VIP 10.0.0.100:80):
+sudo ipvsadm -A -t 10.0.0.100:80 -s rr   # round-robin
+
+# Add real servers:
+sudo ipvsadm -a -t 10.0.0.100:80 -r 10.0.0.10:80 -m  # -m = masquerade (NAT)
+sudo ipvsadm -a -t 10.0.0.100:80 -r 10.0.0.11:80 -m
+
+# Check:
+sudo ipvsadm -L -n --stats
+
+# Probe IPVS decisions:
+sudo bpftrace -e '
+kprobe:ip_vs_in { printf("[IPVS] packet in hooknum=%d\n", (int)arg2); }'
+```
+
+---
+
+## 15. Netfilter — nftables, iptables, BPF Replacement Path
+
+### 15.1 The filtering evolution
+
+```
+iptables (old) → kernel: ip_tables → nf_hook_slow
+nftables (new) → kernel: nf_tables → nf_hook_slow
+BPF/TC         → kernel: tc bpf   → bypasses Netfilter entirely
+XDP            → kernel: driver   → before even netfilter
+```
+
+### 15.2 nftables — the modern iptables replacement
+
+```bash
+# Create a table and chain:
+sudo nft add table ip netlab
+sudo nft add chain ip netlab input \
+    '{ type filter hook input priority 0; policy accept; }'
+
+# Log all non-SSH TCP to port 80:
+sudo nft add rule ip netlab input \
+    tcp dport 80 log prefix "[NFT] " counter
+
+# Watch logs:
+sudo dmesg -w | grep "\[NFT\]"
+
+# List all rules:
+sudo nft list ruleset
+
+# Delete:
+sudo nft delete table ip netlab
+```
+
+### 15.3 Measure Netfilter overhead
+
+```bash
+# Baseline: no rules
+sudo perf stat -e cycles,instructions -- iperf3 -c <server> -t 5
+
+# Add 1000 iptables rules:
+for i in $(seq 1 1000); do
+    sudo iptables -A INPUT -s 192.168.$i.0/24 -j ACCEPT
+done
+
+# Measure again — overhead from rule traversal visible:
+sudo perf stat -e cycles,instructions -- iperf3 -c <server> -t 5
+
+# Clean:
+sudo iptables -F INPUT
+```
+
+---
+
+## 16. Perf Analysis & Flamegraphs for the Net Stack
+
+### 16.1 CPU flamegraph of the network stack
+
+```bash
+# Install FlameGraph tools:
+git clone https://github.com/brendangregg/FlameGraph
+export FLAMEGRAPH=$PWD/FlameGraph
+
+# Record 30 seconds with stack traces while running iperf:
+iperf3 -c <server> -t 30 &
+sudo perf record -F 999 -ag --call-graph dwarf -p $(pgrep iperf3) -- sleep 20
+sudo perf script | $FLAMEGRAPH/stackcollapse-perf.pl | \
+    $FLAMEGRAPH/flamegraph.pl > net_flame.svg
+
+# Open net_flame.svg in browser — click to zoom into tcp_sendmsg, ip_output, etc.
+```
+
+### 16.2 Off-CPU flamegraph — where is the kernel sleeping?
+
+```bash
+sudo bpftrace -e '
+tracepoint:sched:sched_switch {
+    if (args->prev_state != TASK_RUNNING) {
+        @off[kstack] = count();
+    }
+}
+interval:s:20 { print(@off); clear(@off); exit(); }' \
+> offcpu.txt
+
+# Visualize:
+$FLAMEGRAPH/flamegraph.pl --color=io --title="Off-CPU" < offcpu.txt > offcpu.svg
+```
+
+### 16.3 PMU hardware counters for net stack
+
+```bash
+# Count LLC misses during network processing:
+sudo perf stat -e cache-misses,cache-references,LLC-load-misses \
+    -a --interval-print 1000 -- sleep 10
+
+# Count context switches during heavy RX:
+sudo perf stat -e context-switches,migrations -a -- sleep 5
+```
+
+### 16.4 `ss` and `netstat` for socket-level stats
+
+```bash
+# Rich TCP socket info:
+ss -tip
+# t=TCP, i=internal info (rto, cwnd, rtt), p=process
+
+# Extended info including recv/send queue sizes:
+ss -tipm
+
+# Monitor a specific connection's cwnd over time:
+watch -n 0.5 'ss -tin dst <server_ip>'
+# Look for: cwnd:<N> in the output
+```
+
+---
+
+## 17. NUMA, IRQ Affinity, Interrupt Coalescing
+
+These are production-tuning topics. Understanding them separates kernel engineers from sysadmins.
+
+### 17.1 NUMA and NIC placement
+
+```bash
+# Which NUMA node is your NIC on?
+cat /sys/class/net/enp1s0/device/numa_node
+
+# CPU layout:
+numactl --hardware
+
+# Best practice: IRQs and processes on same NUMA node as NIC
+```
+
+### 17.2 IRQ affinity — pin NIC interrupts to specific CPUs
+
+```bash
+# Find NIC IRQs:
+cat /proc/interrupts | grep enp1s0
+
+# Pin IRQ 32 to CPU 2 (bitmask 0x4 = bit 2):
+echo 4 > /proc/irq/32/smp_affinity
+
+# Script to pin all NIC IRQs to core 0-3:
+for irq in $(grep enp1s0 /proc/interrupts | awk -F: '{print $1}'); do
+    echo f > /proc/irq/$irq/smp_affinity
+done
+```
+
+### 17.3 Interrupt coalescing — batching interrupts
+
+Without coalescing, the NIC raises one interrupt per packet — at 1 Mpps that's 1M interrupts/sec. Coalescing batches them:
+
+```bash
+# Check current coalescing settings:
+sudo ethtool -c enp1s0
+# Look for: rx-usecs, tx-usecs (how long to wait before raising interrupt)
+
+# Set 50µs coalescing (trade latency for throughput):
+sudo ethtool -C enp1s0 rx-usecs 50 tx-usecs 50
+
+# Check NIC feature flags (which offloads are on):
+sudo ethtool -k enp1s0
+# tx-checksumming, rx-checksumming, scatter-gather, tcp-segmentation-offload, etc.
+
+# Toggle GSO off (force software segmentation — useful for learning):
+sudo ethtool -K enp1s0 gso off
+```
+
+---
+
+## 18. Kernel Network Testing — pktgen, kselftest
+
+### 18.1 pktgen — kernel packet generator
+
+pktgen is a built-in kernel packet generator that operates at line rate:
+
+```bash
+# Load pktgen:
+sudo modprobe pktgen
+
+# Use the helper script (from kernel source tools/testing/):
+# Or configure manually via /proc:
+
+echo "add_device enp1s0" > /proc/net/pktgen/pgctrl
+cat > /proc/net/pktgen/enp1s0 << 'EOF'
+count 1000000
+clone_skb 0
+pkt_size 64
+delay 0
+dst 10.0.0.1
+dst_mac ff:ff:ff:ff:ff:ff
+EOF
+
+# Start:
+echo "start" > /proc/net/pktgen/pgctrl
+
+# Read results:
+cat /proc/net/pktgen/enp1s0 | grep -E "pkts-sofar|errors|pps"
+```
+
+### 18.2 kselftest — run kernel's own net tests
+
+```bash
+# From kernel source:
+cd linux-7.0.6/tools/testing/selftests/net/
+
+# Run all net selftests:
+sudo make run_tests
+
+# Run specific tests:
+sudo ./tcp_fastopen_connect    # TCP Fast Open
+sudo ./udpgso                  # UDP GSO
+sudo ./udpgso_bench_rx         # UDP GRO receive benchmark
+sudo ./txtimestamp             # TX timestamp tests
+```
+
+### 18.3 iperf3 with all flags
+
+```bash
+# Test with parallel streams (tests multi-queue):
+iperf3 -c <server> -P 8 -t 30
+
+# UDP mode (tests GRO, GSO on UDP path):
+iperf3 -c <server> -u -b 1G -t 30
+
+# With zero-copy:
+iperf3 -c <server> --zerocopy -t 30
+
+# Watch kernel stats during iperf:
+watch -n 1 'cat /proc/net/dev | grep enp1s0'
+# Look at: RX bytes, TX bytes, drops, errors
+```
+
+---
+
+## 19. Reading /proc/net and ethtool Stats
+
+These are your runtime observability windows — no compilation needed.
+
+### 19.1 Key /proc/net files
+
+```bash
+# TCP stats — global counters for every TCP event:
+cat /proc/net/snmp | grep Tcp
+# TCPLostRetransmit, TCPFastRetrans, TCPSlowStartRetrans, TCPTimeouts
+
+# Detailed TCP stats:
+cat /proc/net/netstat | tr ' ' '\n' | paste - - | grep -i retran
+
+# Socket table (like netstat):
+cat /proc/net/tcp   # hex format
+ss -s               # human-readable summary
+
+# Per-protocol stats:
+cat /proc/net/snmp   # TCP, UDP, IP, ICMP counters
+cat /proc/net/snmp6  # IPv6
+
+# Drop counters:
+cat /proc/net/softnet_stat
+# Columns: total, dropped, time_squeeze, 0 0 0 0 0 cpu_collision, received_rps
+# "dropped" = packets dropped because backlog queue full
+# "time_squeeze" = napi budget exhausted
+```
+
+### 19.2 ethtool stats — driver-level counters
+
+```bash
+# NIC statistics (virtio-specific):
+sudo ethtool -S enp1s0
+
+# For real NICs (Intel e1000e, mlx5):
+# rx_missed_errors, rx_fifo_errors, tx_dropped — all indicate real problems
+
+# Check supported features:
+sudo ethtool -i enp1s0   # driver info
+sudo ethtool -k enp1s0   # feature flags
+sudo ethtool enp1s0      # link info, speed, duplex
+```
+
+### 19.3 Write a stat watcher script
+
+```bash
+#!/bin/bash
+# net_watch.sh — watch key kernel net counters
+
+while true; do
+    echo "=== $(date) ==="
+    
+    # TCP retransmit counters:
+    grep "RetransSegs\|TCPLostRetransmit\|TCPFastRetrans" \
+        /proc/net/snmp /proc/net/netstat 2>/dev/null | \
+        awk '{print $1, $2}'
+
+    # Softnet drops:
+    echo "softnet:"
+    awk '{printf "  cpu%d: total=%s dropped=%s squeeze=%s\n", 
+          NR-1, $1, $2, $3}' /proc/net/softnet_stat | head -4
+
+    sleep 5
+done
+```
+
+---
+
+## 20. Bridge, Bonding, MACVLAN, IPVLAN
+
+### 20.1 Linux bridge — software L2 switch
+
+```bash
+# Create a bridge (acts like a 4-port switch):
+sudo ip link add br0 type bridge
+sudo ip link set br0 up
+
+# Add ports:
+sudo ip link add veth1 type veth peer name veth1-peer
+sudo ip link add veth2 type veth peer name veth2-peer
+sudo ip link set veth1 master br0
+sudo ip link set veth2 master br0
+sudo ip link set veth1 up && sudo ip link set veth1-peer up
+sudo ip link set veth2 up && sudo ip link set veth2-peer up
+
+# Watch bridge forwarding:
+sudo bpftrace -e 'kprobe:br_forward { printf("[BRIDGE] forward\n"); }'
+
+# Bridge FDB (forwarding database):
+bridge fdb show dev br0
+```
+
+### 20.2 Bonding — link aggregation
+
+```bash
+# Load bonding module:
+sudo modprobe bonding mode=4   # 4 = 802.3ad LACP
+
+# Create bond interface:
+sudo ip link add bond0 type bond mode 802.3ad
+sudo ip link set enp1s0 master bond0
+sudo ip link set enp2s0 master bond0  # second interface
+sudo ip link set bond0 up
+
+# Check status:
+cat /proc/net/bonding/bond0
+```
+
+### 20.3 MACVLAN vs IPVLAN
+
+```bash
+# MACVLAN: each sub-interface gets its own MAC address
+sudo ip link add macvlan0 link enp1s0 type macvlan mode bridge
+
+# IPVLAN: sub-interfaces share MAC, differ only in IP (L3 mode)
+sudo ip link add ipvlan0 link enp1s0 type ipvlan mode l3
+
+# Key difference:
+# MACVLAN → good when you need separate MAC (like containers)
+# IPVLAN  → good when switch limits MAC count, or in L3 routing scenarios
+```
+
+---
+
+## 21. Kernel Source Navigation Strategy
+
+Knowing WHERE to look is half the battle.
+
+### 21.1 Directory map
+
+```
+net/
+├── core/          ← sk_buff, netdevice, socket, dev.c (NAPI, GRO, queuing)
+├── ipv4/          ← TCP, UDP, ICMP, IP routing, ARP
+├── ipv6/          ← IPv6 stack
+├── netfilter/     ← iptables, conntrack, NAT
+├── sched/         ← tc qdisc implementations (sch_htb.c, sch_fq_codel.c)
+├── xdp/           ← AF_XDP
+├── bpf/           ← BPF verifier, helpers, sockmap
+├── bluetooth/     ← (skip for now)
+└── wireless/      ← (skip for now)
+
+drivers/net/
+├── ethernet/      ← NIC drivers (intel/, mellanox/, virtio_net.c)
+├── veth.c         ← virtual ethernet pair
+├── tun.c          ← TUN/TAP device
+├── bonding/       ← bonding/LACP
+├── team/          ← team driver
+└── loopback.c     ← lo interface
+
+include/
+├── linux/
+│   ├── skbuff.h   ← sk_buff, skb_shinfo, all skb macros
+│   ├── netdevice.h ← net_device, napi_struct
+│   └── tcp.h      ← tcp_sock
+└── net/
+    ├── sock.h     ← sock struct, socket layer
+    ├── tcp.h      ← TCP functions
+    └── ip.h       ← IP helper functions
+```
+
+### 21.2 Finding things fast
+
+```bash
+# Find any function in kernel source:
+grep -r "tcp_sendmsg" net/ --include="*.c" -l
+grep -rn "napi_gro_receive" net/core/ --include="*.c"
+
+# Find struct definition:
+grep -rn "struct tcp_sock" include/ --include="*.h" | head -5
+
+# cscope (faster for large trees):
+cd linux-7.0.6
+make cscope
+cscope -d
+# Then: Ctrl+\ → find callers of function
+
+# ctags + vim:
+make tags
+vim -t tcp_sendmsg
+
+# elixir cross-reference (online):
+# https://elixir.bootlin.com/linux/latest/source
+```
+
+### 21.3 Reading a new subsystem — the method
+
+1. Find the **main data structure** (`sk_buff`, `sock`, `net_device`)
+2. Find **alloc** and **free** — understand lifecycle
+3. Find the **ops struct** (vtable) — `net_device_ops`, `proto`, `tcp_congestion_ops`
+4. Follow one complete TX or RX path from the **syscall** to the **driver**
+5. Add `pr_info` probes at each function you read — confirm your mental model
+6. Break something with `netem` and watch what changes
+
+---
+
+## 22. Submitting Patches to netdev
+
+Reading and writing patches is the fastest way to learn what maintainers care about.
+
+### 22.1 Subscribe to the mailing list
+
+```
+# Read netdev (very high volume — use email filters):
+https://lore.kernel.org/netdev/
+
+# Subscribe:
+# Send email to: majordomo@vger.kernel.org
+# Body: subscribe netdev
+```
+
+### 22.2 Find a starter patch
+
+Good places to start:
+
+```bash
+# Look for TODOs and FIXMEs in net/:
+grep -rn "TODO\|FIXME\|XXX" net/ipv4/ --include="*.c" | head -20
+
+# Look at "Good first issue" equivalent — checkpatch errors:
+./scripts/checkpatch.pl --strict net/ipv4/tcp.c
+
+# Fix coccinelle warnings:
+make coccicheck MODE=report M=net/ipv4/
+```
+
+### 22.3 Patch workflow
+
+```bash
+# 1. Make your change
+# 2. Commit with proper format:
+git commit -s -m "net: tcp: add pr_info instrumentation for sendmsg
+
+Add tracepoints at tcp_sendmsg entry to aid debugging of
+connection setup. Guarded behind pr_debug to have zero
+overhead when not enabled.
+
+Signed-off-by: Your Name <you@example.com>"
+
+# 3. Generate patch:
+git format-patch -1 --subject-prefix="PATCH net-next"
+
+# 4. Check it:
+./scripts/checkpatch.pl 0001-*.patch
+
+# 5. Find maintainers:
+./scripts/get_maintainer.pl 0001-*.patch
+
+# 6. Send (use git send-email):
+git send-email --to=netdev@vger.kernel.org \
+               --cc=maintainer@example.com \
+               0001-*.patch
+```
+
+---
+
+## 23. Books, Papers, and Talks
+
+### Books (read in this order)
+
+| Book | Focus | Level |
+|------|-------|-------|
+| *Understanding Linux Network Internals* — Benvenuti | Comprehensive stack walkthrough | Beginner→Mid |
+| *Linux Kernel Development* — Love | General kernel, good foundation | Beginner |
+| *Linux Device Drivers* — Corbet, Rubini | Driver writing, DMA, NAPI | Mid |
+| *The Linux Programming Interface* — Kerrisk | Syscall ↔ kernel interface | Mid |
+| *BPF Performance Tools* — Brendan Gregg | eBPF, bpftrace, performance | Mid→Adv |
+| *Systems Performance* — Brendan Gregg | Performance methodology | Adv |
+
+### Essential papers
+
+| Paper | Why |
+|-------|-----|
+| *MegaPipe: A New Programming Interface for Scalable Network I/O* | Understand why current API has limits |
+| *Netmap: A Novel Framework for Fast Packet I/O* | Kernel bypass concepts |
+| *The Multikernel: A new OS architecture for scalable multicore systems* | NUMA + networking |
+| BBR: *Congestion-Based Congestion Control* (Google, 2016) | BBR algorithm design |
+| *XDP: eXpress Data Path* (KTH, 2018) | XDP architecture paper |
+
+### Talks (YouTube / media.ccc.de)
+
+| Talk | Speaker | Why |
+|------|---------|-----|
+| "Linux Networking Explained" | Thomas Graf (Cilium) | BPF + dataplane |
+| "Kernel Recipes — eBPF" | Alexei Starovoitov | BPF internals from the author |
+| "Netdev 0.1 — XDP" | Jesper Dangaard Brouer | XDP design decisions |
+| "Linux Plumbers — TCP BBR" | Neal Cardwell | Congestion control deep |
+| "FOSDEM — Kernel networking" | David S. Miller | Maintainer perspective |
+
+### Repositories to read
+
+```bash
+# BPF examples from kernel:
+ls linux-7.0.6/samples/bpf/
+ls linux-7.0.6/tools/testing/selftests/bpf/
+
+# libbpf-bootstrap (CO-RE template project):
+git clone https://github.com/libbpf/libbpf-bootstrap
+
+# XDP tutorial (best structured XDP learning):
+git clone https://github.com/xdp-project/xdp-tutorial
+
+# Cilium (production eBPF networking):
+git clone https://github.com/cilium/cilium
+# → pkg/datapath/linux/ for BPF programs
+```
+
+---
+
+## 24. Lab Projects — Build These End to End
+
+Concrete projects that cover every topic in this guide. Do them in order.
+
+### Lab 1 — sk_buff microscope (Week 1)
+- Add `nl_dump_shinfo()` and `nl_dump_skb_geometry()` helpers
+- Call from NL-2, NL-5, NL-8, NL-R1
+- Observe how headroom shrinks on TX (headers prepended) and grows on RX (headers stripped)
+- Observe frags appearing when sending >64KB with GSO
+
+### Lab 2 — Protocol path comparator (Week 2)
+- Create a bpftrace script that times TCP vs UDP vs ICMP from sendto to ip_output
+- Use a histogram to show distribution
+- Answer: which protocol adds most overhead per packet?
+
+### Lab 3 — Your own netfilter module (Week 3)
+- Write a module that: (a) logs all SYN packets, (b) drops packets from a specific IP
+- Trigger it with hping3 and watch the counters
+- Compare latency with and without the hook using bpftrace
+
+### Lab 4 — Loadable congestion control (Week 4)
+- Implement "nl_ca" from Section 12
+- Add a `debugfs` entry so you can read cwnd over time: `cat /sys/kernel/debug/nl_ca/<pid>`
+- Compare cwnd curves: cubic vs nlca with netem 5% loss
+
+### Lab 5 — veth + namespace + tc BPF pipeline (Week 5)
+- Create: host ↔ veth0 ↔ veth1 ↔ ns1
+- Attach TC BPF on both ingress and egress of veth0
+- BPF program: count packets per protocol, expose via BPF map
+- Read the map every second with bpftool
+
+### Lab 6 — XDP packet counter + dropper (Week 6)
+- Write an XDP program that:
+  - Counts packets by protocol in a BPF per-CPU array map
+  - Drops any UDP traffic to port 5201 (iperf3)
+- Test: iperf3 UDP should fail, TCP should pass
+- Read counters: `bpftool map dump`
+
+### Lab 7 — Mini load balancer (Week 7)
+- Use TC BPF (or XDP) to implement round-robin between two backend IPs
+- Parse IP + TCP headers in BPF, rewrite dst IP and recompute checksum
+- Use a BPF array map with an atomic index counter
+- Test with curl to the VIP, watch traffic split between backends
+
+### Lab 8 — Write a kernel module NIC driver (Week 8)
+- Extend nl_dummy.c from Section 4
+- Add NAPI poll loop
+- Add `/proc/nldum0/stats` entry showing TX/RX packet counts
+- Trigger RX injection via a `/proc/nldum0/inject` write interface
+
+---
+
+## Quick Command Reference
+
+```bash
+# Load/unload a module:
+sudo insmod module.ko && sudo rmmod module
+
+# Watch dmesg with tag filter:
+sudo dmesg -w | grep "\[NL-"
+
+# Enable a tracepoint:
+echo 1 > /sys/kernel/debug/tracing/events/tcp/tcp_set_state/enable
+cat /sys/kernel/debug/tracing/trace_pipe
+
+# ftrace function graph:
+echo function_graph > /sys/kernel/debug/tracing/current_tracer
+echo ip_rcv > /sys/kernel/debug/tracing/set_graph_function
+echo 1 > /sys/kernel/debug/tracing/tracing_on
+
+# Quick kprobe (no recompile):
+echo 'p:mykp tcp_sendmsg size=%dx' > /sys/kernel/debug/tracing/kprobe_events
+echo 1 > /sys/kernel/debug/tracing/events/kprobes/mykp/enable
+
+# bpftrace one-liners:
+sudo bpftrace -e 'kprobe:tcp_sendmsg { printf("%s\n", comm); }'
+sudo bpftrace -e 'tracepoint:skb:kfree_skb { @ = count(); } interval:s:1 { print(@); }'
+
+# netem shortcuts:
+sudo tc qdisc add dev enp1s0 root netem loss 10% delay 50ms
+sudo tc qdisc del dev enp1s0 root
+
+# tc BPF attach:
+sudo tc qdisc add dev enp1s0 clsact
+sudo tc filter add dev enp1s0 ingress bpf da obj prog.o sec tc/ingress
+
+# XDP attach / detach:
+sudo ip link set enp1s0 xdpgeneric obj prog.o sec xdp
+sudo ip link set enp1s0 xdpgeneric off
+
+# Socket stats:
+ss -tip                    # TCP with internal info
+ss -s                      # summary
+watch -n 0.5 'ss -tin dst <server>'   # live cwnd watch
+
+# Key /proc files:
+cat /proc/net/snmp         # global TCP/IP/UDP/ICMP counters
+cat /proc/net/softnet_stat # per-CPU drop / squeeze counters
+cat /proc/net/netstat      # extended TCP counters
+```
