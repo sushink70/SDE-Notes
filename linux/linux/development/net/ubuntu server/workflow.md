@@ -499,3 +499,517 @@ if (ntohs(inet_sk(sk)->inet_sport) != 22 &&
 ```
 
 Then rebuild and reinstall. After that your `dmesg` will only show **non-SSH traffic** — clean traces for curl, ping etc.
+
+Good context. I can see the full picture — NL-1 through NL-5 covering the send path from syscall down to `ip_finish_output2`, with SSH filtering already on NL-3/NL-4. Let me expand this comprehensively across the full stack.
+
+Here's the complete map of where everything fits, then the code for each new point:
+
+---
+
+## Full Stack Map
+
+```
+User space
+  write() / sendto()
+       │
+       ▼
+┌──────────────────────────────────────────────┐
+│              SOCKET LAYER                    │
+│  [NL-1]  sys_sendto          (all proto)     │
+│  [NL-2]  tcp_sendmsg         (TCP)           │  ← you have these
+│  [NL-10] udp_sendmsg         (UDP)           │  ← new
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────┐
+│            TRANSPORT LAYER                   │
+│  [NL-3]  tcp_transmit_skb    (TCP)           │  ← you have this
+│  [NL-11] udp_send_skb        (UDP)           │  ← new
+│  [NL-12] icmp_push_reply     (ICMP echo)     │  ← new
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────┐
+│              IP LAYER (TX)                   │
+│  [NL-4]  ip_queue_xmit       (TCP)           │  ← you have this
+│  [NL-6]  ip_output           (all converge)  │  ← new
+│  [NL-7]  ip_finish_output    (frag check)    │  ← new
+│  [NL-5]  ip_finish_output2   (ARP lookup)    │  ← you have this
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────┐
+│           NEIGHBOR / ARP LAYER               │
+│  [NL-8]  neigh_output        (cache check)   │  ← new
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────┐
+│           TRAFFIC CONTROL / QDISC            │
+│  [NL-9]  __dev_queue_xmit    (qdisc enqueue) │  ← new
+│  [NL-13] dev_hard_start_xmit (driver hand-off│  ← new
+└──────────────────┬───────────────────────────┘
+                   │
+                 [NIC]
+                   │
+                   ▼
+┌──────────────────────────────────────────────┐
+│              IP LAYER (RX)                   │
+│  [NL-14] ip_rcv              (IP entry)      │  ← new
+│  [NL-15] ip_local_deliver    (local destined)│  ← new
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────┐
+│           TRANSPORT LAYER (RX)               │
+│  [NL-16] tcp_v4_rcv          (TCP)           │  ← new
+│  [NL-17] udp_rcv             (UDP)           │  ← new
+└──────────────────┬───────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────┐
+│              SOCKET LAYER (RX)               │
+│  [NL-18] tcp_recvmsg         (read to user)  │  ← new
+└──────────────────────────────────────────────┘
+```
+
+---
+
+## SSH Filter Helper
+
+Add this **once** near the top of each file you modify (after the existing includes). Using it keeps every `pr_info` block clean:
+
+```c
+/* net_nl_debug.h — or paste inline per-file */
+
+/*
+ * skb_is_ssh - returns true if skb carries TCP port 22 traffic.
+ * Safe to call after ip_hdr() is valid. For RX path, transport_header
+ * must also be set (fine for tcp_v4_rcv, udp_rcv and below).
+ * For ip_rcv (transport header not yet pulled), use ip_rcv_is_ssh()
+ * below instead.
+ */
+static inline bool skb_is_ssh(const struct sk_buff *skb)
+{
+    const struct iphdr *iph = ip_hdr(skb);
+
+    if (iph->protocol == IPPROTO_TCP) {
+        /* safe: transport_header is set by the time we hit ip_finish_output2
+         * and everything below it; and tcp_v4_rcv and below on RX. */
+        const struct tcphdr *th = tcp_hdr(skb);
+        return ntohs(th->source) == 22 || ntohs(th->dest) == 22;
+    }
+    return false; /* UDP/ICMP never SSH */
+}
+
+/*
+ * ip_rcv_is_ssh - variant for ip_rcv() where transport header
+ * has NOT been pulled yet. We peek manually past the IP header.
+ */
+static inline bool ip_rcv_is_ssh(const struct sk_buff *skb)
+{
+    const struct iphdr *iph = ip_hdr(skb);
+    const __be16 *ports;
+
+    if (iph->protocol != IPPROTO_TCP)
+        return false;
+
+    /* iph->ihl is in 32-bit words */
+    ports = (const __be16 *)((const u8 *)iph + iph->ihl * 4);
+
+    /* bounds check: need 4 bytes (src port + dst port) */
+    if (!pskb_may_pull((struct sk_buff *)skb,
+                       skb_network_offset(skb) + iph->ihl * 4 + 4))
+        return false;
+
+    return ntohs(ports[0]) == 22 || ntohs(ports[1]) == 22;
+}
+```
+
+---
+
+## NL-6 — `ip_output` — where all protocols converge
+
+**File:** `net/ipv4/ip_output.c`  
+**What you learn:** This is the unification point. TCP from `ip_queue_xmit` and UDP from `udp_send_skb` both arrive here. `ip_hdr(skb)->protocol` lets you distinguish them. You'll see ping (`protocol=1`) now appear in a send path trace for the first time.
+
+```c
+int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+{
+    struct net_device *dev = skb_dst(skb)->dev;
+
+    /* NL-6: all protocols converge here
+     * protocol: 6=TCP  17=UDP  1=ICMP
+     * sk may be NULL for forwarded packets — guard it */
+    if (!skb_is_ssh(skb)) {
+        pr_info("[NL-6] ip_output: skb=%px len=%u proto=%u dev=%s\n",
+                skb, skb->len,
+                ip_hdr(skb)->protocol,
+                dev->name);
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+## NL-7 — `ip_finish_output` — fragmentation decision gate
+
+**File:** `net/ipv4/ip_output.c`  
+**What you learn:** This function decides whether to fragment. If `skb->len > mtu` it calls `ip_fragment()`, otherwise it calls `ip_finish_output2()` directly. You can watch oversized packets take the fragment path vs normal packets going straight through.
+
+```c
+static int ip_finish_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+{
+    /* NL-7: fragmentation decision gate
+     * mtu comes from the dst cache — watch it match or exceed skb->len */
+    if (!skb_is_ssh(skb)) {
+        unsigned int mtu = ip_skb_dst_mtu(sk, skb);
+        pr_info("[NL-7] ip_finish_output: skb=%px len=%u mtu=%u frag=%s\n",
+                skb, skb->len, mtu,
+                skb->len > mtu ? "YES" : "no");
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+## NL-8 — `neigh_output` — ARP / neighbor cache
+
+**File:** `net/core/neighbour.c`  
+**What you learn:** This is where the kernel checks its ARP cache. `n->nud_state` tells you if the neighbor is `NUD_REACHABLE` (cached), `NUD_STALE` (needs refresh), or `NUD_NONE` (no ARP entry yet — will trigger an ARP request). The first packet to a new host will show `NUD_NONE` then you'll see an ARP request fire, then subsequent packets show `NUD_REACHABLE`.
+
+```c
+/*
+ * NUD state flags (from include/net/neighbour.h):
+ *   NUD_INCOMPLETE = 0x01   NUD_REACHABLE = 0x02
+ *   NUD_STALE      = 0x04   NUD_DELAY     = 0x08
+ *   NUD_PROBE      = 0x10   NUD_FAILED    = 0x20
+ *   NUD_NOARP      = 0x40   NUD_PERMANENT = 0x80
+ */
+static inline int neigh_output(struct neighbour *n, struct sk_buff *skb,
+                                bool skip_cache)
+{
+    /* NL-8: ARP/neighbor layer
+     * n->nud_state: 0x02=REACHABLE 0x04=STALE 0x01=INCOMPLETE(ARP in flight)
+     * ha = resolved hardware (MAC) address */
+    if (!skb_is_ssh(skb)) {
+        pr_info("[NL-8] neigh_output: skb=%px nud=0x%02x ha=%pM dev=%s\n",
+                skb,
+                n->nud_state,
+                n->ha,
+                n->dev->name);
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+**Observation:** Run `ip neigh flush all` then `curl http://1.1.1.1` — you'll see the sequence:
+```
+[NL-8] nud=0x01 ha=00:00:00:00:00:00   ← ARP in flight, no MAC yet
+[NL-8] nud=0x02 ha=52:54:00:xx:xx:xx   ← resolved, REACHABLE
+```
+
+---
+
+## NL-9 — `__dev_queue_xmit` — QDisc / traffic control entry
+
+**File:** `net/core/dev.c`  
+**What you learn:** The packet enters the traffic control subsystem here. `dev->qdisc->ops->id` shows the qdisc type (`pfifo_fast`, `mq`, `fq_codel`, etc.). Queue length stats show how many packets are waiting. This is where QoS, rate limiting, and packet scheduling live.
+
+```c
+static int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev)
+{
+    struct net_device *dev = skb->dev;
+    struct netdev_queue *txq = NULL;
+    struct Qdisc *q;
+
+    /* NL-9: traffic control / qdisc entry
+     * qdisc id: "pfifo_fast" (default), "fq_codel", "mq", "noqueue" (loopback) */
+    if (!skb_is_ssh(skb)) {
+        q = rcu_dereference_bh(dev->qdisc);
+        pr_info("[NL-9] dev_queue_xmit: skb=%px len=%u dev=%s qdisc=%s qlen=%u\n",
+                skb, skb->len,
+                dev->name,
+                q ? q->ops->id : "none",
+                q ? q->q.qlen : 0);
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+## NL-13 — `dev_hard_start_xmit` — final driver handoff
+
+**File:** `net/core/dev.c`  
+**What you learn:** After the qdisc dequeues a packet this function calls the driver's `ndo_start_xmit`. Once this returns the packet is in DMA/hardware territory — the kernel no longer controls it. The return value (`NETDEV_TX_OK`, `NETDEV_TX_BUSY`) tells you if the driver accepted it.
+
+```c
+struct sk_buff *dev_hard_start_xmit(struct sk_buff *first, struct net_device *dev,
+                                     struct netdev_queue *txq, int *ret)
+{
+    struct sk_buff *skb = first;
+
+    /* NL-13: last kernel touch before the driver / DMA
+     * After ndo_start_xmit returns, this skb may already be in hardware */
+    if (!skb_is_ssh(skb)) {
+        pr_info("[NL-13] dev_hard_start_xmit: skb=%px len=%u dev=%s features=0x%llx\n",
+                skb, skb->len,
+                dev->name,
+                (unsigned long long)dev->features);
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+## NL-10 & NL-11 — UDP send path
+
+**File:** `net/ipv4/udp.c`  
+**What you learn:** UDP skips `tcp_sendmsg` and `tcp_transmit_skb` entirely. `udp_sendmsg` is where `sendto()` lands for UDP sockets. `udp_send_skb` is where the UDP header is actually stamped and the skb handed to `ip_send_skb`. Test with `nc -u`.
+
+```c
+/* NL-10: in udp_sendmsg() — UDP equivalent of NL-2 */
+int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+{
+    struct inet_sock *inet = inet_sk(sk);
+
+    /* UDP has no SSH concern but guard consistently */
+    if (inet->inet_sport != htons(22) && inet->inet_dport != htons(22)) {
+        pr_info("[NL-10] udp_sendmsg: len=%zu sport=%u dport=%u\n",
+                len,
+                ntohs(inet->inet_sport),
+                ntohs(inet->inet_dport));
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+```c
+/* NL-11: in udp_send_skb() — UDP header stamped, handed to IP */
+static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4,
+                        struct inet_cork *cork)
+{
+    struct udphdr *uh = udp_hdr(skb);
+
+    /* uh->source/dest are set just above in the actual function */
+    pr_info("[NL-11] udp_send_skb: skb=%px len=%u sport=%u dport=%u\n",
+            skb, skb->len,
+            ntohs(uh->source),
+            ntohs(uh->dest));
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+## NL-12 — ICMP echo reply (`icmp_push_reply`)
+
+**File:** `net/ipv4/icmp.c`  
+**What you learn:** When the kernel responds to a ping it calls `icmp_push_reply` to build the reply. `icmph->type` will be `0` (echo reply). This is distinct from `icmp_send()` which is used for error messages (`ICMP_DEST_UNREACH`, `ICMP_TIME_EXCEEDED`). Add both to see all ICMP traffic.
+
+```c
+/* NL-12a: in icmp_push_reply() — the echo reply builder */
+static void icmp_push_reply(struct sock *sk,
+                            struct icmp_bxm *icmp_param,
+                            struct flowi4 *fl4,
+                            struct inet_cork *ipc)
+{
+    /* type 0=echo-reply  3=dest-unreachable  11=time-exceeded */
+    pr_info("[NL-12] icmp_push_reply: type=%u code=%u len=%u\n",
+            icmp_param->data.icmph.type,
+            icmp_param->data.icmph.code,
+            icmp_param->data_len);
+
+    /* --- rest of original function unchanged --- */
+```
+
+```c
+/* NL-12b: in icmp_send() — ICMP error messages (TTL exceeded, port unreachable, etc.)
+ * Add near the top, after the early-return guards */
+void __icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info,
+                 const struct ip_options *opt)
+{
+    pr_info("[NL-12b] icmp_send: type=%d code=%d src=%pI4 dst=%pI4\n",
+            type, code,
+            &ip_hdr(skb_in)->saddr,
+            &ip_hdr(skb_in)->daddr);
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+## RX Path — NL-14 through NL-18
+
+### NL-14 — `ip_rcv` — first kernel touch on receive
+
+**File:** `net/ipv4/ip_input.c`  
+**What you learn:** This is where an inbound packet enters the IP stack from the driver. Netfilter's `PREROUTING` hook fires just after this. Use `ip_rcv_is_ssh()` here because the transport header hasn't been pulled yet.
+
+```c
+int ip_rcv(struct sk_buff *skb, struct net_device *dev,
+           struct packet_type *pt, struct net_device *orig_dev)
+{
+    const struct iphdr *iph;
+
+    /* NL-14: IP RX entry — transport header NOT yet valid here
+     * use ip_rcv_is_ssh() not skb_is_ssh() */
+    iph = ip_hdr(skb);
+    if (!ip_rcv_is_ssh(skb)) {
+        pr_info("[NL-14] ip_rcv: skb=%px len=%u proto=%u src=%pI4 dst=%pI4 dev=%s\n",
+                skb, skb->len,
+                iph->protocol,
+                &iph->saddr,
+                &iph->daddr,
+                dev->name);
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+### NL-15 — `ip_local_deliver` — destined for this host
+
+**File:** `net/ipv4/ip_input.c`  
+**What you learn:** `ip_rcv` hands off here for packets addressed to this machine (vs `ip_forward` for routed packets). Netfilter's `INPUT` hook fires just before the transport layer demux. Watching both NL-14 and NL-15 fire for the same skb confirms the packet is local, not being forwarded.
+
+```c
+int ip_local_deliver(struct sk_buff *skb)
+{
+    /* NL-15: confirmed local delivery — about to hit transport layer
+     * If this fires without NL-14, the packet was reassembled from fragments */
+    if (!ip_rcv_is_ssh(skb)) {
+        pr_info("[NL-15] ip_local_deliver: skb=%px len=%u proto=%u\n",
+                skb, skb->len,
+                ip_hdr(skb)->protocol);
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+### NL-16 — `tcp_v4_rcv` — TCP receive entry
+
+**File:** `net/ipv4/tcp_ipv4.c`  
+**What you learn:** Transport header is fully valid here. `TCP_SKB_CB(skb)->seq` gives the sequence number. Watch `th->syn`, `th->ack`, `th->fin` flags — you'll see the TCP 3-way handshake fire in real time when you `curl` something.
+
+```c
+int tcp_v4_rcv(struct sk_buff *skb)
+{
+    const struct tcphdr *th;
+    const struct iphdr *iph;
+
+    th  = tcp_hdr(skb);
+    iph = ip_hdr(skb);
+
+    /* NL-16: TCP RX — flags: S=SYN A=ACK F=FIN R=RST P=PSH */
+    if (ntohs(th->source) != 22 && ntohs(th->dest) != 22) {
+        pr_info("[NL-16] tcp_v4_rcv: skb=%px src=%pI4:%u dst=%pI4:%u "
+                "seq=%u flags=%s%s%s%s%s\n",
+                skb,
+                &iph->saddr, ntohs(th->source),
+                &iph->daddr, ntohs(th->dest),
+                ntohl(th->seq),
+                th->syn ? "S" : "",
+                th->ack ? "A" : "",
+                th->fin ? "F" : "",
+                th->rst ? "R" : "",
+                th->psh ? "P" : "");
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+### NL-17 — `udp_rcv` — UDP receive
+
+**File:** `net/ipv4/udp.c`
+
+```c
+int udp_rcv(struct sk_buff *skb)
+{
+    /* NL-17: UDP RX — DNS responses, NTP, etc. will show here */
+    {
+        const struct udphdr *uh = udp_hdr(skb);
+        pr_info("[NL-17] udp_rcv: skb=%px len=%u sport=%u dport=%u\n",
+                skb, skb->len,
+                ntohs(uh->source),
+                ntohs(uh->dest));
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+### NL-18 — `tcp_recvmsg` — data read back to userspace
+
+**File:** `net/ipv4/tcp.c`  
+**What you learn:** This closes the loop. An application calling `read()` or `recv()` on a TCP socket lands here. Comparing `len` (what the app asked for) vs what's actually dequeued shows you TCP's reassembly and buffering in action. `sk->sk_rcvbuf` shows the receive window size.
+
+```c
+int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
+                int flags, int *addr_len)
+{
+    struct inet_sock *inet = inet_sk(sk);
+
+    /* NL-18: data being delivered to userspace — closes the RX loop
+     * len = what the app requested; sk_rcvbuf = socket receive buffer size */
+    if (inet->inet_sport != htons(22) && inet->inet_dport != htons(22)) {
+        pr_info("[NL-18] tcp_recvmsg: len=%zu sk_rcvbuf=%d sport=%u dport=%u\n",
+                len,
+                sk->sk_rcvbuf,
+                ntohs(inet->inet_sport),
+                ntohs(inet->inet_dport));
+    }
+
+    /* --- rest of original function unchanged --- */
+```
+
+---
+
+## What to observe with each test
+
+```bash
+# TCP full round-trip (NL-1..9 TX, NL-14..18 RX)
+curl http://1.1.1.1
+
+# UDP DNS query (NL-1, NL-10, NL-11, NL-6..9 TX, NL-14,15,17 RX)
+dig @8.8.8.8 example.com
+
+# ICMP ping (NL-1, NL-12 RX-side reply, NL-6..9 TX)
+ping -c1 192.168.122.1
+
+# Watch ARP resolution (NL-8 nud_state transition)
+ip neigh flush all && curl http://1.1.1.1
+
+# Force fragmentation — MTU 1500, send 3000 byte payload (see NL-7 frag=YES)
+python3 -c "import socket; s=socket.socket(); s.connect(('1.1.1.1',80)); s.send(b'X'*2900)"
+```
+
+```bash
+# Clean dmesg watch excluding SSH
+sudo dmesg -w | grep "\[NL-" 
+```
+
+---
+
+## The TCP 3-way handshake you'll see
+
+When you `curl http://1.1.1.1`, watch NL-16 — you'll see:
+
+```
+[NL-16] tcp_v4_rcv: src=1.1.1.1:80  dst=VM:port  seq=...  flags=SA   ← SYN-ACK
+[NL-16] tcp_v4_rcv: src=1.1.1.1:80  dst=VM:port  seq=...  flags=A    ← ACK of your data
+[NL-16] tcp_v4_rcv: src=1.1.1.1:80  dst=VM:port  seq=...  flags=PA   ← HTTP response data
+[NL-16] tcp_v4_rcv: src=1.1.1.1:80  dst=VM:port  seq=...  flags=FA   ← FIN-ACK
+```
+
+And on the TX side (NL-3), you'll see your SYN, data segments, and FIN going out. Together this gives you a live, kernel-level wireshark of the entire TCP state machine.

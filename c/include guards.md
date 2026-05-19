@@ -51,13 +51,13 @@ You **cannot** drop the `#ifndef` and just write `#define` because:
        │          │  ┌──────────────────────────┐   │
        ▼          │  │ #ifndef _BPF_PRELOAD_H   │   │
   ┌────────┐      │  └────────────┬─────────────┘   │
-  │  CPP   │      │               │                  │
-  │ symbol │      │    defined?   │                  │
-  │ table  │      │       ├── NO ─┼──► process body  │
-  │        │      │       │       │    define macro   │
-  │[macro] │◄─────┤       └── YES─┼──► skip to #endif│
-  │ flags  │      │               │                  │
-  └────────┘      │          #endif                  │
+  │  CPP   │      │               │                 │
+  │ symbol │      │    defined?   │                 │
+  │ table  │      │       ├── NO ─┼──►process body  │
+  │        │      │       │       │    define macro │
+  │[macro] │◄─────┤       └── YES─┼──►skip to #endif│
+  │ flags  │      │               │                 │
+  └────────┘      │          #endif                 │
                   └─────────────────────────────────┘
 ```
 
@@ -147,3 +147,50 @@ The `#ifndef` → `#define` ordering is load-bearing: define **inside** the guar
 - GCC source: `libcpp/files.cc:once_map` — guard optimization impl
 
 The TL;DR: `#ifndef` is the **conditional branch** that makes the pattern work. `#define` is just the flag. You need both, in that order, because the preprocessor has no other native "include this file only once" mechanism in standard C.
+
+## Include Guards
+
+`#ifndef` and `#define` are used together to create **include guards**, which prevent a header file from being included more than once in the same translation unit.
+
+```c
+// myheader.h
+#ifndef MYHEADER_H
+#define MYHEADER_H
+
+// ... declarations, structs, etc.
+
+#endif
+```
+
+**How it works:**
+
+1. First time the file is included: `MYHEADER_H` is not defined → the `#ifndef` condition is true → the block is entered → `MYHEADER_H` gets defined → contents are processed.
+2. Second time (e.g., two `.c` files both include it, or a chain of headers pulls it in): `MYHEADER_H` is already defined → `#ifndef` is false → entire block is skipped.
+
+Without guards, you'd get **redefinition errors** — structs, typedefs, and inline functions declared twice cause compilation failures.
+
+---
+
+**Individually, they're just preprocessor directives:**
+
+| Directive | Meaning |
+|---|---|
+| `#ifndef X` | "if X is not defined" — conditional block |
+| `#define X` | defines the macro `X` (no value needed here, just its existence matters) |
+| `#ifdef X` | "if X is defined" — the opposite check |
+
+---
+
+**Modern alternative — `#pragma once`:**
+
+```c
+#pragma once
+
+// ... header contents
+```
+
+Simpler and widely supported (GCC, Clang, MSVC), but technically not standard C. Most real-world codebases use it freely. Classic `#ifndef` guards are fully portable and still common in kernel/systems code (Linux kernel uses them exclusively).
+
+---
+
+**Naming convention:** the macro name is typically the filename in `ALL_CAPS` with dots replaced by underscores — e.g., `net/if.h` → `_NET_IF_H` or `NET_IF_H`. Some projects prefix with an underscore or project name to avoid collisions.
